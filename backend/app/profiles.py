@@ -143,6 +143,12 @@ class Pass:
     checks: list[CheckSpec] = field(default_factory=list)
     nudges: list[Nudge] = field(default_factory=list)
     max_attempts: int = 4
+    # How many independent times to run this pass. Above one, the extra samples
+    # are compared and disagreement is reported rather than hidden: two batches
+    # over the same statements flipped 27 of 100 classifications, and a single
+    # run states a coin flip as confidently as a certainty. Costs a full pass
+    # each, so it is worth it only where the judgement is genuinely uncertain.
+    samples: int = 1
     # Whether this pass reads the previous pass's rows instead of the source
     # document. Resolution builds on extraction; extraction starts from the PDF.
     inherits_rows: bool = False
@@ -250,6 +256,7 @@ def _build_pass(raw: dict) -> Pass:
         checks=[CheckSpec(**c) for c in raw.get("checks", [])],
         nudges=[Nudge(**{**n, "text": _text(n["text"])}) for n in raw.get("nudges", [])],
         max_attempts=raw.get("max_attempts", 4),
+        samples=raw.get("samples", 1),
         inherits_rows=raw.get("inherits_rows", False),
     )
 

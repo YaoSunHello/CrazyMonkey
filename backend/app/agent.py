@@ -51,6 +51,24 @@ def extract_code(text: str) -> str:
     return text.strip()
 
 
+def _attach_samples(primary: list[dict], extra: list[list[dict]]) -> list[dict]:
+    """Carry the other samples' readings on each row, under `_samples`.
+
+    Aligned by position, and only where the counts agree — two samples of a
+    pass that produced different numbers of rows are not comparable row by row,
+    and pretending otherwise would report disagreements that are really an
+    off-by-one. In that case the extra sample is dropped and the agreement
+    check reports that it had nothing to compare.
+    """
+    usable = [other for other in extra if len(other) == len(primary)]
+    if not usable:
+        return primary
+    return [
+        {**row, "_samples": [other[index] for other in usable]}
+        for index, row in enumerate(primary)
+    ]
+
+
 async def _install_kit(executor, name: str) -> None:
     """Put this pass's toolkit in the sandbox, as `kit`.
 
@@ -344,6 +362,40 @@ async def run_agent(
                 script=f"{spec.name}.py",
                 stage=spec.name,
             )
+
+            # Sample the pass again when the profile asks for it, and carry the
+            # extra readings on each row. Done here rather than inside the loop
+            # so the retry mechanism is untouched: each sample converges on its
+            # own, and only then are they compared.
+            if spec.samples > 1 and result["passed"]:
+                extra = []
+                for sample in range(2, spec.samples + 1):
+                    trace.state("sampling", stage=spec.name, n=sample, of=spec.samples)
+                    again = await _run_pass(
+                        spec,
+                        executor=executor,
+                        trace=trace,
+                        run=run,
+                        build_prompt=build_prompt,
+                        judge=judge,
+                        settings=settings,
+                        script=f"{spec.name}-{sample}.py",
+                        stage=f"{spec.name}-{sample}",
+                    )
+                    # An extra sample that could not satisfy the checks is not
+                    # evidence about anything, so it is dropped rather than
+                    # allowed to manufacture a disagreement.
+                    if again["passed"] and again.get("result"):
+                        extra.append(again["result"])
+
+                if extra:
+                    merged = _attach_samples(result["result"], extra)
+                    result["result"] = merged
+                    # Re-judge with the samples attached so the agreement check
+                    # can see them. Agreement returns UNRESOLVED, never FAIL, so
+                    # this cannot turn an accepted pass into a rejected one.
+                    result["checks"] = judge(merged)
+                    trace.verdict(result["checks"], passed=True)
 
             all_checks.extend(result["checks"])
             outcome["attempts"] += result["attempts"]

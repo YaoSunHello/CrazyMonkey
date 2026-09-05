@@ -279,6 +279,64 @@ def check_label_rate(rows: list[dict], scope: str, options: dict) -> Check:
     )
 
 
+def check_agreement(rows: list[dict], scope: str, options: dict) -> Check:
+    """Where two independent samples of the same pass disagree, say so.
+
+    Measured across two batches over the same seven statements: **27 of 100
+    classifications flip**, and agreement with the human swings 54% to 46% on
+    identical inputs. A single run states a coin flip with exactly the same
+    confidence as a certainty, and nothing downstream can tell them apart.
+
+    So when a pass is sampled more than once, the second sample is carried on
+    each row under `_samples` and compared here. A row both samples agree on is
+    worth trusting; a row they differ on is precisely the row a person should
+    see, and it now says so instead of hiding.
+
+    `UNRESOLVED`, never `FAIL`. Disagreement is not an error in the run — it is
+    an honest report that this row was not decided. Failing the pass would
+    throw away a sample that is right half the time.
+    """
+    fields = options.get("fields") or []
+    disputed = []
+    disputed_rows: set[int] = set()
+    compared = 0
+
+    for index, row in enumerate(rows):
+        others = row.get("_samples") or []
+        if not others:
+            continue
+        compared += 1
+        for field in fields:
+            mine = normalise(_resolution(row, field).get("status")).upper() or normalise(
+                row.get(field)
+            )
+            for other in others:
+                theirs = normalise(_resolution(other, field).get("status")).upper() or normalise(
+                    other.get(field)
+                )
+                if mine != theirs:
+                    disputed.append(
+                        f"row {index}: {field} — one sample says {mine!r}, another {theirs!r}"
+                    )
+                    disputed_rows.add(index)
+                    break
+
+    if not compared:
+        return Check(
+            name="sample_agreement",
+            scope=scope,
+            status="CANNOT_VERIFY",
+            detail="the pass was sampled once, so nothing could be compared",
+        )
+    return Check(
+        name="sample_agreement",
+        scope=scope,
+        status="PASS" if not disputed_rows else "UNRESOLVED",
+        detail=f"{compared - len(disputed_rows)}/{compared} rows agree across samples",
+        evidence=_cap(disputed),
+    )
+
+
 def check_completeness(rows: list[dict], scope: str, options: dict) -> Check:
     """Every row carries a status for every field that needs one.
 
@@ -343,6 +401,7 @@ REGISTRY = {
     "span": check_span_plausibility,
     "proposals": check_proposal_wellformed,
     "label_rate": check_label_rate,
+    "agreement": check_agreement,
 }
 
 
@@ -356,6 +415,8 @@ def name_for(name: str, options: dict) -> str:
     """
     if name == "completeness":
         return "resolution_completeness"
+    if name == "agreement":
+        return "sample_agreement"
     field = options.get("field")
     if name == "label_rate":
         return f"{field}_{normalise(options.get('label', '')).casefold()}_rate"
