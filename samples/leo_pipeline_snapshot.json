@@ -1,0 +1,155 @@
+{
+  "schema_version": "crazymonkey.pipeline-review.v1",
+  "job_id": "synthetic-review-001",
+  "mode": "SYNTHETIC_DEMO",
+  "created_at": "2026-09-05T12:57:35Z",
+  "scope": "Structured metric extraction review",
+  "source_documents": [
+    {
+      "document_id": "source-quarterly-report",
+      "filename": "Example_Portfolio_Report_Q2_2026.pdf",
+      "sha256": null,
+      "provenance": "SYNTHETIC_FIXTURE",
+      "note": "No source bytes are bundled, so no document hash is asserted."
+    }
+  ],
+  "pipeline_stages": [
+    {
+      "stage": "NORMALIZED",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "ANALYSED",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "CHALLENGED",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "VERIFIED",
+      "status": "COMPLETE"
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "evidence-revenue-q2",
+      "document_id": "source-quarterly-report",
+      "locator": "page 7, operating summary",
+      "text": "Revenue for the quarter was GBP 12.5 million."
+    },
+    {
+      "evidence_id": "evidence-ebitda-q2",
+      "document_id": "source-quarterly-report",
+      "locator": "page 7, operating summary",
+      "text": "Adjusted EBITDA was GBP 2.1 million."
+    },
+    {
+      "evidence_id": "evidence-ebitda-footnote",
+      "document_id": "source-quarterly-report",
+      "locator": "page 12, note 4",
+      "text": "Adjusted EBITDA excludes restructuring costs of GBP 0.3 million."
+    }
+  ],
+  "normalized_metrics": [
+    {
+      "metric_id": "metric-revenue-q2",
+      "entity_name": "Example Portfolio Company",
+      "period_end_date": "2026-06-30",
+      "metric_name": "revenue",
+      "metric_value": 12500000,
+      "currency": "GBP",
+      "unit": "absolute",
+      "source_document": "Example_Portfolio_Report_Q2_2026.pdf",
+      "source_page": 7,
+      "source_snippet": "Revenue for the quarter was GBP 12.5 million.",
+      "confidence_score": 0.96,
+      "evidence_id": "evidence-revenue-q2"
+    },
+    {
+      "metric_id": "metric-adjusted-ebitda-q2",
+      "entity_name": "Example Portfolio Company",
+      "period_end_date": "2026-06-30",
+      "metric_name": "adjusted_ebitda",
+      "metric_value": 2100000,
+      "currency": "GBP",
+      "unit": "absolute",
+      "source_document": "Example_Portfolio_Report_Q2_2026.pdf",
+      "source_page": 7,
+      "source_snippet": "Adjusted EBITDA was GBP 2.1 million.",
+      "confidence_score": 0.84,
+      "evidence_id": "evidence-ebitda-q2"
+    }
+  ],
+  "analyst_proposals": [
+    {
+      "proposal_id": "proposal-revenue-q2",
+      "metric_id": "metric-revenue-q2",
+      "status": "PROPOSED",
+      "evidence_ids": [
+        "evidence-revenue-q2"
+      ]
+    },
+    {
+      "proposal_id": "proposal-adjusted-ebitda-q2",
+      "metric_id": "metric-adjusted-ebitda-q2",
+      "status": "PROPOSED",
+      "evidence_ids": [
+        "evidence-ebitda-q2",
+        "evidence-ebitda-footnote"
+      ]
+    }
+  ],
+  "red_team_concerns": [
+    {
+      "concern_id": "concern-adjusted-versus-reported",
+      "metric_id": "metric-adjusted-ebitda-q2",
+      "status": "OPEN",
+      "summary": "The value is explicitly adjusted and must not be relabelled as reported EBITDA.",
+      "evidence_ids": [
+        "evidence-ebitda-q2",
+        "evidence-ebitda-footnote"
+      ]
+    }
+  ],
+  "verifier_results": [
+    {
+      "verifier_result_id": "verify-revenue-q2",
+      "metric_id": "metric-revenue-q2",
+      "status": "PASS",
+      "checks": [
+        "SOURCE_REFERENCE_RESOLVES",
+        "VALUE_MATCHES_NORMALIZED_TEXT",
+        "PERIOD_IS_EXPLICIT"
+      ],
+      "blocking_concern_ids": []
+    },
+    {
+      "verifier_result_id": "verify-adjusted-ebitda-q2",
+      "metric_id": "metric-adjusted-ebitda-q2",
+      "status": "INDETERMINATE",
+      "checks": [
+        "SOURCE_REFERENCE_RESOLVES",
+        "VALUE_MATCHES_NORMALIZED_TEXT",
+        "LABEL_REQUIRES_HUMAN_REVIEW"
+      ],
+      "blocking_concern_ids": [
+        "concern-adjusted-versus-reported"
+      ]
+    }
+  ],
+  "review_summary": {
+    "metrics": 2,
+    "verified": 1,
+    "needs_review": 1
+  },
+  "delivery": {
+    "pdf": "NOT_GENERATED",
+    "excel": "NOT_GENERATED",
+    "email": {
+      "status": "NOT_PREPARED",
+      "recipient": "",
+      "send_authorized": false
+    }
+  }
+}
