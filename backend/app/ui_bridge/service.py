@@ -41,7 +41,7 @@ from app.ui_bridge.store import (
     now,
     safe_remove_job_dir,
 )
-from app.verification.checks import run_parse_checks
+from app.verification.checks import balance_chain_links, run_parse_checks
 
 EXECUTION_LABEL = "LOCAL_DETERMINISTIC"
 MAX_REFERENCE_FILES = 1
@@ -459,25 +459,22 @@ def _source_result(job: Job, item: StoredInput, profile) -> tuple[dict[str, Any]
         projection_rows.append(projection_row)
 
     links: list[dict[str, Any]] = []
-    for index, (current, older) in enumerate(zip(statement.rows, statement.rows[1:])):
-        balance = current.balance
-        movement = current.amount
-        comparison = older.balance
-        derived = balance - movement if balance is not None else None
-        difference = derived - comparison if derived is not None and comparison is not None else None
-        status = "PASS" if difference == Decimal(0) else "FAIL"
+    for checked_link in balance_chain_links(statement):
+        index = checked_link.index
+        current = statement.rows[index]
+        older = statement.rows[index + 1]
         finding_id = _finding_id()
         link = {
             "finding_id": finding_id,
             "link_id": f"{item.source_id}_link_{index:04d}",
             "newer_row_id": _row_id(item, index),
             "older_row_id": _row_id(item, index + 1),
-            "status": status,
-            "balance": _decimal(balance),
-            "signed_movement": _decimal(movement),
-            "derived_balance": _decimal(derived),
-            "comparison_balance": _decimal(comparison),
-            "difference": _decimal(difference),
+            "status": checked_link.status,
+            "balance": _decimal(checked_link.balance),
+            "signed_movement": _decimal(checked_link.signed_movement),
+            "derived_balance": _decimal(checked_link.derived_balance),
+            "comparison_balance": _decimal(checked_link.comparison_balance),
+            "difference": _decimal(checked_link.difference),
             "citations": {
                 "balance": _citation(item, current.provenance),
                 "comparison_balance": _citation(item, older.provenance),
@@ -489,7 +486,7 @@ def _source_result(job: Job, item: StoredInput, profile) -> tuple[dict[str, Any]
             "finding_id": finding_id,
             "kind": "TRANSACTION_LINK",
             "source_id": item.source_id,
-            "status": status,
+            "status": checked_link.status,
             "review_status": "UNREVIEWED",
             "title": f"Balance link {index + 1}",
             "detail": (

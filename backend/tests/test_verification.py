@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from app.ingestion.statements import parse_statement
-from app.verification.checks import run_parse_checks
+from app.verification.checks import balance_chain_links, run_parse_checks
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -53,6 +53,9 @@ def test_clean_parse_has_no_failures(statement):
 
 def test_balance_chain_holds(statement):
     assert status_of(run_parse_checks(statement), "balance_chain") == "PASS"
+    links = balance_chain_links(statement)
+    assert len(links) == len(statement.rows) - 1
+    assert all(link.status == "PASS" and link.difference == Decimal(0) for link in links)
 
 
 def test_closing_balance_matches_the_printed_figure(statement):
@@ -75,7 +78,10 @@ def test_a_corrupted_amount_breaks_the_chain(statement):
     statement.rows[3].debit = (statement.rows[3].debit or Decimal(0)) - Decimal("100.00")
 
     chain = next(c for c in run_parse_checks(statement) if c.name == "balance_chain")
+    links = balance_chain_links(statement)
     assert chain.status == "FAIL"
+    assert links[3].status == "FAIL"
+    assert links[3].difference != Decimal(0)
     assert "delta" in chain.evidence
     # The evidence names the row, so the agent knows where to look.
     assert "row 3->4" in chain.evidence

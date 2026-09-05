@@ -22,6 +22,7 @@ it can referee the parse.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -31,6 +32,19 @@ from app.models import Check, Statement
 # page furniture do not. Counting them gives a row count derived from the raw
 # text, independent of the column-band parse it is checking.
 TIME = re.compile(r"\b\d{2}:\d{2}\b")
+
+
+@dataclass(frozen=True)
+class BalanceLink:
+    """One authoritative operand/result tuple from the balance-chain oracle."""
+
+    index: int
+    balance: Decimal | None
+    signed_movement: Decimal
+    derived_balance: Decimal | None
+    comparison_balance: Decimal | None
+    difference: Decimal | None
+    status: str
 
 
 def _as_date(text: str) -> date | None:
@@ -51,30 +65,59 @@ def _check(name: str, scope: str, ok: bool, detail: str, evidence: str = "") -> 
     )
 
 
+def balance_chain_links(statement: Statement) -> list[BalanceLink]:
+    """Return the per-link operands used by :func:`check_balance_chain`.
+
+    Adapters can render the oracle without reimplementing its arithmetic or
+    outcome rules. ``difference`` retains the UI's derived-minus-comparison
+    orientation; zero is the authoritative pass condition.
+    """
+    links: list[BalanceLink] = []
+    for index, (current, older) in enumerate(zip(statement.rows, statement.rows[1:])):
+        derived = current.balance - current.amount if current.balance is not None else None
+        difference = (
+            derived - older.balance
+            if derived is not None and older.balance is not None
+            else None
+        )
+        links.append(
+            BalanceLink(
+                index=index,
+                balance=current.balance,
+                signed_movement=current.amount,
+                derived_balance=derived,
+                comparison_balance=older.balance,
+                difference=difference,
+                status="PASS" if difference == Decimal(0) else "FAIL",
+            )
+        )
+    return links
+
+
 def check_balance_chain(statement: Statement) -> Check:
     """Balance[i] - Amount[i] == Balance[i+1] for every consecutive pair."""
-    rows = statement.rows
+    links = balance_chain_links(statement)
     breaks: list[str] = []
 
-    for i in range(len(rows) - 1):
-        this, nxt = rows[i], rows[i + 1]
-        if this.balance is None or nxt.balance is None:
-            breaks.append(f"row {i}: missing balance")
+    for link in links:
+        this = statement.rows[link.index]
+        if link.derived_balance is None or link.comparison_balance is None:
+            breaks.append(f"row {link.index}: missing balance")
             continue
-        expected = this.balance - this.amount
-        if expected != nxt.balance:
+        if link.status == "FAIL":
             breaks.append(
-                f"row {i}->{i + 1}: {this.balance} - ({this.amount}) = {expected}, "
-                f"but row {i + 1} reads {nxt.balance} "
-                f"(delta {nxt.balance - expected}) [{this.provenance.as_citation()}]"
+                f"row {link.index}->{link.index + 1}: {link.balance} - "
+                f"({link.signed_movement}) = {link.derived_balance}, but row "
+                f"{link.index + 1} reads {link.comparison_balance} "
+                f"(delta {-link.difference}) [{this.provenance.as_citation()}]"
             )
 
-    links = max(len(rows) - 1, 0)
+    link_count = len(links)
     return _check(
         "balance_chain",
         statement.account_short_code,
         not breaks,
-        f"{links - len(breaks)}/{links} links hold",
+        f"{link_count - len(breaks)}/{link_count} links hold",
         "\n".join(breaks[:5]),
     )
 

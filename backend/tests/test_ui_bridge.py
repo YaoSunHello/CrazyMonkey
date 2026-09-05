@@ -348,7 +348,12 @@ def test_duplicate_idempotency_reuses_the_job_and_conflicting_payload_is_409(
     assert conflict.status_code == 409
     assert conflict.json()["detail"]["code"] == "IDEMPOTENCY_CONFLICT"
     status, _ = wait_for_result(client, first.json()["job_id"])
-    assert [event["type"] for event in status["events"]].count("JOB_STARTED") == 1
+    assert [event["meta"]["event_type"] for event in status["events"]].count("JOB_STARTED") == 1
+    assert all(
+        set(event) == {"kind", "label", "detail", "status", "body", "meta", "at"}
+        for event in status["events"]
+    )
+    assert all(isinstance(event["at"], float) for event in status["events"])
 
 
 def test_status_has_bounded_events_and_separates_processing_from_outcome(

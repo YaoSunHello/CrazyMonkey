@@ -12,11 +12,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.trace import Event
 from app.ui_bridge.schemas import MAX_EVENTS
 
 MAX_JOBS = 64
 JOB_ROOT = Path(tempfile.gettempdir()) / "crazymonkey-ui-bridge"
 JOB_ROOT.mkdir(parents=True, exist_ok=True)
+
+_EVENT_PRESENTATION = {
+    "JOB_QUEUED": ("state", "queued", "ok"),
+    "JOB_STARTED": ("state", "starting", "running"),
+    "SOURCE_STARTED": ("tool", "parse_statement", "running"),
+    "SOURCE_FAILED": ("tool", "parse_statement", "fail"),
+    "PROJECTION_OMITTED": ("tool", "profile_projection", "skip"),
+    "SOURCE_COMPLETED": ("tool", "run_parse_checks", "ok"),
+    "REFERENCE_STARTED": ("tool", "validate_reference", "running"),
+    "REFERENCE_VALID": ("tool", "validate_reference", "ok"),
+    "REFERENCE_INVALID": ("tool", "validate_reference", "fail"),
+    "JOB_COMPLETED": ("state", "completed", "ok"),
+    "JOB_FAILED": ("state", "failed", "fail"),
+}
 
 
 def now() -> str:
@@ -80,15 +95,34 @@ class Job:
             if len(self.events) == self.events.maxlen:
                 self.events_truncated = True
             self.event_sequence += 1
-            event: dict[str, Any] = {
+            kind, label, status = _EVENT_PRESENTATION[event_type]
+            meta: dict[str, Any] = {
+                "event_type": event_type,
                 "sequence": self.event_sequence,
-                "at": now(),
-                "type": event_type,
-                "message": message,
             }
             if source_id is not None:
-                event["source_id"] = source_id
-            self.events.append(event)
+                meta["source_id"] = source_id
+            event = Event(
+                kind=kind,
+                label=label,
+                detail=message,
+                status=status,
+                meta=meta,
+            )
+            # Event is the repository's seven-field trace contract. Keep
+            # sequencing and bridge-specific source IDs inside meta rather
+            # than creating a second event shape for the browser.
+            self.events.append(
+                {
+                    "kind": event.kind,
+                    "label": event.label,
+                    "detail": event.detail,
+                    "status": event.status,
+                    "body": event.body,
+                    "meta": event.meta,
+                    "at": event.at,
+                }
+            )
 
 
 class IdempotencyConflict(Exception):
