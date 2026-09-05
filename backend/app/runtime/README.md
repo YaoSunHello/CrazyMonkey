@@ -1,5 +1,12 @@
 # Verified V0 runtime
 
+For the autonomous folder audit CLI, bounded arithmetic DSL, runtime provider
+adapter and independent challenge pass, see [INVESTIGATOR.md](INVESTIGATOR.md):
+
+```sh
+PYTHONPATH=backend python -m app.runtime.audit --input /path/to/files --instruction "Find material financial discrepancies in this fund pack."
+```
+
 This is executable application code after ATLAS, not a stored expected-result
 fixture. It consumes the existing `NormalizedDocument` and `SourceRef` contracts.
 ATLAS alone generates the fictional source pack and extracts PDF, XLSX and CSV.
