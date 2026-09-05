@@ -4,7 +4,8 @@
   ![Claude](https://img.shields.io/badge/Claude-AI_Extraction-D97757?style=for-the-badge&logo=claude&logoColor=white)
   ![Codex](https://img.shields.io/badge/Codex-Build_Agent-000000?style=for-the-badge&logo=openai&logoColor=white)
   ![Private Markets](https://img.shields.io/badge/Private_Markets-Fund_Data-0F766E?style=for-the-badge)
-  ![Encode](https://img.shields.io/badge/Built_for-Encode-2563EB?style=for-the-badge)
+    ![Ylookup](https://img.shields.io/badge/Ylookup-Private_Markets_AI-111827?style=for-the-badge)
+  ![Encode](https://img.shields.io/badge/Encode-Hackathon-2563EB?style=for-the-badge)
   
 
 
