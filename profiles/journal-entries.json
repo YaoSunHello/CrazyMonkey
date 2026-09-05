@@ -2,20 +2,83 @@
   "id": "journal-entries",
   "label": "Bank statements to journal entries",
   "description": "Read a bank statement PDF, work out who each payment was to or from, classify it, and produce journal entries that provably foot. Specified by docs/backend-model-evaluation.md.",
-
   "inputs": {
     "documents": {
       "kind": "pdf",
       "location": "samples/01-bank-statements-to-journal-entries/statements",
       "glob": "*.pdf",
       "describe": "Seven bank statements, one per account, four currencies, six business days"
+    },
+    "workbook": {
+      "location": "samples/01-bank-statements-to-journal-entries/workbook"
+    },
+    "tables": {
+      "legal_entities": {
+        "sheet": "Legal Entity Master List",
+        "columns": [
+          "Legal Entity"
+        ]
+      },
+      "related_parties": {
+        "sheet": "Related Party Master",
+        "columns": [
+          "Related Party"
+        ]
+      },
+      "vendors": {
+        "sheet": "Vendor Master List",
+        "columns": [
+          "Vendor"
+        ]
+      },
+      "investors": {
+        "sheet": "Investor Master List",
+        "columns": [
+          "Investor"
+        ]
+      },
+      "project_codes": {
+        "sheet": "Project Code Report",
+        "columns": [
+          "Project Code",
+          "New Project Code"
+        ]
+      },
+      "deals_positions": {
+        "sheet": "Deal & Position Master List",
+        "columns": [
+          "Deal Name",
+          "Position"
+        ]
+      },
+      "coa": {
+        "sheet": "CoA",
+        "columns": [
+          "Account",
+          "Trans Type"
+        ]
+      },
+      "account_map": {
+        "sheet": "Account Map",
+        "columns": [
+          "Account Number",
+          "Bank Account"
+        ]
+      },
+      "allocation_rules": {
+        "sheet": "Allocation Rule",
+        "columns": [
+          "Legal Entity",
+          "Allocation Rule"
+        ]
+      }
     }
   },
-
   "passes": [
     {
       "name": "extract",
       "kit": "statement_kit",
+      "judge": "statement",
       "max_attempts": 4,
       "prompt": [
         "You are parsing a bank statement PDF into transaction rows for a fund administrator.",
@@ -26,11 +89,11 @@
         "    kit.lines(page)  -> visual lines on that page, top to bottom.",
         "                        PAGES ARE 1-BASED: iterate range(1, kit.page_count()+1).",
         "                        Each line has:",
-        "                          line.text                  str  — the whole line",
-        "                          line.words                 list[dict] — each with \"text\" and \"x0\"",
-        "                          line.between(a, b)         str  — the text of that column,",
+        "                          line.text                  str  \u2014 the whole line",
+        "                          line.words                 list[dict] \u2014 each with \"text\" and \"x0\"",
+        "                          line.between(a, b)         str  \u2014 the text of that column,",
         "                                                     ALREADY JOINED. Not a list.",
-        "                          line.words_between(a, b)   list[dict] — the words themselves",
+        "                          line.words_between(a, b)   list[dict] \u2014 the words themselves",
         "    kit.column_positions() -> dict of the left edge of every column, read from",
         "                          the statement's own header row:",
         "                          bank_reference, customer_reference, trn_type,",
@@ -50,7 +113,7 @@
         "- **They span several pages, and the transactions continue across them.** The",
         "  column header row repeats at the top of every page; so does the \"Statement",
         "  details\" block. Skip the furniture, keep the transactions, and keep them in",
-        "  page order — a row dropped at a page boundary breaks the chain by exactly",
+        "  page order \u2014 a row dropped at a page boundary breaks the chain by exactly",
         "  the amount of that row.",
         "- Day boundaries appear *between* transactions as \"Balance as at close <date>\"",
         "  and \"Balance brought forward <date>\". They are markers, not transactions,",
@@ -59,7 +122,6 @@
         "  `Narrative`. The bank wraps long names mid-word by inserting a comma, so",
         "  \"NORDVIK INFRASTR, UCTURE V SCSP\" is one name, not two."
       ],
-
       "checks": [
         {
           "name": "balance_chain",
@@ -86,22 +148,24 @@
           "describe": "every bank_reference appears literally in the PDF text"
         }
       ],
-
       "nudges": [
         {
           "text": [
             "`line.between(a, b)` returns a **string**; `line.words_between(a, b)` returns",
             "  the word dicts. Writing `\" \".join(w[\"text\"] for w in line.between(a, b))`",
-            "  iterates the characters of a string and raises TypeError — that mistake cost",
+            "  iterates the characters of a string and raises TypeError \u2014 that mistake cost",
             "  two earlier runs every attempt they had."
           ]
         },
         {
-          "documents": ["EUR_0894", "USD_4373"],
+          "documents": [
+            "EUR_0894",
+            "USD_4373"
+          ],
           "text": [
             "This statement prints no \"Balance brought forward\" marker at all, so",
             "  `printed_openings` will come back UNRESOLVED. That is expected and does not",
-            "  block acceptance — do not invent a marker to satisfy it."
+            "  block acceptance \u2014 do not invent a marker to satisfy it."
           ]
         },
         {
@@ -114,8 +178,229 @@
           ]
         }
       ]
+    },
+    {
+      "name": "resolve",
+      "kit": "reference_kit",
+      "judge": "generic",
+      "inherits_rows": true,
+      "max_attempts": 4,
+      "prompt": [
+        "The transaction rows have already been extracted and their arithmetic verified.",
+        "Your job is to resolve each row against the reference lists and classify it.",
+        "",
+        "Write a Python file, `resolve.py`. The `kit` module gives you:",
+        "",
+        "    kit.rows()              -> the extracted rows, as dicts",
+        "    kit.tables()            -> the names of the reference lists",
+        "    t = kit.table(name)",
+        "      t.columns             -> its column names",
+        "      t.contains(col, v)    -> bool, exact then case-insensitive",
+        "      t.find(col, v)        -> the whole row, or None",
+        "      t.values(col)         -> every value in that column",
+        "      t.candidates(col, v)  -> near matches, ranked",
+        "    kit.write_result(rows)  -> writes /work/result.json",
+        "",
+        "The lists available are:",
+        "    legal_entities   Legal Entity",
+        "    related_parties  Related Party",
+        "    vendors          Vendor",
+        "    investors        Investor",
+        "    project_codes    Project Code, New Project Code",
+        "    deals_positions  Deal Name, Position",
+        "",
+        "Emit every input row, in the same order, with these keys added and every",
+        "original key kept unchanged:",
+        "",
+        "    counterparty_raw     the sender or beneficiary exactly as the narrative",
+        "                         writes it, or null if the narrative names none",
+        "    counterparty_match   {status, matched_name, table}",
+        "    project_code_raw     the project word exactly as the narrative writes it,",
+        "                         or null",
+        "    project_code_match   {status, matched_name, table}",
+        "    classification       one of the labels listed below",
+        "",
+        "`status` is one of:",
+        "",
+        "    MATCH          you found it verbatim in a reference list. Put the list's",
+        "                   name in `table` and the value as that list holds it in",
+        "                   `matched_name`.",
+        "    UNRESOLVED     you pulled a value out of the narrative and it is not in",
+        "                   any list. Keep `counterparty_raw`; leave `matched_name` null.",
+        "    CANNOT_VERIFY  the narrative names nothing to resolve, so there was",
+        "                   nothing to look up.",
+        "    FAIL           the row is malformed and you cannot proceed.",
+        "",
+        "## How the bank writes things",
+        "",
+        "- Names are truncated, capitalised, and wrapped mid-word with an inserted",
+        "  comma. `NORDVIK INFRASTR, UCTURE V SCSP` is one name.",
+        "- The master lists hold the clean, cased full name. `NI ABF I SCSP` in a",
+        "  narrative is `NI ABF I SCSp` in the related party list \u2014 matching is",
+        "  case-insensitive, so `t.contains` will find it.",
+        "- The project word appears in the narrative, often after the word PROJECT.",
+        "",
+        "## Classification",
+        "",
+        "`classification` must be exactly one of these eight strings, copied verbatim.",
+        "Nothing else is accepted, and a label of your own invention fails the run:",
+        "",
+        "    Investment            buying or selling a position",
+        "    Investment Transfer   moving money between entities for an investment",
+        "    Vendor                paying a supplier",
+        "    Related Party         a movement with an entity on the related party list",
+        "    Investor              a capital call or distribution",
+        "    Internal              a transfer between the platform's own accounts",
+        "    Other                 bank charges, interest, and anything routine",
+        "    Review                none of the above",
+        "",
+        "Whether an investment row is equity or a loan is carried by the narrative \u2014",
+        "shares and equity on one side, loan principal and accrued interest on the",
+        "other \u2014 but that distinction belongs in the position, not in this label.",
+        "`Review` is an honest answer and routes the row to a person; a made-up label",
+        "is not."
+      ],
+      "checks": [
+        {
+          "name": "provenance",
+          "options": {
+            "field": "counterparty_raw",
+            "source": "narrative"
+          },
+          "describe": "a counterparty you claim to have pulled out must appear in that row's narrative"
+        },
+        {
+          "name": "provenance",
+          "options": {
+            "field": "project_code_raw",
+            "source": "narrative"
+          },
+          "describe": "so must a project word"
+        },
+        {
+          "name": "membership",
+          "options": {
+            "field": "counterparty_match",
+            "tables": [
+              "legal_entities:Legal Entity",
+              "related_parties:Related Party",
+              "vendors:Vendor",
+              "investors:Investor",
+              "deals_positions:Deal Name",
+              "deals_positions:Position"
+            ]
+          },
+          "describe": "a MATCH must name a list and a value that is really in it"
+        },
+        {
+          "name": "membership",
+          "options": {
+            "field": "project_code_match",
+            "tables": [
+              "project_codes:Project Code",
+              "project_codes:New Project Code"
+            ]
+          },
+          "describe": "the same for project codes"
+        },
+        {
+          "name": "completeness",
+          "options": {
+            "fields": [
+              "counterparty_match",
+              "project_code_match"
+            ]
+          },
+          "describe": "every row carries a status for both \u2014 an omitted resolution is unexamined, not unresolved"
+        },
+        {
+          "name": "vocabulary",
+          "options": {
+            "field": "classification",
+            "allowed": [
+              "Investment",
+              "Investment Transfer",
+              "Vendor",
+              "Related Party",
+              "Investor",
+              "Internal",
+              "Other",
+              "Review"
+            ]
+          },
+          "describe": "the classification must be one of the declared labels"
+        }
+      ],
+      "nudges": [
+        {
+          "text": [
+            "Most rows will not resolve, and that is the correct outcome. In the week",
+            "  this data covers, 52 of 100 rows name no counterparty at all and 30 project",
+            "  codes do not resolve. Forcing those to the nearest list entry is the single",
+            "  worst thing you can do here \u2014 an unresolved row goes to a person, a wrong",
+            "  match goes into the accounts. Never use `candidates` to pick a match."
+          ]
+        },
+        {
+          "check_failed": "counterparty_raw_provenance",
+          "text": [
+            "A `counterparty_raw` must be a literal substring of that row's own narrative.",
+            "  Copy it out rather than reconstructing it, and if the narrative names nobody,",
+            "  set it to null with status CANNOT_VERIFY."
+          ]
+        },
+        {
+          "check_failed": "classification_vocabulary",
+          "text": [
+            "The classification must be one of the eight strings listed above, copied",
+            "  exactly. Not a variation, not a refinement, not a hyphenated pair \u2014 if the",
+            "  row is an equity purchase the label is still `Investment`, and if none of",
+            "  the eight fits, it is `Review`."
+          ]
+        },
+        {
+          "check_failed": "counterparty_match_membership",
+          "text": [
+            "A MATCH has to name the list it came from and the value as that list holds",
+            "  it. Use `t.find(col, v)` and read the value back out of the row it returns,",
+            "  rather than echoing what the narrative said. If `find` returns None, the",
+            "  status is UNRESOLVED."
+          ]
+        }
+      ]
     }
   ],
-
-  "output": {}
+  "output": {
+    "envelope": {
+      "run_id": "@run_id",
+      "document_set": "bank_statements_to_journal_entries",
+      "source_files": "@input_documents",
+      "statement_rows": "@rows",
+      "mapping_results": "@derive:mapping_summary",
+      "journal_entries": "@derive:journal_entries",
+      "checks": "@checks",
+      "review_queue": "@derive:review_queue",
+      "summary": "@derive:summary"
+    },
+    "row": {
+      "source_file": "@source_file",
+      "source_page": "$page",
+      "account_short_code": "@account",
+      "currency": "$currency",
+      "transaction_date": "$post_date",
+      "value_date": "$value_date",
+      "raw_narrative": "$narrative",
+      "amount": "@derive:signed_amount",
+      "direction": "@derive:direction",
+      "counterparty_raw": "$counterparty_raw",
+      "counterparty_match": "$counterparty_match",
+      "project_code_match": "$project_code_match",
+      "classification": "$classification",
+      "source_citation": "@derive:source_citation"
+    },
+    "requires": [
+      "counterparty_match",
+      "project_code_match"
+    ]
+  }
 }

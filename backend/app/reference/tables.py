@@ -21,74 +21,19 @@ master-list name is the single worst thing this pipeline could do.
 
 from __future__ import annotations
 
-import difflib
 import json
-from dataclasses import dataclass, field
 from pathlib import Path
+
+# One implementation, shared. `reference_kit` is the module uploaded into the
+# sandbox, so importing `Table` from it guarantees a lookup that succeeds in
+# the agent's code cannot fail in the verifier over a different whitespace
+# rule. A silent divergence there is precisely the class of bug this pipeline
+# exists to catch, which makes it a poor thing to introduce.
+from app.kit.reference_kit import Table, normalise
 
 ROOT = Path(__file__).resolve().parents[3]
 
-
-def normalise(value: object) -> str:
-    """One string form for a cell, so lookups are not defeated by whitespace.
-
-    Leading tabs are real in this data: two `Resolved Position` cells begin
-    with one, and they are why four positions appear not to resolve.
-    """
-    if value is None:
-        return ""
-    text = str(value)
-    return " ".join(text.split())
-
-
-@dataclass
-class Table:
-    """One reference list: named columns, rows as dicts, indexed for lookup."""
-
-    name: str
-    columns: list[str]
-    rows: list[dict] = field(default_factory=list)
-    _index: dict[str, dict[str, dict]] = field(default_factory=dict, repr=False)
-
-    def _for(self, column: str) -> dict[str, dict]:
-        if column not in self._index:
-            if column not in self.columns:
-                raise KeyError(
-                    f"table {self.name!r} has no column {column!r} "
-                    f"(has: {', '.join(self.columns)})"
-                )
-            built: dict[str, dict] = {}
-            for row in self.rows:
-                key = row.get(column, "")
-                if key:
-                    built.setdefault(key.casefold(), row)
-            self._index[column] = built
-        return self._index[column]
-
-    def contains(self, column: str, value: str) -> bool:
-        return normalise(value).casefold() in self._for(column)
-
-    def find(self, column: str, value: str) -> dict | None:
-        """The row this value names, or None. Exact, then case-insensitive."""
-        return self._for(column).get(normalise(value).casefold())
-
-    def values(self, column: str) -> list[str]:
-        seen = {row[column] for row in self.rows if row.get(column)}
-        return sorted(seen)
-
-    def candidates(self, column: str, value: str, limit: int = 5) -> list[str]:
-        """Near matches, ranked — for a human to choose between, never to apply.
-
-        Offered so an unresolved row arrives as a decision rather than an
-        investigation. Nothing in the pipeline may promote one of these to a
-        match on its own.
-        """
-        return difflib.get_close_matches(
-            normalise(value), self.values(column), n=limit, cutoff=0.6
-        )
-
-    def to_json(self) -> dict:
-        return {"name": self.name, "columns": self.columns, "rows": self.rows}
+__all__ = ["Table", "normalise", "from_workbook", "load_tables", "resolve_source", "dump"]
 
 
 def _clean_sheet(raw: list[tuple], header_row: int, keep: list[str] | None) -> Table | None:

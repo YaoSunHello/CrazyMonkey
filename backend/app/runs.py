@@ -52,13 +52,22 @@ class RunDir:
     def trace_path(self) -> Path:
         return self.path / "trace.jsonl"
 
-    def write_attempt(self, attempt: int, source: str) -> Path:
-        target = self.path / f"attempt-{attempt}.py"
+    def write_attempt(self, attempt: int, source: str, stage: str = "") -> Path:
+        """Keep every attempt's source, per pass.
+
+        `stage` keeps a resolution attempt from overwriting the extraction
+        attempt of the same number — when a run fails, the code that failed is
+        the first thing worth reading, and only one of them being on disk is
+        exactly when you notice.
+        """
+        name = f"attempt-{attempt}.py" if not stage else f"{stage}-attempt-{attempt}.py"
+        target = self.path / name
         target.write_text(source, encoding="utf-8")
         return target
 
-    def write_rows(self, payload: dict) -> Path:
-        target = self.path / "rows.json"
+    def write_rows(self, payload: dict, stage: str = "") -> Path:
+        name = "rows.json" if not stage else f"rows-{stage}.json"
+        target = self.path / name
         target.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         return target
 

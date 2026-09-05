@@ -1,0 +1,39 @@
+{
+  "extends": "journal-entries",
+  "id": "pipeline-validation",
+  "label": "Model and pipeline validation",
+  "description": "The same statements and the same checks, presented as a validation package: what can be trusted, what is blocked, and why. Specified by docs/business-case-2-model-pipeline-validation.md.",
+  "output": {
+    "envelope": {
+      "run_id": "@run_id",
+      "input_documents": "@input_documents",
+      "extracted_rows": "@rows",
+      "mapping_summary": "@derive:mapping_summary",
+      "verification_results": "@checks",
+      "review_queue": "@derive:review_queue",
+      "export_candidates": "@derive:export_candidates",
+      "blocked_exports": "@derive:blocked_exports",
+      "audit_trail": "@derive:audit_trail"
+    },
+    "row": {
+      "row_id": "@derive:row_id",
+      "source_document": "@source_file",
+      "source_page": "$page",
+      "source_snippet": "$narrative",
+      "transaction_date": "$post_date",
+      "amount": "@derive:signed_amount",
+      "currency": "$currency",
+      "raw_narrative": "$narrative",
+      "counterparty_raw": "$counterparty_raw",
+      "counterparty_status": "@status:counterparty_match",
+      "project_code_status": "@status:project_code_match",
+      "classification": "$classification",
+      "ready_for_export": "@derive:ready_for_export",
+      "review_reason": "@derive:review_reason"
+    },
+    "requires": [
+      "counterparty_match",
+      "project_code_match"
+    ]
+  }
+}

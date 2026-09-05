@@ -43,7 +43,7 @@ STATEMENTS = next(
 
 OUTPUTS = ROOT / "outputs"
 
-MARK = {"PASS": "PASS", "FAIL": "FAIL", "UNRESOLVED": "UNRE"}
+MARK = {"PASS": "PASS", "FAIL": "FAIL", "UNRESOLVED": "UNRE", "CANNOT_VERIFY": "N/A "}
 
 
 def log(message: str = "") -> None:
@@ -109,13 +109,13 @@ def command_verify(args: argparse.Namespace) -> int:
     statements = _load(args.account)
     if args.corrupt is not None:
         _corrupt(statements, args.corrupt)
-    tally = {"PASS": 0, "FAIL": 0, "UNRESOLVED": 0}
+    tally = {"PASS": 0, "FAIL": 0, "UNRESOLVED": 0, "CANNOT_VERIFY": 0}
     payload = []
 
     for statement in statements:
         checks = run_parse_checks(statement)
         for check in checks:
-            tally[check.status] += 1
+            tally[check.status] = tally.get(check.status, 0) + 1
         _report(statement, checks)
         log("")
         payload.append(
@@ -130,10 +130,13 @@ def command_verify(args: argparse.Namespace) -> int:
     rows = sum(len(s.rows) for s in statements)
     elapsed = time.monotonic() - started
     log(f"{len(statements)} statements · {rows} rows · {elapsed:.2f}s")
-    log(
+    summary = (
         f"{tally['PASS']} passed · {tally['FAIL']} failed · "
         f"{tally['UNRESOLVED']} unresolved (need a human)"
     )
+    if tally["CANNOT_VERIFY"]:
+        summary += f" · {tally['CANNOT_VERIFY']} cannot verify (input not in this run)"
+    log(summary)
     if tally["FAIL"]:
         log("")
         log("Refusing to emit journal entries: the arithmetic does not hold.")
@@ -205,6 +208,59 @@ def command_agent(args: argparse.Namespace) -> int:
     outcomes = [r["outcome"] for r in results]
     print(json.dumps(outcomes, indent=2))
     return 0 if all(o.get("passed") for o in outcomes) else 1
+
+
+def command_emit(args: argparse.Namespace) -> int:
+    """Project a recorded run into a profile's envelope.
+
+    Separate from `agent` on purpose: the same run can be presented as journal
+    entries or as a validation package without being re-run, which is the point
+    of holding the projection as data. It also means a presentation can be
+    fixed without spending a model call.
+    """
+    from app.emit import build, file_digest
+    from app.profiles import load as load_profile
+    from app.runs import resolve
+
+    run = resolve(args.run)
+    if run is None:
+        log("No such run. Try `runs` to list them.")
+        return 2
+
+    rows_path = run.path / "rows.json"
+    if not rows_path.exists():
+        log(f"Run {run.run_id} produced no rows to emit.")
+        return 2
+
+    recorded = json.loads(rows_path.read_text(encoding="utf-8"))
+    summary_path = run.path / "summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else {}
+
+    # The profile that produced the run unless the caller names another, so
+    # re-presenting an existing run is one flag rather than a re-run.
+    profile = load_profile(args.profile or recorded.get("profile") or DEFAULT_PROFILE)
+
+    source_file = recorded.get("source_file", "")
+    statement = STATEMENTS / source_file
+    documents = [file_digest(statement)] if statement.exists() else [{"filename": source_file}]
+
+    payload = build(
+        profile,
+        {
+            "run_id": summary.get("run_id", run.run_id),
+            "profile": profile.id,
+            "model": summary.get("model", ""),
+            "account": recorded.get("account", ""),
+            "source_file": source_file,
+            "input_documents": documents,
+            "rows": recorded.get("rows", []),
+            "checks": recorded.get("checks", []),
+        },
+    )
+
+    log(f"{run.run_id} · profile {profile.id} · {len(recorded.get('rows', []))} rows")
+    print(json.dumps(payload, indent=2, default=str))
+    return 0
 
 
 def command_profiles(args: argparse.Namespace) -> int:
@@ -359,6 +415,18 @@ def main(argv: list[str] | None = None) -> int:
         "profiles", help="list the tracks a run can be started on"
     )
     profiles_cmd.set_defaults(func=command_profiles)
+
+    emit_cmd = subcommands.add_parser(
+        "emit", help="project a recorded run into a profile's output envelope"
+    )
+    emit_cmd.add_argument("--run", default="", metavar="ID", help="default: the latest run")
+    emit_cmd.add_argument(
+        "--profile",
+        default="",
+        metavar="ID",
+        help="present it as this profile instead of the one that produced it",
+    )
+    emit_cmd.set_defaults(func=command_emit)
 
     replay = subcommands.add_parser("replay", help="replay the last recorded agent run")
     replay.add_argument("--speed", type=float, default=1.0, help="playback multiplier")

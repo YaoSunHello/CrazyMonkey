@@ -116,14 +116,20 @@ def test_no_notes_section_when_nothing_applies():
 # --- inheritance ---------------------------------------------------------
 
 
-def test_merge_overlays_dicts_key_by_key():
-    """So a profile can override `output` without restating `inputs`."""
-    merged = _merge({"inputs": {"a": 1, "b": 2}, "output": {}}, {"output": {"x": 1}})
-    assert merged == {"inputs": {"a": 1, "b": 2}, "output": {"x": 1}}
+def test_a_child_keeps_what_it_does_not_declare():
+    """So the second profile inherits inputs and passes by saying nothing."""
+    merged = _merge({"inputs": {"a": 1}, "output": {"old": 1}}, {"output": {"x": 1}})
+    assert merged["inputs"] == {"a": 1}
+
+
+def test_a_declared_key_replaces_rather_than_merges():
+    """Merging envelopes would emit the union of two specifications — a bug
+    that reads as a feature until someone counts the keys."""
+    merged = _merge({"output": {"envelope": {"a": 1}}}, {"output": {"envelope": {"b": 2}}})
+    assert merged["output"] == {"envelope": {"b": 2}}
 
 
 def test_merge_replaces_lists_wholesale():
-    """Half-overlaying a list of passes by index would be quietly surprising."""
     merged = _merge({"passes": [{"name": "a"}, {"name": "b"}]}, {"passes": [{"name": "c"}]})
     assert merged["passes"] == [{"name": "c"}]
 

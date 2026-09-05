@@ -107,6 +107,18 @@ class CheckSpec:
     describe: str = ""
     options: dict = field(default_factory=dict)
 
+    @property
+    def reported_as(self) -> str:
+        """The name this check will fail under, so the prompt can use it too.
+
+        A statement check reports under its own name; a generic one is named
+        for the field it is about. Asking the verifier rather than guessing
+        keeps a nudge keyed to a check name firing.
+        """
+        from app.verification.generic import REGISTRY, name_for
+
+        return name_for(self.name, self.options) if self.name in REGISTRY else self.name
+
 
 @dataclass
 class Pass:
@@ -122,9 +134,17 @@ class Pass:
     name: str
     prompt: str
     kit: str = "statement_kit"
+    # Which family of checks judges this pass. `generic` runs the parameterised
+    # checks named below; `statement` runs the arithmetic verifier in
+    # `verification/checks.py` — all of it, not a subset, because those are the
+    # contract and the CLI runs them all. Named rather than inferred, so a
+    # third use case says what judges it instead of us guessing from shape.
+    judge: str = "generic"
     checks: list[CheckSpec] = field(default_factory=list)
     nudges: list[Nudge] = field(default_factory=list)
     max_attempts: int = 4
+    # Whether this pass reads the previous pass's rows instead of the source
+    # document. Resolution builds on extraction; extraction starts from the PDF.
     inherits_rows: bool = False
 
     def compose(self, *, document: str = "", failed: set[str] | None = None) -> str:
@@ -132,10 +152,10 @@ class Pass:
         failed = failed or set()
         parts = [CORE, self.prompt]
 
-        described = [c for c in self.checks if c.describe]
+        described = [(c.reported_as, c.describe) for c in self.checks if c.describe]
         if described:
-            width = max(len(c.name) for c in described)
-            lines = [f"- {c.name:<{width}}  {c.describe}" for c in described]
+            width = max(len(name) for name, _ in described)
+            lines = [f"- {name:<{width}}  {text}" for name, text in described]
             parts.append("## What the verifier checks\n\n" + "\n".join(lines))
 
         notes = [n.text for n in self.nudges if n.applies(document, failed)]
@@ -179,20 +199,18 @@ class Profile:
 
 
 def _merge(base: dict, over: dict) -> dict:
-    """Overlay `over` onto `base`, one level deep per key.
+    """Overlay `over` onto `base`. A key the child declares replaces the parent's.
 
-    Dicts merge key by key so a profile can override `output` without restating
-    `inputs`. Lists replace wholesale — a profile that redeclares its passes
-    means to replace them, and half-overlaying a list of passes by index would
-    be a quietly surprising thing to do.
+    Replacement rather than deep merge, deliberately. A child that writes an
+    `output` block means *this* is my output — recursing would have merged its
+    envelope into the parent's and emitted the union of two specifications,
+    which is a bug that reads as a feature until someone counts the keys.
+
+    The cost is that a child changing part of a block restates that block. That
+    is a fair price for being able to read a profile and know what it emits
+    without also reading its parent.
     """
-    merged = dict(base)
-    for key, value in over.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _merge(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
+    return {**base, **over}
 
 
 def _read(profile_id: str, seen: tuple[str, ...] = ()) -> dict:
@@ -228,6 +246,7 @@ def _build_pass(raw: dict) -> Pass:
         name=raw["name"],
         prompt=_text(raw["prompt"]),
         kit=raw.get("kit", "statement_kit"),
+        judge=raw.get("judge", "generic"),
         checks=[CheckSpec(**c) for c in raw.get("checks", [])],
         nudges=[Nudge(**{**n, "text": _text(n["text"])}) for n in raw.get("nudges", [])],
         max_attempts=raw.get("max_attempts", 4),
