@@ -149,6 +149,12 @@ class Pass:
     # run states a coin flip as confidently as a certainty. Costs a full pass
     # each, so it is worth it only where the judgement is genuinely uncertain.
     samples: int = 1
+    # How many rounds the agent may spend looking at the data before it
+    # writes the real script. Zero keeps today's behaviour exactly: one
+    # generation, one execution, a verdict. Each round costs a model call,
+    # and only the first attempt spends them - a retry already carries the
+    # verifier's objections, which beat a fresh look.
+    explore: int = 0
     # Whether this pass reads the previous pass's rows instead of the source
     # document. Resolution builds on extraction; extraction starts from the PDF.
     inherits_rows: bool = False
@@ -257,6 +263,7 @@ def _build_pass(raw: dict) -> Pass:
         nudges=[Nudge(**{**n, "text": _text(n["text"])}) for n in raw.get("nudges", [])],
         max_attempts=raw.get("max_attempts", 4),
         samples=raw.get("samples", 1),
+        explore=raw.get("explore", 0),
         inherits_rows=raw.get("inherits_rows", False),
     )
 

@@ -51,6 +51,73 @@ def extract_code(text: str) -> str:
     return text.strip()
 
 
+EXPLORE_ASK = """\
+
+Before you write it, you may look at the data.
+
+Write a short throwaway script that PRINTS whatever you want to know — the first
+few rows, what a narrative actually looks like, whether a pattern you are about
+to rely on really holds, how many rows it would match. It is not the answer and
+nothing is judged on it; it is a look at the data before you commit.
+
+Its stdout comes back to you, capped, and then you write the real file.
+
+Worth knowing: every previous run wrote its parser blind and made the same
+mistake — capturing eighteen words of a narrative where three were wanted — and
+printing five extracted values would have shown it immediately.
+
+Reply with the throwaway script in a single ```python code block.
+"""
+
+
+async def _explore(
+    spec, *, executor, trace, settings: Settings, base: str, rounds: int
+) -> str:
+    """Let the agent look at the data before it writes the real script.
+
+    The turn loop, brought back deliberately and bounded. It was removed early
+    on for a good reason — against a quantised model at ~220s a turn it was
+    unusable — and never revisited when the model changed to one ten times
+    faster. This is the part of it that pays.
+
+    It cannot reintroduce what actually killed the original loop: the model
+    writes *code*, not tool-call JSON, so there is no argument schema to
+    malform and no way to abort a run by emitting a bad one. A script that
+    fails to run just prints a traceback, which is itself informative.
+
+    Returns a transcript to fold into the real prompt, or "" if nothing useful
+    came back.
+    """
+    transcript = []
+    for turn in range(1, rounds + 1):
+        trace.tool("explore", f"round {turn} of {rounds}", status="running")
+        prompt = base + EXPLORE_ASK
+        if transcript:
+            prompt += "\nWhat you have seen so far:\n\n" + "\n".join(transcript)
+
+        reply = await stream_completion(settings, prompt, on_thought=trace.thought)
+        trace.end_thought()
+        source = extract_code(reply)
+        if not source:
+            break
+
+        script = f"explore-{turn}.py"
+        trace.code(f"{WORKDIR}/{script}", source)
+        await executor.put(f"{WORKDIR}/{script}", source.encode("utf-8"))
+        execution = await executor.run_python(script, timeout=120)
+
+        # Capped hard. An exploration that prints a whole workbook would push
+        # the real task out of the context window, which would cost far more
+        # than the look is worth.
+        seen = (execution.stdout or execution.stderr or "")[:4000]
+        trace.tool("explore", f"{len(seen)} chars back", status="ok")
+        transcript.append(f"--- you ran {script} and it printed ---\n{seen}")
+
+    if not transcript:
+        return ""
+    return "\n\nYou looked at the data first. This is what you saw:\n\n" + "\n".join(transcript)
+
+
 async def _agent_assertions(executor, trace) -> list[dict]:
     """What the agent says it checked about its own output.
 
@@ -228,6 +295,20 @@ async def _run_pass(
         trace.state("attempt", stage=stage, n=attempt, of=spec.max_attempts)
 
         base = build_prompt({f["name"] for f in failures})
+
+        # Only on the first attempt. A retry already carries the verifier's
+        # exact objections, which is better information than anything a fresh
+        # look would produce, and paying for another round would be waste.
+        if spec.explore and attempt == 1:
+            base += await _explore(
+                spec,
+                executor=executor,
+                trace=trace,
+                settings=settings,
+                base=base,
+                rounds=spec.explore,
+            )
+
         prompt = (
             base
             if attempt == 1

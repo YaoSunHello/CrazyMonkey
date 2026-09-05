@@ -134,6 +134,36 @@ def test_merge_replaces_lists_wholesale():
     assert merged["passes"] == [{"name": "c"}]
 
 
+# --- new capabilities stay off until measured -----------------------------
+
+
+def test_optional_capabilities_default_to_off():
+    """A profile that does not ask behaves exactly as it did before.
+
+    Every capability added on this branch is opt-in, so the worst case of any
+    of them is the baseline that already exists.
+    """
+    spec = a_pass()
+    assert spec.explore == 0
+    assert spec.samples == 1
+
+
+def test_no_shipped_profile_has_turned_one_on_untested():
+    """One capability at a time, measured on its own.
+
+    Turning two on together makes neither attributable — which is the mistake
+    that made a whole batch unreadable earlier. When one of these is enabled
+    deliberately, this test is the place to record that it was measured.
+    """
+    enabled = {
+        (name, spec.name): (spec.explore, spec.samples)
+        for name in available()
+        for spec in load(name).passes
+        if spec.explore or spec.samples > 1
+    }
+    assert enabled == {}, f"enabled without a recorded measurement: {enabled}"
+
+
 # --- the lint ------------------------------------------------------------
 
 
