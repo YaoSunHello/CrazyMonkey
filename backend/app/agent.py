@@ -14,6 +14,22 @@ quantised local model takes ~220s a turn, so twenty turns is over an hour, and
 it emitted malformed JSON for tool arguments often enough to abort the run
 outright. Removing tool calls removes both failure modes.
 
+**That reasoning expired and this file did not notice.** The model is now a
+fast hosted one, so the cost that ruled out iteration is gone, and the failures
+that remain are exactly the ones iteration fixes: a pattern that silently never
+fired, a span guessed rather than tested. Nobody writes a parser for an
+unfamiliar document in one shot, and the accepted-on-attempt-1 runs were not
+evidence of skill — they were evidence that nothing was checking the part that
+was wrong.
+
+So `_explore` restores the loop where it pays, and only where it pays: the
+model writes and runs *code* rather than tool-call JSON, so neither original
+failure mode can return. It is a real working loop — try, print, see, adjust —
+and the agent writes its own checks inside it, because it knows what "right"
+looks like for the row in front of it better than a rule fixed in advance does.
+What the final output is judged by is unchanged: the verifier the agent cannot
+reach.
+
 One detail carried over from agent-arena because it cost real time there:
 **delete the previous attempt's output before each retry.** Otherwise an
 attempt that writes nothing leaves the last one's file on disk, you verify
@@ -53,20 +69,32 @@ def extract_code(text: str) -> str:
 
 EXPLORE_ASK = """\
 
-Before you write it, you may look at the data.
+You do not have to write the final file yet. First, work on it.
 
-Write a short throwaway script that PRINTS whatever you want to know — the first
-few rows, what a narrative actually looks like, whether a pattern you are about
-to rely on really holds, how many rows it would match. It is not the answer and
-nothing is judged on it; it is a look at the data before you commit.
+Write a script that does part of the job and **checks itself out loud**. Run the
+logic you are considering over the real data, count what it caught and what it
+missed, print the cases it got wrong, and print enough of them to see the
+pattern. Its stdout comes back to you, and then you can write another one.
 
-Its stdout comes back to you, capped, and then you write the real file.
+This is a working loop, not a survey. Use it the way anyone writes code against
+an unfamiliar document:
 
-Worth knowing: every previous run wrote its parser blind and made the same
-mistake — capturing eighteen words of a narrative where three were wanted — and
-printing five extracted values would have shown it immediately.
+    try something on real rows  ->  print what it produced  ->  see where it is
+    wrong  ->  change it  ->  try again
 
-Reply with the throwaway script in a single ```python code block.
+**Write your own checks and print their results.** You know what "right" looks
+like for this task better than any fixed rule does — how many rows should have
+found something, whether a value you extracted is really in the source, whether
+two things that should agree do. Assert those, print the failures with the row
+they came from, and keep going until your own checks stop finding problems.
+Adapt the checks too: one that never fires is telling you nothing.
+
+Do not reason about what the data probably looks like. Look at it. Every run
+that wrote its parser blind made the same class of mistake — a pattern that
+silently never fired, a span that swallowed a whole clause — and printing five
+real values would have shown it immediately.
+
+Reply with the script in a single ```python code block.
 """
 
 
@@ -106,10 +134,11 @@ async def _explore(
         await executor.put(f"{WORKDIR}/{script}", source.encode("utf-8"))
         execution = await executor.run_python(script, timeout=120)
 
-        # Capped hard. An exploration that prints a whole workbook would push
-        # the real task out of the context window, which would cost far more
-        # than the look is worth.
-        seen = (execution.stdout or execution.stderr or "")[:4000]
+        # Capped, but generously: this is a working loop, and a cap that cuts
+        # off the failing cases it printed defeats the point of running it. A
+        # whole workbook would still push the real task out of the context
+        # window, which costs far more than the look is worth.
+        seen = (execution.stdout or execution.stderr or "")[:6000]
         trace.tool("explore", f"{len(seen)} chars back", status="ok")
         transcript.append(f"--- you ran {script} and it printed ---\n{seen}")
 
@@ -242,21 +271,69 @@ def _judge(spec, rows: list[dict], statement: Path, account: str, tables: dict) 
 
 
 def retry_prompt(failures: list[dict], attempt: int, of: int, script: str = "parse.py") -> str:
-    """Fold the verifier's exact objections into the next attempt."""
-    lines = [
-        f"Your {script} was REJECTED by the verifier. Attempt {attempt} of {of}.",
-        "",
-        "These checks failed:",
-    ]
-    for failure in failures:
-        lines.append(f"- {failure['name']}: {failure['detail']}")
-        if failure.get("evidence"):
-            for line in failure["evidence"].splitlines()[:4]:
-                lines.append(f"    {line}")
+    """Fold the verifier's exact objections into the next attempt.
+
+    Two headings, because the two kinds of objection call for different work and
+    running them together invites the wrong one. A broken check means the output
+    is wrong and the cause has to be found. An advisory means the output is
+    sound but thinner than the data supports, and the answer is to look harder —
+    usually at rows the previous attempt gave up on.
+    """
+    broken = [f for f in failures if f.get("status") not in ("UNRESOLVED", "STDOUT")]
+    thin = [f for f in failures if f.get("status") == "UNRESOLVED"]
+    printed = [f for f in failures if f.get("status") == "STDOUT"]
+
+    def detail(items: list[dict]) -> list[str]:
+        out = []
+        for item in items:
+            out.append(f"- {item['name']}: {item['detail']}")
+            for line in (item.get("evidence") or "").splitlines()[:4]:
+                out.append(f"    {line}")
+        return out
+
+    lines = [f"Your {script} was REJECTED by the verifier. Attempt {attempt} of {of}.", ""]
+
+    if broken:
+        lines.append("These checks failed — the output is wrong:")
+        lines += detail(broken)
+        lines += [
+            "",
+            "The evidence names the row and the exact discrepancy. Fix the cause, not",
+            "the symptom, and do not repeat the approach that just failed.",
+        ]
+
+    if thin:
+        if broken:
+            lines.append("")
+        lines.append(
+            "These did not fail, but the result is thinner than the data supports:"
+        )
+        lines += detail(thin)
+        lines += [
+            "",
+            "Nothing here is incorrect — it is incomplete. The evidence names the rows",
+            "that were given up on. Work those rows specifically rather than rewriting",
+            "what already succeeded: print what each one actually contains, print what",
+            "the reference data holds near it, and decide from that. Where a value still",
+            "will not resolve exactly but you can see what it plainly is, say so as a",
+            "PROBABLE with a reason and a confidence below 1 — an honest proposal beats",
+            "both a guess and a shrug. Leaving a row unresolved is still the right answer",
+            "when the data really does not hold it, and forcing this number down by",
+            "inventing a match is the one outcome worse than the number.",
+        ]
+
+    if printed:
+        lines += ["", "What your script printed when it ran:", ""]
+        for line in (printed[0].get("evidence") or "").splitlines()[-25:]:
+            lines.append(f"    {line}")
+        lines += [
+            "",
+            "This is your own output, not a complaint. Print whatever you need to see",
+            "in the next attempt — the values that did not match, what the lists hold",
+            "near them, how many rows a pattern actually caught — and read it here.",
+        ]
+
     lines += [
-        "",
-        "The evidence names the row and the exact discrepancy. Fix the cause, not",
-        "the symptom, and do not repeat the approach that just failed.",
         "",
         f"Reply with the complete corrected {script} in a single ```python code block.",
     ]
@@ -369,7 +446,26 @@ async def _run_pass(
 
         serialised = judge(rows)
         serialised += await _agent_assertions(executor, trace)
-        failed = [c for c in serialised if c["status"] == "FAIL"]
+
+        # Two grades of objection, and the difference is deliberate.
+        #
+        # `broken` is wrong: arithmetic that does not foot, a match that is not
+        # in the table it names. The output cannot be shipped.
+        #
+        # `thin` is an advisory the profile asked to act on — a third of the
+        # rows fell through to the fallback label, a span the agent left
+        # unresolved that its own lookup finds. Nothing is *wrong*; it is not
+        # yet as good as the data allows. Before this, only `broken` retried,
+        # and a day of runs discarded 111 advisories in silence.
+        #
+        # Both spend an attempt. Only `broken` can fail the pass — see below.
+        broken = [c for c in serialised if c["status"] == "FAIL"]
+        thin = [
+            c
+            for c in serialised
+            if c["status"] == "UNRESOLVED" and c["name"] in spec.retry_on
+        ]
+        failed = broken + thin
         trace.verdict(serialised, passed=not failed)
 
         outcome["rows"] = len(rows)
@@ -382,7 +478,35 @@ async def _run_pass(
             trace.state("accepted", stage=stage, attempt=attempt, rows=len(rows))
             return outcome
 
+        # Out of attempts with nothing actually broken. The remaining advisories
+        # are honest reports about data that did not resolve, and rejecting the
+        # run over them would turn `UNRESOLVED` into a failure — the one thing
+        # the three-state design exists to prevent. Accept, and say what is thin.
+        if not broken and attempt == spec.max_attempts:
+            outcome["passed"] = True
+            outcome["summary"] = (
+                f"{len(rows)} rows, accepted with {len(thin)} unresolved after "
+                f"{attempt} attempts: {', '.join(c['name'] for c in thin)}"
+            )
+            trace.state("accepted", stage=stage, attempt=attempt, rows=len(rows))
+            return outcome
+
         failures = failed
+        # Hand back what the script itself printed. Every prompt tells the agent
+        # to look at the data before deciding, and a script's only way to look
+        # is to print — but until now that output went nowhere, so the advice
+        # was unfollowable and the next attempt was written just as blind as the
+        # last. This is how a person debugs: print, run, read, fix.
+        printed = (execution.stdout or "").strip()
+        if printed:
+            failures = failures + [
+                {
+                    "name": "your own output",
+                    "status": "STDOUT",
+                    "detail": "what your script printed when it ran",
+                    "evidence": printed[-1500:],
+                }
+            ]
         trace.state("rejected", stage=stage, attempt=attempt, failed=len(failed))
 
     outcome["summary"] = f"still failing after {spec.max_attempts} attempts"
@@ -408,7 +532,6 @@ async def run_agent(
 
     from app.ingestion.statements import parse_statement
     from app.profiles import load as load_profile
-    from app.reference.tables import dump as dump_tables
     from app.reference.tables import load_tables
 
     started_at = time.monotonic()
@@ -458,7 +581,6 @@ async def run_agent(
 
     tables = load_tables(loaded.inputs)
     if tables:
-        dump_tables(tables, data_dir / "tables.json")
         trace.tool(
             "reference",
             " · ".join(f"{n} {len(t.rows)}" for n, t in sorted(tables.items())),
@@ -483,6 +605,30 @@ async def run_agent(
     try:
         for spec in loaded.passes:
             await _install_kit(executor, spec.kit)
+
+            # Only the reference data this pass is meant to work with. Mounting
+            # everything looked harmless and was not: a resolution pass given the
+            # chart of accounts alongside the party lists mined the chart for
+            # "legal-form tokens", collected `CHARGES`, `CREDIT` and `INTEREST`
+            # among 253 of them, and then read `CHARGES` out of a narrative as a
+            # counterparty. It could not have known which list was which,
+            # because nothing told it. So the profile says, per pass, and a pass
+            # that says nothing still sees everything.
+            visible = spec.visible_tables(tables)
+            if visible:
+                # Written through the executor rather than to `data_dir`, because
+                # a remote sandbox uploads that directory once at start and would
+                # never see a later pass's narrower set.
+                await executor.put(
+                    f"{DATADIR}/tables.json",
+                    json.dumps({n: t.to_json() for n, t in visible.items()}).encode("utf-8"),
+                )
+                if len(visible) != len(tables):
+                    trace.tool(
+                        "reference",
+                        f"{spec.name}: {' · '.join(sorted(visible))}",
+                        status="ok",
+                    )
 
             if spec.inherits_rows:
                 # The previous pass's output becomes this one's input as data

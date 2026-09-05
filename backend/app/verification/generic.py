@@ -26,9 +26,10 @@ must not. The agent is judged by code it cannot reach or influence.
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal, InvalidOperation
 
-from app.kit.reference_kit import Table, normalise
+from app.kit.reference_kit import Table, fold, normalise
 from app.models import Check
 
 # What a resolution may say about itself. `MATCH` and `UNRESOLVED` are the
@@ -158,6 +159,131 @@ def check_membership(
     )
 
 
+def check_posting(
+    rows: list[dict], scope: str, options: dict, tables: dict[str, Table]
+) -> Check:
+    """A booking must name an account that exists.
+
+    A chart of accounts is a closed vocabulary, so a value that is not in it
+    cannot be posted whoever wrote it. `FAIL`: an invented account is the same
+    class of error as an invented counterparty, and rather more plausible-looking
+    because it sits among real ones.
+
+    Which table is the chart is profile data — a fact about a client's ledger,
+    not about accounting. Nothing here knows about banks or this dataset.
+
+    **What this check deliberately no longer does** is count the lines booked to
+    the ledger's holding account. That reading was tried and it backfired: it
+    made the honest label the expensive one, and the run under measurement
+    stopped writing `Suspense`, booked nine unresolved rows to a real but
+    unrelated account, and scored zero parked while its own self-assertion said
+    nine. The account a row lands on is downstream of whether it resolved, and
+    measuring the shadow lets the shadow be moved. `resolution_rate` counts the
+    thing itself.
+    """
+    field = options.get("field", "journal_lines")
+    value_key = options.get("value", "transaction_type")
+    chart = [tuple(p.split(":", 1)) for p in options.get("chart", []) if ":" in p]
+
+    known: set[str] = set()
+    for name, column in chart:
+        table = tables.get(name)
+        if table and column in table.columns:
+            known.update(normalise(v).casefold() for v in table.values(column))
+
+    unknown, lines = [], 0
+    for index, row in enumerate(rows):
+        for line in row.get(field) or []:
+            booking = normalise(line.get(value_key))
+            lines += 1
+            if not booking:
+                unknown.append(f"row {index}: a line carries no {value_key}")
+            elif known and booking.casefold() not in known:
+                unknown.append(f"row {index}: {booking!r} is not in the chart of accounts")
+
+    if not lines:
+        return Check(
+            name="posting", scope=scope, status="CANNOT_VERIFY", detail=f"no row carries {field}"
+        )
+    return Check(
+        name="posting",
+        scope=scope,
+        status="PASS" if not unknown else "FAIL",
+        detail=f"{lines - len(unknown)}/{lines} lines name an account that exists",
+        evidence=_cap(unknown),
+    )
+
+
+def check_resolution_rate(rows: list[dict], scope: str, options: dict) -> Check:
+    """Of the values actually read out of the document, how many resolved?
+
+    The achievement number, stated where it cannot be talked around. Everything
+    else in this module asks whether an answer is *well formed*; this asks
+    whether the work got done, and it is the only reason a resolution pass ever
+    tries again.
+
+    **Two earlier attempts at this number were gameable, and both were mine.**
+    One re-ran an exact lookup over the same span the agent had already looked
+    up, so on every row that mattered it could only agree — a check that could
+    not fail. The next counted lines booked to the ledger's holding account,
+    which made the honest label the expensive one: the run under measurement
+    stopped writing `Suspense` and booked nine unresolved rows to a real but
+    unrelated account instead, and the share read zero while its own
+    self-assertion said nine. Renaming the evidence is always cheaper than doing
+    the work, so a check must count the work.
+
+    So this counts statuses, which are the thing itself rather than a proxy for
+    it. A row where nothing was extracted is not counted — the document naming
+    nobody is a fact about the document, and holding it against the run is how
+    the denominator gets padded until any number looks good.
+
+    `UNRESOLVED`, never `FAIL`. Some values genuinely are not in the reference
+    data, and saying so is the correct outcome; the point is that the number is
+    visible and can be acted on. The escape from it is `PROBABLE` with a reason
+    — never a `MATCH`, which `membership` would reject anyway.
+    """
+    field = options["field"]
+    ceiling = float(options.get("max_share", 0.2))
+    # What counts as having looked and found nothing. `CANNOT_VERIFY` means
+    # there was nothing to look up, so it is neither numerator nor denominator.
+    unresolved = set(options.get("counts_as_unresolved", ["UNRESOLVED"]))
+
+    looked, missed = 0, []
+    for index, row in enumerate(rows):
+        status = normalise(_resolution(row, field).get("status")).upper()
+        if status == "CANNOT_VERIFY" or not status:
+            continue
+        looked += 1
+        if status in unresolved:
+            missed.append(index)
+
+    if not looked:
+        return Check(
+            name=f"{field}_resolution_rate",
+            scope=scope,
+            status="CANNOT_VERIFY",
+            detail=f"no row carried a {field} to resolve",
+        )
+
+    share = len(missed) / looked
+    ok = share <= ceiling
+    return Check(
+        name=f"{field}_resolution_rate",
+        scope=scope,
+        status="PASS" if ok else "UNRESOLVED",
+        detail=(
+            f"{looked - len(missed)}/{looked} values read from the document resolved; "
+            f"{len(missed)} did not ({share:.0%}, expected at most {ceiling:.0%})"
+        ),
+        evidence=(
+            ""
+            if ok
+            else f"rows {missed[:12]} — a name was read out of the document and matched "
+            f"nothing. Work these rows specifically."
+        ),
+    )
+
+
 def check_span_plausibility(rows: list[dict], scope: str, options: dict) -> Check:
     """An extracted name should look like a name, not like a sentence.
 
@@ -248,6 +374,264 @@ def check_proposal_wellformed(rows: list[dict], scope: str, options: dict) -> Ch
         scope=scope,
         status="PASS" if not problems else "FAIL",
         detail=f"{proposals - len(problems)}/{proposals} proposals carry a reason and a confidence",
+        evidence=_cap(problems),
+    )
+
+
+def _tokens(text: object) -> list[str]:
+    """Comparable words: folded, punctuation dropped, empties removed."""
+    return [t for t in re.split(r"[^0-9a-z]+", fold(text)) if t]
+
+
+# A token that distinguishes one entity from its sibling rather than describing
+# it: a digit run, or a roman numeral. Two names that differ here are two
+# companies, in every jurisdiction and every naming convention.
+_ORDINAL = re.compile(r"^(?:\d+|[ivxlcdm]+)$")
+
+
+def check_proposal_distance(rows: list[dict], scope: str, options: dict) -> Check:
+    """A proposal must be about the value it was proposed for.
+
+    `proposals` asks whether a `PROBABLE` is well formed — a reason, a
+    confidence that admits to being one. It said yes to this:
+
+        read 'NI ABF II SCSP' from the document
+        proposed 'NI ABF I DevCo ApS'
+        because 'matches modulo qualifier/legal-form variation'
+
+    Three checks passed that row. `membership` passed because the proposed name
+    really is in a master list. `provenance` passed because the span really is in
+    the narrative. `proposals` passed because a reason and a confidence were
+    given. Nothing asked whether the two strings had anything to do with each
+    other, and a plainly different company went out with a confident-sounding
+    sentence attached — which is worse than an unresolved row, because it reads
+    as work.
+
+    Two properties, both mechanical, both already stated as rules in the prompt
+    the model is given. Enforcing a declared rule is not second-guessing the
+    model; it is the same thing the balance chain does for extraction:
+
+    **An ordinal that differs is a different entity.** A digit or roman numeral
+    that appears on one side and not the other separates siblings — Fund I from
+    Fund II, Holding 2 from Holding 3 — and is never a spelling variation.
+
+    **A proposal must share most of its words with what was read.** A name that
+    introduces whole new words is a different name. The threshold is profile
+    data because how much of a name a document is willing to omit is a fact
+    about the document, not about naming.
+
+    Nothing here knows a company, a jurisdiction or a legal form.
+    """
+    field = options["field"]
+    span_field = options.get("span") or field.rsplit("_", 1)[0] + "_raw"
+    overlap_floor = float(options.get("min_overlap", 0.5))
+
+    problems, proposals = [], 0
+    for index, row in enumerate(rows):
+        resolution = _resolution(row, field)
+        if normalise(resolution.get("status")).upper() != "PROBABLE":
+            continue
+        proposed = normalise(resolution.get("matched_name"))
+        read = normalise(row.get(span_field))
+        if not proposed or not read:
+            continue
+        proposals += 1
+
+        mine, theirs = _tokens(read), _tokens(proposed)
+        ours = {t for t in mine if _ORDINAL.match(t)}
+        yours = {t for t in theirs if _ORDINAL.match(t)}
+        if ours != yours:
+            problems.append(
+                f"row {index}: read {read!r}, proposed {proposed!r} — the ordinals "
+                f"differ ({sorted(ours) or 'none'} vs {sorted(yours) or 'none'}), "
+                f"which makes them different entities"
+            )
+            continue
+
+        # How much of the shorter name the two have in common. Comparing against
+        # the shorter side means a list entry that appends a qualifier the
+        # document omits is still recognised, which is the case this must not
+        # break.
+        shared = len(set(mine) & set(theirs))
+        floor = min(len(set(mine)), len(set(theirs))) or 1
+        if shared / floor < overlap_floor:
+            problems.append(
+                f"row {index}: read {read!r}, proposed {proposed!r} — they share "
+                f"{shared} of {floor} words, which is a different name rather than "
+                f"another spelling"
+            )
+
+    if not proposals:
+        return Check(
+            name=f"{field}_proposal_distance",
+            scope=scope,
+            status="PASS",
+            detail="no proposals offered",
+        )
+    return Check(
+        name=f"{field}_proposal_distance",
+        scope=scope,
+        status="PASS" if not problems else "FAIL",
+        detail=f"{proposals - len(problems)}/{proposals} proposals are about the value read",
+        evidence=_cap(problems),
+    )
+
+
+def check_not_self(
+    rows: list[dict], scope: str, options: dict, tables: dict[str, Table]
+) -> Check:
+    """The document's own party is not its counterparty.
+
+    A statement is one party's record of dealing with others, so the account
+    holder can never be the other side of its own transaction. When a narrative
+    names both sides — and they routinely do — picking the holder is picking the
+    wrong half of the sentence, and every downstream stage inherits it.
+
+    It is what went wrong on six rows of one account in a single run: the
+    narrative opened with the counterparty and mentioned the holder later, the
+    parser took the later clause, and nothing objected. The prompt states the
+    rule. Nothing enforced it.
+
+    Checkable because the run already carries the answer: rows name the account
+    they came from, and the mounted reference data maps accounts to their owner.
+    The profile says which table and columns hold that mapping, because where a
+    client keeps it is a fact about the client. Where no mapping is mounted this
+    reports `CANNOT_VERIFY` rather than guessing — a missing input is never a
+    pass.
+    """
+    field = options["field"]
+    span_field = options.get("span") or field.rsplit("_", 1)[0] + "_raw"
+    key_field = options.get("key", "account_number")
+    pairs = [tuple(p.split(":", 1)) for p in options.get("owner", []) if ":" in p]
+    overlap_floor = float(options.get("min_overlap", 0.6))
+
+    def owner_of(account: str) -> str:
+        for name, column in pairs:
+            table = tables.get(name)
+            if not table or column not in table.columns:
+                continue
+            record = table.find(column, account)
+            if record:
+                # The mapping's other columns hold the owner; which one is not
+                # something this can know, so the whole record is compared.
+                return " ".join(v for k, v in record.items() if k != column and v)
+        return ""
+
+    def is_the_holder(value: str, owner: str) -> bool:
+        """Is this name the account holder, written the way this source writes it?
+
+        Two conditions, because either alone is wrong. The owner's identifier
+        carries words the party name never does — a branch, a currency, the
+        account number — so equality never fires and containment both ways is
+        too loose. And a sibling entity shares almost every word with the
+        holder, so overlap alone would reject the very counterparties that
+        matter most.
+
+        So: the distinguishing ordinals of the name must all appear on the
+        owner's side, *and* most of its words must too.
+        """
+        mine, theirs = _tokens(value), set(_tokens(owner))
+        if not mine:
+            return False
+        if not {t for t in mine if _ORDINAL.match(t)} <= {t for t in theirs if _ORDINAL.match(t)}:
+            return False
+        return len(set(mine) & theirs) / len(set(mine)) >= overlap_floor
+
+    problems, checked = [], 0
+    for index, row in enumerate(rows):
+        owner = owner_of(normalise(row.get(key_field)))
+        if not owner:
+            continue
+        resolution = _resolution(row, field)
+        status = normalise(resolution.get("status")).upper()
+        matched = normalise(resolution.get("matched_name"))
+        # The span matters as much as the match. Taking the holder out of the
+        # narrative is picking the wrong half of the sentence, and it stays
+        # wrong whatever it is then matched to — including nothing at all,
+        # which is how it hid: an UNRESOLVED row draws no other check.
+        read = normalise(row.get(span_field))
+        if not read and not matched:
+            continue
+        checked += 1
+
+        if read and is_the_holder(read, owner):
+            problems.append(
+                f"row {index}: read {read!r} as the counterparty, but that is this "
+                f"account's own party ({owner!r}) — the other side of the narrative "
+                f"is the counterparty"
+            )
+        elif status in NAMES_A_TARGET and matched and is_the_holder(matched, owner):
+            problems.append(
+                f"row {index}: resolved to {matched!r}, but this account's own party "
+                f"is {owner!r} — a holder is not their own counterparty"
+            )
+
+    if not checked:
+        return Check(
+            name=f"{field}_not_self",
+            scope=scope,
+            status="CANNOT_VERIFY",
+            detail="no owner mapping mounted, or no row named a party to compare",
+        )
+    return Check(
+        name=f"{field}_not_self",
+        scope=scope,
+        status="PASS" if not problems else "FAIL",
+        detail=f"{checked - len(problems)}/{checked} rows name a party other than the holder",
+        evidence=_cap(problems),
+    )
+
+
+def check_pairing(rows: list[dict], scope: str, options: dict) -> Check:
+    """A status must agree with whether anything was actually read.
+
+    Two fields describe one event and nothing made them agree. `provenance`
+    skips a row whose value is empty and never looks at the status;
+    `completeness` reads the status and never looks at the value. So a row could
+    say it matched a party while naming none, or say the input was missing while
+    holding the input, and both passed.
+
+    The pairing is not a convention, it is what the four states mean:
+
+        nothing read      -> CANNOT_VERIFY   there was nothing to look up
+        something read    -> anything else   it was looked up, and this is how
+                                             that went
+
+    `CANNOT_VERIFY` with a value in hand is the one that does real damage,
+    because it is how a row leaves the review queue: the queue holds rows that
+    need a person, and a row claiming its input was absent is claiming there is
+    nothing to decide. A run reporting `MATCH` with nothing read is the same
+    error pointing the other way.
+
+    `FAIL`. This is not a judgement about the data — it is the row contradicting
+    itself, and no reading of the document makes both halves true.
+    """
+    field = options["field"]
+    span_field = options.get("span") or field.rsplit("_", 1)[0] + "_raw"
+    absent = normalise(options.get("absent_status", "CANNOT_VERIFY")).upper()
+
+    problems = []
+    for index, row in enumerate(rows):
+        status = normalise(_resolution(row, field).get("status")).upper()
+        if not status:
+            continue  # completeness owns the missing-status case
+        read = normalise(row.get(span_field))
+        if read and status == absent:
+            problems.append(
+                f"row {index}: {status} says there was nothing to look up, but "
+                f"{span_field} holds {read!r}"
+            )
+        elif not read and status != absent:
+            problems.append(
+                f"row {index}: {status} on an empty {span_field} — a resolution "
+                f"needs something to have been read first"
+            )
+
+    return Check(
+        name=f"{field}_pairing",
+        scope=scope,
+        status="PASS" if not problems else "FAIL",
+        detail=f"{len(rows) - len(problems)}/{len(rows)} rows agree with their own {span_field}",
         evidence=_cap(problems),
     )
 
@@ -355,14 +739,36 @@ def check_double_entry(rows: list[dict], scope: str, options: dict) -> Check:
     `FAIL`, not `UNRESOLVED`. A batch that does not balance is wrong, not
     undecided, and both specifications name a non-footing entry reaching export
     as a hard failure.
+
+    **Balancing alone is not enough, and a run proved it.** A batch id left
+    blank on every line put 94 lines in one bucket; that bucket netted to zero,
+    so this check passed while 200 lines carried 18 distinct ids instead of 100.
+    A pile that nets to zero *is* net zero — the arithmetic was never wrong, the
+    structure was. So the grouping itself is now checked: a line must carry an
+    id, and a batch must not span rows. Both are properties of double-entry
+    bookkeeping rather than of this dataset, where the human's own export is
+    200 lines across 100 batches.
     """
     field = options.get("field", "journal_lines")
     tolerance = Decimal(str(options.get("tolerance", "0.01")))
+    # Some ledgers split a side across several lines, so an exact count is only
+    # asserted where the profile knows its target shape and says so.
+    per_batch = options.get("lines_per_batch")
 
+    problems = []
     batches: dict[str, list[dict]] = {}
+    owners: dict[str, set[int]] = {}
     for index, row in enumerate(rows):
         for line in row.get(field) or []:
-            batches.setdefault(str(line.get("batch", index)), []).append(line)
+            batch = normalise(line.get("batch"))
+            if not batch or batch.casefold() in {"none", "null"}:
+                problems.append(f"row {index}: a {field} entry carries no batch id")
+                # Keep it out of a shared bucket, or every id-less line lands
+                # together and nets to zero as a group — which is how this got
+                # through before.
+                batch = f"(row {index}, no id)"
+            batches.setdefault(batch, []).append(line)
+            owners.setdefault(batch, set()).add(index)
 
     if not batches:
         return Check(
@@ -372,7 +778,13 @@ def check_double_entry(rows: list[dict], scope: str, options: dict) -> Check:
             detail=f"no row carries {field}",
         )
 
-    problems = []
+    for batch, rows_seen in sorted(owners.items()):
+        if len(rows_seen) > 1:
+            problems.append(
+                f"batch {batch!r} carries lines from {len(rows_seen)} rows "
+                f"{sorted(rows_seen)[:4]} — a batch is one transaction"
+            )
+
     for batch, lines in sorted(batches.items()):
         total = Decimal(0)
         unusable = False
@@ -392,15 +804,16 @@ def check_double_entry(rows: list[dict], scope: str, options: dict) -> Check:
             continue
         if len(lines) < 2:
             problems.append(f"batch {batch}: only {len(lines)} line — a batch needs both sides")
+        elif per_batch and len(lines) != per_batch:
+            problems.append(f"batch {batch}: {len(lines)} lines, expected {per_batch}")
         elif abs(total) > tolerance:
             problems.append(f"batch {batch}: nets to {total}, not zero")
 
-    held = len(batches) - len(problems)
     return Check(
         name="double_entry",
         scope=scope,
         status="PASS" if not problems else "FAIL",
-        detail=f"{held}/{len(batches)} batches balance",
+        detail=f"{len(batches)} batches over {len(rows)} rows, {len(problems)} problem(s)",
         evidence=_cap(problems),
     )
 
@@ -514,6 +927,11 @@ def check_vocabulary(rows: list[dict], scope: str, options: dict) -> Check:
 REGISTRY = {
     "provenance": check_provenance,
     "membership": check_membership,
+    "posting": check_posting,
+    "resolution_rate": check_resolution_rate,
+    "proposal_distance": check_proposal_distance,
+    "not_self": check_not_self,
+    "pairing": check_pairing,
     "completeness": check_completeness,
     "vocabulary": check_vocabulary,
     "span": check_span_plausibility,
@@ -523,6 +941,10 @@ REGISTRY = {
     "double_entry": check_double_entry,
     "explanation": check_explanation,
 }
+
+# The checks that need the reference tables rather than only the rows. Named
+# here so adding one is a line in this set instead of another branch in `run`.
+NEEDS_TABLES = {"membership", "posting", "not_self"}
 
 
 def name_for(name: str, options: dict) -> str:
@@ -537,10 +959,10 @@ def name_for(name: str, options: dict) -> str:
         return "resolution_completeness"
     if name == "agreement":
         return "sample_agreement"
-    if name == "double_entry":
-        return "double_entry"
-    if name == "explanation":
-        return "explanation"
+    if name in ("double_entry", "explanation", "posting"):
+        return name
+    if name == "resolution_rate":
+        return f"{options['field']}_resolution_rate"
     field = options.get("field")
     if name == "label_rate":
         return f"{field}_{normalise(options.get('label', '')).casefold()}_rate"
@@ -557,6 +979,6 @@ def run(
     if name not in REGISTRY:
         raise KeyError(f"no generic check {name!r} (have: {', '.join(sorted(REGISTRY))})")
     function = REGISTRY[name]
-    if name == "membership":
+    if name in NEEDS_TABLES:
         return function(rows, scope, options, tables or {})
     return function(rows, scope, options)

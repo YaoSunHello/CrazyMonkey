@@ -170,6 +170,60 @@ def test_the_queue_carries_what_a_reviewer_needs_to_decide():
     assert item["amount"] == pytest.approx(-0.44)
 
 
+def test_a_review_item_explains_itself_in_words():
+    """A reason code routes; a sentence lets somebody decide.
+
+    The complaint this product answers is not that numbers are wrong, it is that
+    they cannot be checked — *"I cannot trust any number I get from them, so I
+    have to check everything."* An item that says `COUNTERPARTY_UNRESOLVED` and
+    nothing else sends the reviewer back to the PDF, which is the work we were
+    supposed to remove.
+    """
+    item = derive_review_queue(context([UNRESOLVED]))[0]
+    assert item["reason"] == "COUNTERPARTY_UNRESOLVED"
+    assert "matched nothing in the reference lists" in item["explanation"]
+    assert "counterparty_match: UNRESOLVED" in item["explanation"]
+
+
+def test_the_explanation_carries_what_was_read_and_why_it_failed():
+    row = {
+        **UNRESOLVED,
+        "counterparty_raw": "TRENTBECK AUDIT LUXEMBOURG",
+        "counterparty_match": {
+            "status": "UNRESOLVED",
+            "matched_name": None,
+            "why": "no exact entry under that spelling",
+        },
+    }
+    said = derive_review_queue(context([row]))[0]["explanation"]
+    assert "TRENTBECK AUDIT LUXEMBOURG" in said
+    assert "no exact entry under that spelling" in said
+
+
+def test_a_proposal_names_its_candidate_so_it_can_be_accepted_in_one_click():
+    """The whole value of PROBABLE: the reviewer confirms rather than searches."""
+    row = {
+        **UNRESOLVED,
+        "counterparty_raw": "NI V KALVIK TOPCO LTD.",
+        "counterparty_match": {
+            "status": "PROBABLE",
+            "matched_name": "NI V Kalvik Topco Limited",
+            "confidence": 0.8,
+            "why": "the document abbreviates the legal form",
+        },
+    }
+    said = derive_review_queue(context([row]))[0]["explanation"]
+    assert "proposed 'NI V Kalvik Topco Limited'" in said
+    assert "80% confidence" in said
+
+
+def test_a_clean_row_explains_nothing():
+    """It must not appear as commentary on rows nobody has to look at."""
+    from app.emit import _explanation
+
+    assert _explanation(CLEAN, 0, context()) is None
+
+
 def test_a_failing_check_reaches_the_queue_too():
     """It is not about one row, so it would otherwise vanish from the only
     surface a person actually reads."""

@@ -142,12 +142,66 @@ def _ready_for_export(row: dict, index: int, context: dict) -> bool:
     return _review_reason(row, index, context) is None
 
 
+# What each reason means, said to the person who has to act on it. The code is
+# for a machine to route on; this is for a human to read.
+SAYS = {
+    "COUNTERPARTY_UNRESOLVED": "a party was read out of the narrative but matched nothing in the reference lists",
+    "PROJECT_CODE_UNRESOLVED": "a project word was read out of the narrative but is not a valid code",
+    "POSITION_MAPPING_FAILED": "the position behind this movement could not be identified",
+    "LOW_CLASSIFICATION_CONFIDENCE": "the movement could not be placed into one of the declared classes",
+    "MISSING_SOURCE_CITATION": "this row cannot be pointed back to a page of the document",
+}
+
+
+def _explanation(row: dict, index: int, context: dict) -> str | None:
+    """Why this row needs a person, in a sentence, with the evidence attached.
+
+    The customer's complaint is not that numbers are wrong — it is that he
+    cannot tell: *"I cannot trust any number I get from them, so I have to check
+    everything."* A reason code answers a router, not a reviewer. This says what
+    happened, what was read out of the document, and what the pipeline's own
+    reasoning was, so the decision can be made from the queue rather than by
+    reopening the PDF.
+
+    Returns None for a row that needs nobody, so it never appears on clean rows.
+    """
+    reason = _review_reason(row, index, context)
+    if reason is None:
+        return None
+
+    parts = [SAYS.get(reason, reason.replace("_", " ").casefold())]
+    for field in _match_fields(row, context.get("requires")):
+        resolution = _resolution(row, field)
+        status = normalise(resolution.get("status")).upper()
+        if status in SETTLED:
+            continue
+        read = normalise(row.get(field.rsplit("_", 1)[0] + "_raw"))
+        said = normalise(resolution.get("why"))
+        detail = f"{field}: {status}"
+        if read:
+            detail += f", read {read!r} from the narrative"
+        if said:
+            detail += f" — {said}"
+        # A proposal is the useful case: it carries a candidate the reviewer can
+        # accept outright, so name it rather than leaving them to search.
+        proposed = normalise(resolution.get("matched_name"))
+        if status == "PROBABLE" and proposed:
+            confidence = resolution.get("confidence")
+            detail += f"; proposed {proposed!r}"
+            if isinstance(confidence, (int, float)):
+                detail += f" at {float(confidence):.0%} confidence"
+        parts.append(detail)
+
+    return ". ".join(parts) + "."
+
+
 ROW_DERIVATIONS = {
     "row_id": _row_id,
     "direction": _direction,
     "signed_amount": _signed_amount,
     "source_citation": _source_citation,
     "review_reason": _review_reason,
+    "review_explanation": _explanation,
     "ready_for_export": _ready_for_export,
 }
 
@@ -200,6 +254,7 @@ def derive_review_queue(context: dict) -> list[dict]:
         item = {
             "row_id": _row_id(row, index, context),
             "reason": reason,
+            "explanation": _explanation(row, index, context),
             "source_citation": _source_citation(row, index, context),
             "raw_narrative": normalise(row.get("narrative")),
             "amount": _amount(row),

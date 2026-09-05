@@ -29,7 +29,8 @@
       "project_code_status": "@status:project_code_match",
       "classification": "$classification",
       "ready_for_export": "@derive:ready_for_export",
-      "review_reason": "@derive:review_reason"
+      "review_reason": "@derive:review_reason",
+      "review_explanation": "@derive:review_explanation"
     },
     "requires": [
       "counterparty_match",

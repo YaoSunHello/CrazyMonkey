@@ -38,6 +38,9 @@ PROFILES = ROOT / "profiles"
 # `openai-agents` and `daytona` uninstalled.
 DEFAULT_PROFILE = "journal-entries"
 
+# What a check's `UNRESOLVED` verdict is allowed to cause. See `CheckSpec`.
+SEVERITIES = {"advisory", "retry"}
+
 # The part of the prompt the engine owns. It is the same for every use case and
 # a profile cannot change it, because these are the rules that make the result
 # judgeable at all: one script, one output, and no adjusting a number to get
@@ -52,7 +55,11 @@ Rules that hold for every task:
 - Write the result exactly once, at the end, with the kit's write function.
 - Never invent or adjust a value to make a check pass. A value you cannot read
   is a value you leave out, and the checks will say so plainly.
-- Print a one-line summary to stdout when you finish, e.g. "parsed 16 rows".
+- **Print what you need to see.** Everything your script prints comes back to
+  you if the attempt is rejected, so stdout is how you look at the data: the
+  values that did not match, what the reference data holds near them, how many
+  rows a pattern actually caught. A number you assumed is a number you will get
+  wrong. Finish with a one-line summary, e.g. "parsed 16 rows".
 - Reply with the complete contents of the file in a single ```python code block,
   and nothing else.
 """
@@ -106,6 +113,27 @@ class CheckSpec:
     name: str
     describe: str = ""
     options: dict = field(default_factory=dict)
+    # What an `UNRESOLVED` verdict from this check should cause.
+    #
+    #     advisory   report it and carry on          (the default, and today's
+    #                                                 behaviour for every check)
+    #     retry      spend another attempt on it
+    #
+    # This exists because of something measurable: across one day of runs the
+    # verifier raised **111 UNRESOLVED verdicts and every one was discarded**,
+    # since `agent.py` only retries on `FAIL`. `classification_review_rate`
+    # caught a run labelling a third of its rows `Review` and said so to nobody,
+    # and the nudge written to answer that check could never fire.
+    #
+    # Promotion changes only *when the agent is told* — never what the row
+    # reports. An `UNRESOLVED` row stays `UNRESOLVED` in the output, and a pass
+    # that exhausts its attempts with nothing worse than promoted advisories is
+    # still accepted. Otherwise this would quietly turn the third state into a
+    # failure, which is the one thing the whole design exists to avoid.
+    #
+    # Which advisories are worth another attempt is a fact about the use case,
+    # so it lives in the profile rather than in the check.
+    severity: str = "advisory"
 
     @property
     def reported_as(self) -> str:
@@ -158,6 +186,39 @@ class Pass:
     # Whether this pass reads the previous pass's rows instead of the source
     # document. Resolution builds on extraction; extraction starts from the PDF.
     inherits_rows: bool = False
+    # Which mounted reference tables this pass may see. Empty means all of them,
+    # which is what every profile did before and still does by default. See
+    # `visible_tables` for why narrowing is sometimes the whole fix.
+    uses_tables: list[str] = field(default_factory=list)
+
+    def visible_tables(self, mounted: dict) -> dict:
+        """The reference data this pass may see. Everything, unless it narrows.
+
+        Mounting the whole workbook into every pass reads as generosity and is
+        not. A resolution pass handed the chart of accounts beside the party
+        lists had no way to tell which was which, so it mined all of them for
+        "legal-form tokens", ended up with 253 including `CHARGES`, `CREDIT` and
+        `INTEREST`, and then read `CHARGES` out of a narrative as a
+        counterparty name. Nothing had told it a chart of accounts is not a list
+        of parties, and nothing could have.
+
+        Which lists belong to which stage is a fact about the client's data
+        model, so the profile states it. Silence keeps every table, so no
+        existing profile changes and a run never loses data by accident.
+        """
+        if not self.uses_tables:
+            return mounted
+        return {name: table for name, table in mounted.items() if name in set(self.uses_tables)}
+
+    @property
+    def retry_on(self) -> set[str]:
+        """Checks whose `UNRESOLVED` verdict is worth spending another attempt.
+
+        Reported names, not profile names, so the loop can match them against
+        what the verifier actually emitted — the same reason `reported_as`
+        exists for nudges.
+        """
+        return {c.reported_as for c in self.checks if c.severity == "retry"}
 
     def compose(self, *, document: str = "", failed: set[str] | None = None) -> str:
         """The full prompt: the engine's rules, the task, the checks, the notes."""
@@ -265,6 +326,7 @@ def _build_pass(raw: dict) -> Pass:
         samples=raw.get("samples", 1),
         explore=raw.get("explore", 0),
         inherits_rows=raw.get("inherits_rows", False),
+        uses_tables=raw.get("uses_tables", []),
     )
 
 
@@ -297,6 +359,15 @@ def _lint(profile_id: str, passes: list[Pass]) -> None:
                 f"{'them' if len(missing) > 1 else 'it'}. A field the model is not told "
                 f"about is a field it will get wrong quietly."
             )
+
+        for check in spec.checks:
+            if check.severity not in SEVERITIES:
+                raise ValueError(
+                    f"profile {profile_id!r}, pass {spec.name!r}, check {check.name!r}: "
+                    f"severity {check.severity!r} is not one of {sorted(SEVERITIES)}. A "
+                    f"misspelling here would silently mean 'advisory' and the retry "
+                    f"nobody noticed was missing is the bug this whole field fixes."
+                )
 
 
 def load(profile_id: str) -> Profile:

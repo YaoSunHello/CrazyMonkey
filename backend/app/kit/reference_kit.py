@@ -257,12 +257,24 @@ def narrative_span(narrative: object, name: object) -> str:
     return ""
 
 
-def lookup(value: object, pools: list, markers: list[str] | None = None) -> dict | None:
+def lookup(
+    value: object,
+    pools: list,
+    markers: list[str] | None = None,
+    source: dict[str, Table] | None = None,
+) -> dict | None:
     """Find `value` in the first of `pools` that holds it. Exact only.
 
     `pools` is a list of `(table_name, column)` in the order to try — the
     caller decides that order, because which list wins is a judgement about the
     domain and not something the toolkit should have an opinion on.
+
+    `source` is where the tables come from. The sandbox leaves it alone and gets
+    the file the run mounted; the verifier passes the tables it already holds,
+    so that **the check and the agent run the identical function**. That is the
+    point: the coverage check's claim is that the agent's own toolkit, given the
+    agent's own extracted span, finds something the agent said was not there. A
+    second implementation could not make that claim.
 
     Two repairs are applied before giving up, both mechanical: the value is cut
     at a marker if `markers` are supplied, and each line-wrap reading from
@@ -278,10 +290,11 @@ def lookup(value: object, pools: list, markers: list[str] | None = None) -> dict
     """
     text = trim_to(value, markers) if markers else normalise(value)
     tried = variants(text)
+    known = _load() if source is None else source
 
     for candidate in tried:
         for name, column in pools:
-            table = _load().get(name)
+            table = known.get(name)
             if table is None or column not in table.columns:
                 continue
             row = table.find(column, candidate)
@@ -303,7 +316,7 @@ def lookup(value: object, pools: list, markers: list[str] | None = None) -> dict
     if not wanted:
         return None
     for name, column in pools:
-        table = _load().get(name)
+        table = known.get(name)
         if table is None or column not in table.columns:
             continue
         for entry in table.values(column):

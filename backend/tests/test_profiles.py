@@ -148,20 +148,40 @@ def test_optional_capabilities_default_to_off():
     assert spec.samples == 1
 
 
-def test_no_shipped_profile_has_turned_one_on_untested():
-    """One capability at a time, measured on its own.
+def test_only_deliberately_enabled_capabilities_are_on():
+    """One capability at a time, recorded here when it is switched on.
 
-    Turning two on together makes neither attributable — which is the mistake
-    that made a whole batch unreadable earlier. When one of these is enabled
-    deliberately, this test is the place to record that it was measured.
+    Turning two on together makes neither attributable — the mistake that made
+    a whole batch unreadable earlier. So anything enabled has to be listed, and
+    listing it means someone decided.
+
+    `explore` on `resolve` is the deliberate one. It was built, left off, and
+    left unmeasured for a long time on reasoning that had expired: the loop was
+    removed when a turn cost ~220s against a quantised model, and never
+    revisited after the model changed. The failures it addresses were measured
+    first — of the rows a run missed, 12 had exactly one master-list name
+    sitting in the narrative all along, missed by boundary logic written without
+    ever looking at a narrative.
+
+    `samples` stays off: nothing has measured it, so nothing may switch it on.
     """
+    expected = {("journal-entries", "resolve"), ("pipeline-validation", "resolve")}
+
     enabled = {
-        (name, spec.name): (spec.explore, spec.samples)
+        (name, spec.name)
         for name in available()
         for spec in load(name).passes
-        if spec.explore or spec.samples > 1
+        if spec.explore
     }
-    assert enabled == {}, f"enabled without a recorded measurement: {enabled}"
+    assert enabled == expected, f"explore enabled somewhere unrecorded: {enabled ^ expected}"
+
+    sampled = {
+        (name, spec.name)
+        for name in available()
+        for spec in load(name).passes
+        if spec.samples > 1
+    }
+    assert sampled == set(), f"sampling enabled without a measurement: {sampled}"
 
 
 # --- the lint ------------------------------------------------------------
@@ -217,6 +237,102 @@ def test_every_shipped_profile_passes_the_lint():
     """If this fails, a real run would have started against a broken prompt."""
     for name in available():
         load(name)
+
+
+# --- what a pass is allowed to see ---------------------------------------
+
+
+def test_a_pass_that_says_nothing_sees_every_table():
+    """Silence must not narrow anything, or an old profile loses data quietly."""
+    mounted = {"parties": object(), "chart": object()}
+    assert a_pass().visible_tables(mounted) == mounted
+
+
+def test_a_pass_sees_only_the_tables_it_names():
+    """Generosity was the bug.
+
+    A resolution pass handed the chart of accounts alongside the party lists
+    mined all of them for legal-form tokens, ended up with `CHARGES`, `CREDIT`
+    and `INTEREST` among them, and read `CHARGES` out of a narrative as a
+    counterparty. Nothing had told it which list was which, and nothing could
+    have — the profile knows, so the profile says.
+    """
+    mounted = {"parties": 1, "chart": 2, "codes": 3}
+    assert a_pass(uses_tables=["parties", "codes"]).visible_tables(mounted) == {
+        "parties": 1,
+        "codes": 3,
+    }
+
+
+def test_naming_a_table_that_is_not_mounted_is_not_an_error():
+    """A profile may declare more than a given run happens to mount."""
+    assert a_pass(uses_tables=["parties", "absent"]).visible_tables({"parties": 1}) == {"parties": 1}
+
+
+def test_the_resolution_pass_does_not_see_the_chart_of_accounts():
+    """The specific narrowing that fixed a measured failure, kept honest."""
+    resolve = load(DEFAULT_PROFILE).get_pass("resolve")
+    assert resolve.uses_tables, "resolve must name its tables"
+    assert "coa" not in resolve.uses_tables
+
+
+# --- promoting an advisory to a retry ------------------------------------
+
+
+def test_a_check_is_advisory_unless_the_profile_says_otherwise():
+    """Silence keeps today's behaviour, so no existing profile changes."""
+    from app.profiles import CheckSpec
+
+    assert CheckSpec(name="label_rate").severity == "advisory"
+    assert a_pass(checks=[CheckSpec(name="label_rate")]).retry_on == set()
+
+
+def test_a_promoted_check_is_named_by_what_the_verifier_reports():
+    """The loop matches on the emitted name, so a profile name would never fire.
+
+    Same trap `reported_as` exists for: a nudge keyed to `label_rate` when the
+    verifier emits `classification_review_rate` silently never fires.
+    """
+    from app.profiles import CheckSpec
+
+    spec = a_pass(
+        prompt="Set classification.",
+        checks=[
+            CheckSpec(
+                name="label_rate",
+                severity="retry",
+                options={"field": "classification", "label": "Review"},
+            )
+        ],
+    )
+    assert spec.retry_on == {"classification_review_rate"}
+
+
+def test_a_misspelled_severity_is_refused_rather_than_meaning_advisory():
+    """Silently defaulting would restore the bug this field exists to fix.
+
+    A day of runs raised 111 UNRESOLVED verdicts and discarded every one because
+    only FAIL retried. A typo here would do the same thing again, invisibly.
+    """
+    from app.profiles import CheckSpec, _lint
+
+    spec = a_pass(checks=[CheckSpec(name="label_rate", severity="retries")])
+    with pytest.raises(ValueError) as caught:
+        _lint("test", [spec])
+    assert "severity" in str(caught.value)
+
+
+def test_the_shipped_profiles_promote_the_checks_that_earn_it():
+    """A record of a deliberate decision, so removing it is also deliberate."""
+    promoted = {
+        (name, spec.name): sorted(spec.retry_on)
+        for name in available()
+        for spec in load(name).passes
+        if spec.retry_on
+    }
+    assert promoted, "nothing is promoted — the retry loop has nothing to run on"
+    for names in promoted.values():
+        assert names
 
 
 # --- the firewall --------------------------------------------------------
