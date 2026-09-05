@@ -5,7 +5,7 @@
   ![Codex](https://img.shields.io/badge/Codex-Build_Agent-000000?style=for-the-badge&logo=openai&logoColor=white)
   ![Private Markets](https://img.shields.io/badge/Private_Markets-Fund_Data-0F766E?style=for-the-badge)
   ![Encode](https://img.shields.io/badge/Built_for-Encode-2563EB?style=for-the-badge)
-  ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+  
 
 
 CrazyMonkey is a hackathon product for fund managers and investment teams. It helps transform messy investment documents into clean, model-ready datasets.
