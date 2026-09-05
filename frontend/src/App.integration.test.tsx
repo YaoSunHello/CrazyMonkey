@@ -75,7 +75,7 @@ describe("BEACON runtime integration", () => {
       reviewVersion: 2,
       snapshotSha256: "a".repeat(64),
     });
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     await user.click(await screen.findByRole("button", { name: "Review LP03 Management fee finding" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: /LP03.*Management fee/ })).toHaveFocus());
@@ -111,7 +111,7 @@ describe("BEACON runtime integration", () => {
   ] as const)("shows the ATLAS source notice and honest label for %s", async (mode, label) => {
     const user = userEvent.setup();
     const { adapter, snapshot } = serveReview({ mode });
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     const provenance = await screen.findByRole("region", { name: "Review provenance" });
     expect(provenance).toHaveTextContent(label);
@@ -129,7 +129,7 @@ describe("BEACON runtime integration", () => {
   it.each(["Mark reviewed", "Add note"])("reports a saved %s action honestly when the subsequent refresh fails", async (button) => {
     const user = userEvent.setup();
     const { adapter, readVersions } = serveReview({ failRefresh: true });
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     await user.click(await screen.findByRole("button", { name: "Review LP03 Management fee finding" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: /LP03.*Management fee/ })).toHaveFocus());
@@ -148,7 +148,7 @@ describe("BEACON runtime integration", () => {
   it("disables correction when the runtime explicitly reports that it is unsupported", async () => {
     const user = userEvent.setup();
     const { adapter, fetchMock } = serveReview();
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     await user.click(await screen.findByRole("button", { name: "Review LP03 Management fee finding" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: /LP03.*Management fee/ })).toHaveFocus());
@@ -164,7 +164,7 @@ describe("BEACON runtime integration", () => {
   it("does not allow a missing-evidence finding to be marked term confirmed", async () => {
     const user = userEvent.setup();
     const { adapter } = serveReview();
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     await user.click(await screen.findByRole("button", { name: "Review LP06 Management fee finding" }));
 
@@ -191,7 +191,7 @@ describe("BEACON runtime integration", () => {
       reviewVersion,
       snapshotSha256,
     });
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     await user.click(await screen.findByRole("button", { name: "Prepare email" }));
 
@@ -206,7 +206,7 @@ describe("BEACON runtime integration", () => {
       }
     }
     const user = userEvent.setup();
-    render(<App adapter={new ImmediateMockReviewAdapter()} />);
+    render(<App adapter={new ImmediateMockReviewAdapter()} initialWorkspace="NAV" />);
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     await user.click(await screen.findByRole("button", { name: "Review LP03 Management fee finding" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: /LP03.*Management fee/ })).toHaveFocus());

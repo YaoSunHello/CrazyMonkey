@@ -167,6 +167,32 @@ The existing profile-driven backend remains intact. The same FastAPI process
 also mounts the ATLAS ingestion, verified runtime, BEACON, and RELAY routes
 used by the browser.
 
+For the complete browser and backend together, use the guarded launcher:
+
+```bash
+./scripts/start-v0.sh
+```
+
+It checks both ports before starting, never stops an existing service, and
+shuts down only the two processes it started. If the default ports are already
+occupied, choose unused ones explicitly:
+
+```bash
+CRAZYMONKEY_BACKEND_PORT=8030 CRAZYMONKEY_FRONTEND_PORT=4200 ./scripts/start-v0.sh
+```
+
+Open the printed frontend URL. The default workspace is **Bank statements**:
+choose deterministic statement validation, upload one or more original PDF
+statements, and select **Start processing**. No LPA or NAV workbook is required.
+The result contains the real parser output, deterministic checks, exact source
+links, source hashes and a downloadable JSON artifact. The existing NAV review
+remains available from the workspace switch.
+
+The model-backed `journal-entries` and `pipeline-validation` workflows require
+both an uploaded reference workbook and backend-only LLM and Daytona
+configuration. If either is absent or a model call fails, the run is blocked or
+fails visibly; it never substitutes deterministic or fixture output.
+
 From the repository root, start the backend:
 
 ```bash

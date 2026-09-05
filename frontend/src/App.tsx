@@ -6,6 +6,7 @@ import { FindingDetail } from "./components/FindingDetail";
 import { PackWorkspace } from "./components/PackWorkspace";
 import { ProcessingScreen } from "./components/ProcessingScreen";
 import { ReviewSummary } from "./components/ReviewSummary";
+import { StatementWorkspace } from "./components/StatementWorkspace";
 import { UploadScreen } from "./components/UploadScreen";
 import type {
   DetectedUpload,
@@ -28,15 +29,18 @@ const maxFileSizeBytes = 25 * 1024 * 1024;
 
 interface AppProps {
   adapter?: ReviewAdapter;
+  initialWorkspace?: "STATEMENTS" | "NAV" | "PACK";
 }
 
-export function App({ adapter = defaultReviewAdapter }: AppProps) {
+export function App({ adapter = defaultReviewAdapter, initialWorkspace }: AppProps) {
   const packWorkspaceEnabled = import.meta.env.VITE_ENABLE_PACK_WORKSPACE === "1";
-  const [workspace, setWorkspace] = useState<"NAV" | "PACK">(() =>
-    packWorkspaceEnabled && new URLSearchParams(window.location.search).get("workspace") === "pack"
-      ? "PACK"
-      : "NAV",
-  );
+  const [workspace, setWorkspace] = useState<"STATEMENTS" | "NAV" | "PACK">(() => {
+    if (initialWorkspace) return initialWorkspace;
+    const requested = new URLSearchParams(window.location.search).get("workspace")?.toLowerCase();
+    if (requested === "nav") return "NAV";
+    if (requested === "pack" && packWorkspaceEnabled) return "PACK";
+    return "STATEMENTS";
+  });
   const [screen, setScreen] = useState<Screen>("UPLOAD");
   const [documents, setDocuments] = useState<DetectedUpload[]>([]);
   const [reviewId, setReviewId] = useState<string>();
@@ -326,32 +330,36 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
           <span>Crazy<span>Monkey</span></span>
         </a>
         <div className="header-meta">
-          {packWorkspaceEnabled && (
-            <nav className="workspace-switch" aria-label="Review workspace">
-              <button type="button" aria-pressed={workspace === "PACK"} onClick={() => setWorkspace("PACK")}>
-                Full pack
-              </button>
-              <button type="button" aria-pressed={workspace === "NAV"} onClick={() => setWorkspace("NAV")}>
-                NAV review
-              </button>
-            </nav>
-          )}
+          <nav className="workspace-switch" aria-label="Review workspace">
+            <button type="button" aria-pressed={workspace === "STATEMENTS"} onClick={() => setWorkspace("STATEMENTS")}>
+              Bank statements
+            </button>
+            <button type="button" aria-pressed={workspace === "NAV"} onClick={() => setWorkspace("NAV")}>
+              NAV review
+            </button>
+            {packWorkspaceEnabled && <button type="button" aria-pressed={workspace === "PACK"} onClick={() => setWorkspace("PACK")}>
+              Full pack
+            </button>}
+          </nav>
           <span className={`mode-pill mode-${adapter.mode}`}>
             <span aria-hidden="true" />
             {workspace === "PACK"
               ? "Pack API workspace"
+              : workspace === "STATEMENTS"
+                ? "No fixture fallback"
               : adapter.mode === "mock"
                 ? "Development fixture mode"
                 : "Live adapter configured"}
           </span>
           <span className="header-divider" aria-hidden="true" />
           <span className="workspace-name">
-            {workspace === "PACK" ? "Full Pack Workspace" : "NAV Review Workspace"}
+            {workspace === "PACK" ? "Full Pack Workspace" : workspace === "STATEMENTS" ? "Bank Statement Workspace" : "NAV Review Workspace"}
           </span>
         </div>
       </header>
 
       <main id="main-content" tabIndex={-1}>
+        {workspace === "STATEMENTS" && <StatementWorkspace />}
         {packWorkspaceEnabled && workspace === "PACK" && <PackWorkspace />}
         {workspace === "NAV" && screen === "UPLOAD" && (
           <UploadScreen

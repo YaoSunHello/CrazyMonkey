@@ -56,7 +56,7 @@ class EmptyReviewAdapter extends ImmediateMockReviewAdapter {
 describe("CrazyMonkey client-side resilience", () => {
   it("treats an empty backend review as incomplete and keeps every RELAY action locked", async () => {
     const user = userEvent.setup();
-    render(<App adapter={new EmptyReviewAdapter()} />);
+    render(<App adapter={new EmptyReviewAdapter()} initialWorkspace="NAV" />);
 
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
 
@@ -73,7 +73,7 @@ describe("CrazyMonkey client-side resilience", () => {
   it("rejects unsupported, oversized and duplicate files before another detection request", async () => {
     const adapter = new MockReviewAdapter();
     const detectDocuments = vi.spyOn(adapter, "detectDocuments");
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
     const input = screen.getByLabelText("Select files") as HTMLInputElement;
 
     fireEvent.change(input, {
@@ -108,7 +108,7 @@ describe("CrazyMonkey client-side resilience", () => {
     const user = userEvent.setup();
     const adapter = new FailingThenRetryAdapter();
     const retryReview = vi.spyOn(adapter, "retryReview");
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
 
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
 
@@ -125,7 +125,7 @@ describe("CrazyMonkey client-side resilience", () => {
   it("keeps RELAY outputs locked until every exception has a human disposition", async () => {
     const user = userEvent.setup();
     const adapter = new ImmediateMockReviewAdapter();
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
 
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     expect(await screen.findByRole("heading", { name: "Review summary" })).toBeInTheDocument();
@@ -141,7 +141,7 @@ describe("CrazyMonkey client-side resilience", () => {
     const user = userEvent.setup();
     const adapter = new ReadyMockReviewAdapter();
     const sendEmail = vi.spyOn(adapter, "sendEmail");
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
 
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     expect(await screen.findByRole("heading", { name: "Review summary" })).toBeInTheDocument();

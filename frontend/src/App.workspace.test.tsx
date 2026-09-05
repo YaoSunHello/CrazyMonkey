@@ -31,6 +31,27 @@ function serveEmptyPackWorkspace() {
   }));
 }
 
+function serveStatementWorkspace() {
+  vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {
+    if (String(url).endsWith("/api/v1/statement-jobs/config")) {
+      return Response.json({
+        backendReachable: true,
+        llmConfigured: false,
+        daytonaConfigured: false,
+        workflows: [{
+          id: "statement-validation",
+          label: "Bank statement validation",
+          description: "Check statement arithmetic without a model.",
+          requiresWorkbook: false,
+          requiresModel: false,
+        }],
+      });
+    }
+    if (String(url).endsWith("/api/profiles")) return Response.json([]);
+    throw new Error("Unexpected request in mocked statement workspace test");
+  }));
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -39,17 +60,20 @@ afterEach(() => {
 });
 
 describe("Workspace isolation", () => {
-  it("keeps Full pack disabled by default even with a Full pack URL", async () => {
+  it("opens the bank-statement workflow by default and keeps Full pack disabled without its flag", async () => {
     window.history.replaceState({}, "", "/?workspace=pack");
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
+    serveStatementWorkspace();
     const user = userEvent.setup();
     render(<App adapter={new ImmediateAdapter()} />);
-    expect(screen.getByText("Development fixture mode")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Review your NAV pack before you sign it." })).toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "Review workspace" })).not.toBeInTheDocument();
+
+    expect(await screen.findByRole("heading", { name: "Check bank statements with the real pipeline." })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Review workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bank statements" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("button", { name: "Full pack" })).not.toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "NAV review" }));
+    expect(screen.getByRole("heading", { name: "Review your NAV pack before you sign it." })).toBeInTheDocument();
+    expect(screen.getByText("Development fixture mode")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     expect(await screen.findByRole("heading", { name: "Review summary" })).toBeInTheDocument();
     expect(screen.getByText("Development fixture mode")).toBeInTheDocument();
@@ -73,7 +97,7 @@ describe("Workspace isolation", () => {
     const adapter = new RelayReadyAdapter();
     let resolveEmail!: (draft: EmailDraft) => void;
     vi.spyOn(adapter, "prepareEmail").mockImplementation(() => new Promise(resolve => { resolveEmail = resolve; }));
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     await screen.findByRole("heading", { name: "Review summary" });
     await user.click(screen.getByRole("button", { name: "Prepare email" }));
@@ -95,7 +119,7 @@ describe("Workspace isolation", () => {
     const adapter = new RelayReadyAdapter();
     let resolveExport!: (result: ExportResult) => void;
     vi.spyOn(adapter, "requestExport").mockImplementation(() => new Promise(resolve => { resolveExport = resolve; }));
-    render(<App adapter={adapter} />);
+    render(<App adapter={adapter} initialWorkspace="NAV" />);
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     await screen.findByRole("heading", { name: "Review summary" });
     await user.click(screen.getByRole("button", { name: "JSON audit package" }));

@@ -118,12 +118,24 @@ def resolve_source(location: str) -> Path:
     raise FileNotFoundError(f"no reference source at {' or '.join(map(str, candidates))}")
 
 
-def load_tables(inputs: dict) -> dict[str, Table]:
-    """Every table a profile declares. Returns {} when it declares none."""
+def load_tables(
+    inputs: dict, *, workbook_path: str | Path | None = None
+) -> dict[str, Table]:
+    """Every table a profile declares. Returns {} when it declares none.
+
+    ``workbook_path`` is the trusted host-side override used by an upload job.
+    The CLI keeps the existing profile-declared sample resolution, while an
+    HTTP run can be pinned to the workbook whose bytes and digest appear in
+    that job's manifest.  Keeping the override here means the agent and the
+    verifier still share this one table loader.
+    """
     spec = inputs.get("tables") or {}
     if not spec:
         return {}
-    return from_workbook(resolve_source(inputs["workbook"]["location"]), spec)
+    source = Path(workbook_path) if workbook_path is not None else resolve_source(
+        inputs["workbook"]["location"]
+    )
+    return from_workbook(source, spec)
 
 
 def dump(tables: dict[str, Table], path: Path) -> Path:

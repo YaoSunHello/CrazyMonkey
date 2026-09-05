@@ -398,6 +398,8 @@ async def run_agent(
     quiet: bool = False,
     batch: str = "",
     profile: str = DEFAULT_PROFILE,
+    reference_workbook: Path | None = None,
+    instruction: str = "",
 ) -> dict:
     """Run every pass a profile declares, stopping at the first that fails.
 
@@ -456,7 +458,11 @@ async def run_agent(
             status="ok",
         )
 
-    tables = load_tables(loaded.inputs)
+    # Browser jobs pass the exact workbook stored in their immutable upload
+    # manifest.  CLI callers retain the profile-declared sample resolution.
+    # Never infer an upload workbook by scanning a directory here: doing that
+    # could make a run green against a file the user did not submit.
+    tables = load_tables(loaded.inputs, workbook_path=reference_workbook)
     if tables:
         dump_tables(tables, data_dir / "tables.json")
         trace.tool(
@@ -498,6 +504,13 @@ async def run_agent(
                 check and advice about a check nobody failed is noise competing
                 with the failure that actually needs fixing."""
                 task = spec.compose(document=account, failed=failed)
+                if instruction:
+                    task += (
+                        "\n## Review objective supplied for this run\n\n"
+                        f"{instruction}\n\n"
+                        "Use this objective to prioritise the explanation, but do not "
+                        "change the required output schema, mounted evidence, or verifier rules.\n"
+                    )
                 if spec.inherits_rows:
                     return f"{task}\nThere are {len(rows)} rows to resolve.\n"
                 return f"{task}\nThe statement text, for reference:\n\n{statement_text}\n"
