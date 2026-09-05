@@ -1,10 +1,10 @@
 # CrazyMonkey
 
+  [![Ylookup Sponsor](brand/ylookup/ylookup-badge.svg)](https://www.ylookup.ai/)
   ![Privacy First](https://img.shields.io/badge/Privacy-First-111827?style=for-the-badge)
   ![Claude](https://img.shields.io/badge/Claude-AI_Extraction-D97757?style=for-the-badge&logo=claude&logoColor=white)
   ![Codex](https://img.shields.io/badge/Codex-Build_Agent-000000?style=for-the-badge&logo=openai&logoColor=white)
   ![Private Markets](https://img.shields.io/badge/Private_Markets-Fund_Data-0F766E?style=for-the-badge)
-  [![Ylookup Sponsor](brand/ylookup/ylookup-badge.svg)](https://www.ylookup.ai/)
   ![Encode](https://img.shields.io/badge/Encode-Hackathon-2563EB?style=for-the-badge)
   
 
