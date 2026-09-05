@@ -7,7 +7,8 @@ import type {
   ReviewResult,
   TermCorrection,
 } from "../types";
-import { documentRoleLabels, formatDateTime, formatMoney } from "../utils/format";
+import { absoluteMoneyValue, compareDecimalValues, isZeroDecimalValue } from "../utils/decimal";
+import { documentRoleLabels, formatDateTime, formatDecimal, formatMoney } from "../utils/format";
 import { CorrectionDialog } from "./CorrectionDialog";
 import {
   ConfidenceBadge,
@@ -50,9 +51,9 @@ export function FindingDetail({
 
   const difference = useMemo(() => {
     if (!finding.difference || !finding.administratorValue || !finding.expectedValue) return "—";
-    if (finding.difference.amount === 0) return formatMoney(finding.difference);
-    return `${formatMoney({ ...finding.difference, amount: Math.abs(finding.difference.amount) })} ${
-      finding.administratorValue.amount > finding.expectedValue.amount
+    if (isZeroDecimalValue(finding.difference.amount)) return formatMoney(finding.difference);
+    return `${formatMoney(absoluteMoneyValue(finding.difference))} ${
+      compareDecimalValues(finding.administratorValue.amount, finding.expectedValue.amount) > 0
         ? "above reconstruction"
         : "below reconstruction"
     }`;
@@ -374,31 +375,35 @@ export function FindingDetail({
 
 function VersionHistory({ finding }: { finding: ReviewFinding }) {
   const current = finding.versions.at(-1);
-  const previous = finding.versions.length > 1 ? finding.versions.at(-2) : undefined;
   return (
     <section className="detail-section version-section" aria-labelledby="version-heading">
       <div className="section-title-row">
         <div><p className="eyebrow">Change history</p><h2 id="version-heading">Review versions</h2></div>
-        <span className="source-count">Version {current?.version ?? 1}</span>
+        <span className="source-count">
+          {finding.versions.length} audit {finding.versions.length === 1 ? "event" : "events"}
+        </span>
       </div>
       <div className="version-grid">
-        {previous && (
-          <article>
-            <small>Previous version</small>
-            <strong>Version {previous.version}</strong>
-            <span>{previous.applicableRate !== undefined ? `${previous.applicableRate}% annual fee` : "Rate unavailable"}</span>
-            <span>{formatMoney(previous.expectedValue)} expected</span>
+        {current && (current.expectedValue || current.applicableRate !== undefined) && (
+          <article className="current-terms">
+            <small>Current finding values</small>
+            <strong>Current reconstructed terms</strong>
+            <span>{current.applicableRate !== undefined ? `${formatDecimal(current.applicableRate)}% annual fee` : "Rate unavailable"}</span>
+            <span>{current.expectedValue ? `${formatMoney(current.expectedValue)} expected` : "Expected value unavailable"}</span>
+            <p>Shown for the current finding only; these are not claimed as values for earlier audit events.</p>
           </article>
         )}
-        {current && (
-          <article className="current-version">
-            <small>Current version</small>
-            <strong>Version {current.version}</strong>
-            <span>{current.applicableRate !== undefined ? `${current.applicableRate}% annual fee` : "Rate unavailable"}</span>
-            <span>{formatMoney(current.expectedValue)} expected</span>
-            <p>{current.reason}</p>
+        {finding.versions.map((version, index) => (
+          <article
+            className={index === finding.versions.length - 1 ? "current-version" : undefined}
+            key={`${version.version}-${version.createdAt}`}
+          >
+            <small>{index === finding.versions.length - 1 ? "Current audit event" : "Audit event"}</small>
+            <strong>Version {version.version}</strong>
+            <span>Recorded {formatDateTime(version.createdAt)}</span>
+            <p>{version.reason}</p>
           </article>
-        )}
+        ))}
       </div>
     </section>
   );
@@ -435,8 +440,8 @@ function plainVerificationSummary(finding: ReviewFinding): string {
     return `The administrator-reported ${formatMoney(finding.administratorValue)} agrees with the independently reconstructed value.`;
   }
   const direction =
-    finding.administratorValue.amount > finding.expectedValue.amount ? "above" : "below";
-  const magnitude = { ...finding.difference, amount: Math.abs(finding.difference.amount) };
+    compareDecimalValues(finding.administratorValue.amount, finding.expectedValue.amount) > 0 ? "above" : "below";
+  const magnitude = absoluteMoneyValue(finding.difference);
   return `Exact decimal checks reconstructed ${formatMoney(finding.expectedValue)} from the governing terms and source inputs. The administrator reported ${formatMoney(finding.administratorValue)}, leaving a ${formatMoney(magnitude)} difference ${direction} the reconstruction.`;
 }
 

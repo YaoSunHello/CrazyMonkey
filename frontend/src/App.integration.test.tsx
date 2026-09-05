@@ -85,13 +85,13 @@ describe("BEACON runtime integration", () => {
     await waitFor(() => expect(screen.getAllByText("Reviewed").length).toBeGreaterThan(0));
     expect(readVersions).toEqual([1, 2]);
     const versions = screen.getByRole("region", { name: "Review versions" });
-    expect(within(versions).getAllByText("Version 2")).toHaveLength(2);
+    expect(within(versions).getByText("Version 2")).toBeInTheDocument();
     expect(screen.getByText("£12,500 above reconstruction")).toBeInTheDocument();
     expect(screen.getAllByText("Discrepancy").length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: "Back to findings" }));
     await user.click(screen.getByRole("button", { name: "Review LP04 Management fee finding" }));
-    expect(within(screen.getByRole("region", { name: "Review versions" })).getAllByText("Version 2")).toHaveLength(2);
+    expect(within(screen.getByRole("region", { name: "Review versions" })).getByText("Version 2")).toBeInTheDocument();
 
     // Another client can advance the server without changing this displayed snapshot.
     snapshot.version = 3;

@@ -12,11 +12,15 @@ import type {
   ReviewStart,
   TermCorrection,
 } from "../types";
+import { isCanonicalDecimalString } from "../utils/decimal";
 
 export class HttpReviewAdapter implements ReviewAdapter {
   readonly mode = "live" as const;
+  private readonly baseUrl: string;
 
-  constructor(private readonly baseUrl: string) {}
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
+  }
 
   async detectDocuments(files: File[]): Promise<DetectedUpload[]> {
     const form = new FormData();
@@ -112,8 +116,8 @@ export class HttpReviewAdapter implements ReviewAdapter {
   }
 
   async requestExport(reviewId: string, format: ExportFormat, version: number): Promise<ExportResult> {
-    const response = await fetch(
-      `${this.baseUrl}/api/runs/${encodeURIComponent(reviewId)}/versions/${version}/exports/${format}`,
+    const response = await this.fetchResponse(
+      `/api/runs/${encodeURIComponent(reviewId)}/versions/${version}/exports/${format}`,
     );
     if (response.status === 404 || response.status === 501) {
       return { available: false, message: `${format.toUpperCase()} output is not available.` };
@@ -161,9 +165,21 @@ export class HttpReviewAdapter implements ReviewAdapter {
   }
 
   private async fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, init);
+    const response = await this.fetchResponse(path, init);
     if (!response.ok) throw new Error(await this.errorMessage(response));
     return (await response.json()) as T;
+  }
+
+  private async fetchResponse(path: string, init?: RequestInit): Promise<Response> {
+    try {
+      const url = `${this.baseUrl}${path}`;
+      return init === undefined ? await fetch(url) : await fetch(url, init);
+    } catch (error) {
+      const detail = error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : "The network request could not be completed.";
+      throw new Error(`Backend unavailable. ${detail}`, { cause: error });
+    }
   }
 
   private async errorMessage(response: Response): Promise<string> {
@@ -269,7 +285,7 @@ function isOutputCapabilities(value: unknown): boolean {
 function isOptionalMoney(value: unknown): boolean {
   return value === undefined || (
     isRecord(value) &&
-    typeof value.amount === "number" && Number.isFinite(value.amount) &&
+    isExactDecimal(value.amount) &&
     isNonEmptyString(value.currency)
   );
 }
@@ -317,9 +333,7 @@ function isFindingVersion(value: unknown): boolean {
     isPositiveInteger(value.version) &&
     isNonEmptyString(value.createdAt) &&
     isNonEmptyString(value.reason) &&
-    (value.applicableRate === undefined || (
-      typeof value.applicableRate === "number" && Number.isFinite(value.applicableRate)
-    )) &&
+    (value.applicableRate === undefined || isExactDecimal(value.applicableRate)) &&
     isOptionalMoney(value.expectedValue);
 }
 
@@ -346,6 +360,11 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isOptionalString(value: unknown): boolean {
   return value === undefined || typeof value === "string";
+}
+
+function isExactDecimal(value: unknown): value is number | string {
+  return (typeof value === "number" && Number.isFinite(value)) ||
+    (typeof value === "string" && isCanonicalDecimalString(value));
 }
 
 function isPositiveInteger(value: unknown): value is number {

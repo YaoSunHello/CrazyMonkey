@@ -6,7 +6,10 @@ describe("MockReviewAdapter exports", () => {
     const { reviewId } = await adapter.startSyntheticReview();
     const review = await adapter.getReview(reviewId);
 
-    expect(await adapter.prepareEmail(reviewId, review.version)).toEqual(expect.objectContaining({ status: "DRAFT" }));
+    expect(await adapter.prepareEmail(reviewId, review.version)).toEqual(expect.objectContaining({
+      status: "DRAFT",
+      recipient: "",
+    }));
     await expect(adapter.prepareEmail(reviewId, review.version + 1)).rejects.toThrow(
       "The requested development fixture version is unavailable.",
     );

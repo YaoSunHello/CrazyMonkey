@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { ReviewFinding, TermCorrection } from "../types";
+import { formatDecimal } from "../utils/format";
 import { Modal } from "./Modal";
 
 interface CorrectionDialogProps {
@@ -69,7 +70,7 @@ export function CorrectionDialog({ finding, reviewerName, saving, onClose, onSub
           />
           <span aria-hidden="true">%</span>
         </div>
-        <p className="field-help">Current extracted value: {currentRate !== undefined ? `${currentRate}%` : "Unavailable"}</p>
+        <p className="field-help">Current extracted value: {currentRate !== undefined ? `${formatDecimal(currentRate)}%` : "Unavailable"}</p>
 
         <label htmlFor="correction-reason">Reason for correction</label>
         <textarea

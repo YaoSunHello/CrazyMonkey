@@ -1,11 +1,61 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HttpReviewAdapter } from "./httpReviewAdapter";
+import type { DetectedUpload } from "../types";
+import { syntheticReviewFixture } from "../data/syntheticReview";
 
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 describe("HttpReviewAdapter", () => {
+  it("posts the original file bytes and matching manifest when starting an uploaded review", async () => {
+    const documents: DetectedUpload[] = [
+      {
+        id: "client-nav",
+        filename: "Administrator_NAV.xlsx",
+        role: "NAV_WORKBOOK",
+        recognition: "RECOGNISED",
+        file: new File(["real-workbook-bytes"], "Administrator_NAV.xlsx"),
+      },
+      {
+        id: "client-lpa",
+        filename: "Fund_LPA.pdf",
+        role: "LPA",
+        recognition: "RECOGNISED",
+        file: new File(["real-pdf-bytes"], "Fund_LPA.pdf"),
+      },
+    ];
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({ reviewId: "uploaded-review" }, { status: 201 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new HttpReviewAdapter("https://review.example/").startReview(documents)).resolves.toEqual({
+      reviewId: "uploaded-review",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://review.example/api/v1/reviews",
+      expect.objectContaining({ method: "POST", body: expect.any(FormData) }),
+    );
+    const form = fetchMock.mock.calls[0][1]?.body as FormData;
+    expect(JSON.parse(String(form.get("manifest")))).toEqual(
+      documents.map(({ file: _file, ...document }) => document),
+    );
+    const postedFiles = form.getAll("files") as File[];
+    expect(postedFiles.map((file) => file.name)).toEqual(["Administrator_NAV.xlsx", "Fund_LPA.pdf"]);
+    await expect(postedFiles[0].text()).resolves.toBe("real-workbook-bytes");
+    await expect(postedFiles[1].text()).resolves.toBe("real-pdf-bytes");
+  });
+
+  it("reports an unavailable backend and never substitutes fixture data after a network failure", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    await expect(new HttpReviewAdapter("https://review.example").getReview("network-failure")).rejects.toThrow(
+      "Backend unavailable. Failed to fetch",
+    );
+  });
+
   it("prepares an unsent email draft for the explicitly requested review version", async () => {
     const draft = { id: "run-qa-v7-draft", status: "DRAFT", recipient: "", subject: "Version 7", body: "Review draft", attachments: [] };
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(draft));
@@ -112,6 +162,39 @@ describe("HttpReviewAdapter", () => {
     );
 
     await expect(new HttpReviewAdapter("https://review.example").getReview("raw-atlas")).rejects.toThrow(
+      "incompatible BEACON presentation contract",
+    );
+  });
+
+  it("accepts canonical decimal strings in live money and version fields", async () => {
+    const review = structuredClone(syntheticReviewFixture);
+    review.source = "ATLAS";
+    const finding = review.findings[0];
+    finding.administratorValue = { amount: "90071992547409.01", currency: "GBP" };
+    finding.expectedValue = { amount: "90071992547400.00", currency: "GBP" };
+    finding.difference = { amount: "9.01", currency: "GBP" };
+    finding.versions = [{
+      version: 1,
+      createdAt: review.createdAt,
+      reason: "Initial source-linked deterministic review",
+      applicableRate: "1.5000",
+      expectedValue: structuredClone(finding.expectedValue),
+    }];
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(Response.json(review)));
+
+    const result = await new HttpReviewAdapter("https://review.example").getReview(review.id);
+
+    expect(result.findings[0].administratorValue?.amount).toBe("90071992547409.01");
+    expect(result.findings[0].versions[0].applicableRate).toBe("1.5000");
+  });
+
+  it("rejects non-canonical decimal strings in live money fields", async () => {
+    const review = structuredClone(syntheticReviewFixture);
+    review.source = "ATLAS";
+    review.findings[0].administratorValue = { amount: "9.007199254740901e13", currency: "GBP" };
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(Response.json(review)));
+
+    await expect(new HttpReviewAdapter("https://review.example").getReview(review.id)).rejects.toThrow(
       "incompatible BEACON presentation contract",
     );
   });

@@ -1,4 +1,5 @@
-import type { DocumentRole, FindingStatus, HumanReviewState, MoneyValue } from "../types";
+import type { DecimalValue, DocumentRole, FindingStatus, HumanReviewState, MoneyValue } from "../types";
+import { canonicalDecimalText } from "./decimal";
 
 export const documentRoleLabels: Record<DocumentRole, string> = {
   NAV_WORKBOOK: "NAV workbook",
@@ -24,14 +25,14 @@ export const humanReviewLabels: Record<HumanReviewState, string> = {
 
 export function formatMoney(value?: MoneyValue): string {
   if (!value) return "—";
-  const amountInMinorUnits = Math.round(Math.abs(value.amount) * 100);
-  const hasMinorUnits = amountInMinorUnits % 100 !== 0;
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: value.currency,
-    minimumFractionDigits: hasMinorUnits ? 2 : 0,
-    maximumFractionDigits: 2,
-  }).format(value.amount);
+  const decimal = displayDecimalParts(value.amount, 2);
+  const affixes = currencyAffixes(value.currency);
+  return `${decimal.negative ? "-" : ""}${affixes.prefix}${decimal.number}${affixes.suffix}`;
+}
+
+export function formatDecimal(value: DecimalValue): string {
+  const decimal = displayDecimalParts(value, 0);
+  return `${decimal.negative ? "-" : ""}${decimal.number}`;
 }
 
 export function formatDateTime(value: string): string {
@@ -43,4 +44,44 @@ export function formatDateTime(value: string): string {
 
 export function statusPriority(status: FindingStatus): number {
   return { DISCREPANCY: 0, CANNOT_VERIFY: 1, UNSUPPORTED: 2, MATCH: 3 }[status];
+}
+
+function displayDecimalParts(value: DecimalValue, fractionalMinimum: number) {
+  const canonical = canonicalDecimalText(value);
+  const negative = canonical.startsWith("-");
+  const unsigned = negative ? canonical.slice(1) : canonical;
+  const [integer, rawFraction = ""] = unsigned.split(".");
+  const significantFraction = rawFraction.replace(/0+$/, "");
+  const fraction = significantFraction.length > 0
+    ? significantFraction.padEnd(fractionalMinimum, "0")
+    : "";
+  const groupedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return {
+    negative: negative && !/^0(?:\.0+)?$/.test(unsigned),
+    number: `${groupedInteger}${fraction ? `.${fraction}` : ""}`,
+  };
+}
+
+function currencyAffixes(currency: string): { prefix: string; suffix: string } {
+  try {
+    const parts = new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency,
+      currencyDisplay: "narrowSymbol",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).formatToParts(0);
+    const numeric = new Set(["integer", "group", "decimal", "fraction"]);
+    const firstNumeric = parts.findIndex((part) => numeric.has(part.type));
+    let lastNumeric = firstNumeric;
+    parts.forEach((part, index) => {
+      if (numeric.has(part.type)) lastNumeric = index;
+    });
+    return {
+      prefix: parts.slice(0, firstNumeric).map((part) => part.value).join(""),
+      suffix: parts.slice(lastNumeric + 1).map((part) => part.value).join(""),
+    };
+  } catch {
+    return { prefix: `${currency} `, suffix: "" };
+  }
 }

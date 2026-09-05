@@ -1,17 +1,24 @@
 # BEACON — human-review frontend
 
-## Status on main
+## Integration status
 
-This frontend-only delivery does not install the backend facade described below.
-The current `main` backend exposes `/health`; its ingestion engine and recorded
-run format are described in `docs/FRONTEND.md`. Connecting that engine to the
-BEACON contract remains integration work. The live workflow described here was
-verified against the separate Leo integration backend, not the main backend.
+This repository version includes the BEACON HTTP facade and RELAY routes mounted
+by `backend/app/main.py`. In live mode, the existing frontend posts the original
+file bytes to that backend; ATLAS normalizes the sources, the runtime performs
+the analyst/challenger/verifier sequence, and RELAY freezes and exports the
+result. The browser does not calculate findings or silently substitute fixture
+answers when the backend is unavailable.
+
+The integration is additive to the backend already on `main`: the existing
+`/health`, `/api/profiles`, `/api/profiles/{profile_id}`, CLI, agent, profile,
+and verification code remain in place. The legacy `/api/pack` Python importer
+from `leo2` is not included; only its frontend is preserved behind an
+off-by-default feature flag.
 
 For a standalone UI preview, run `npm ci` and `npm run dev` from `frontend/`, then
 open `http://127.0.0.1:4173`. This defaults to explicitly labelled fixture mode.
-Use `VITE_API_MODE=live` and `VITE_API_BASE_URL` only with a backend implementing
-the routes and types in `src/api/httpReviewAdapter.ts` and `src/types.ts`.
+For the integrated path, use the live-mode commands below; a missing or failed
+backend is shown as **Backend unavailable**.
 
 BEACON is CrazyMonkey's nontechnical fund-review workspace. It consumes the
 backend's BEACON presentation contract after ATLAS has normalized the source
@@ -133,8 +140,7 @@ version for UI testing; that is not a backend or source-document change.
 From the CrazyMonkey repository root, start the backend:
 
 ```bash
-PYTHONPATH=backend backend/.venv/bin/python -m uvicorn app.main:app \
-  --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
 ```
 
 In a second terminal:
@@ -182,8 +188,10 @@ clause interpreter; it is not a hosted-model call or live fund data.
 | Correct extracted term | `POST /api/v1/reviews/{reviewId}/findings/{findingId}/corrections` | Deliberately `501` for unsourced overrides |
 | Add supporting document | `POST /api/v1/reviews/{reviewId}/documents` | Active; creates a fresh run with the added source |
 | Request output | `GET /api/runs/{reviewId}/versions/{version}/exports/{format}` | Active for displayed-version PDF/XLSX/JSON through RELAY |
-| Prepare email | `POST /api/v1/reviews/{reviewId}/email/prepare?version={version}` | Active, unsigned display draft only |
-| Send email | `POST /api/v1/reviews/{reviewId}/email/send` | Not exposed as a BEACON capability |
+| Prepare email | `POST /api/v1/reviews/{reviewId}/email/prepare?version={version}` | Active, unsigned recipient-free display draft only |
+| Legacy browser send | `POST /api/v1/reviews/{reviewId}/email/send` | Always rejected with `422`; advertised capability is `false` |
+| Version-bound email preview | `POST /api/runs/{reviewId}/email/preview` | Requires a user-entered recipient and immutable review version; does not send |
+| Confirmed RELAY send | `POST /api/runs/{reviewId}/email/send` | Disabled by default; also requires an enabled server, SMTP configuration, signed preview token, exact version, explicit `SEND`, and idempotency key |
 
 ## Validation
 
@@ -199,10 +207,20 @@ npm run build
 For the focused backend bridge from the repository root:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=backend \
-  backend/.venv/bin/python -m pytest -q -p no:cacheprovider \
+uv run pytest -q -p no:cacheprovider \
   backend/tests/test_runtime_beacon.py backend/tests/test_runtime_integration.py
 ```
+
+For the complete backend suite from the repository root:
+
+```bash
+uv run pytest -q -p no:cacheprovider
+```
+
+The root backend test guard removes all email-enable and SMTP environment
+variables and fails immediately if either `smtplib.SMTP` or `smtplib.SMTP_SSL`
+is constructed. Tests of the confirmation workflow use an in-memory recording
+transport; a passing suite therefore performs no network email operation.
 
 Passing these checks proves the local component and integrated fixture path. It
 does not prove production deployment, arbitrary-contract interpretation,

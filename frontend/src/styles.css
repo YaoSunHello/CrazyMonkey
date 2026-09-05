@@ -211,6 +211,31 @@ h3 {
   font-size: 0.86rem;
 }
 
+.workspace-switch {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.workspace-switch button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.workspace-switch button[aria-pressed="true"] {
+  color: #fff;
+  background: var(--brand);
+}
+
 .header-divider {
   width: 1px;
   height: 22px;
@@ -2334,6 +2359,12 @@ h3 {
   background: #f1f6f7;
 }
 
+.version-grid article.current-terms {
+  grid-column: 1 / -1;
+  border-color: #d8c897;
+  background: #fffaf0;
+}
+
 .version-grid small {
   color: #6a7882;
   font-size: 0.63rem;
@@ -2821,6 +2852,10 @@ h3 {
   }
 
   .header-divider {
+    display: none;
+  }
+
+  .workspace-switch ~ .mode-pill {
     display: none;
   }
 

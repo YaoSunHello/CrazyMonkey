@@ -160,23 +160,45 @@ docs/        business cases, frontend contract, validation plans
 brand/       sponsor and project brand files
 ```
 
-## Run Locally
+## Run the connected V0
 
-Backend:
+See [BEACON](frontend/BEACON.md) for the browser workflow and API contract.
+The existing profile-driven backend remains intact. The same FastAPI process
+also mounts the ATLAS ingestion, verified runtime, BEACON, and RELAY routes
+used by the browser.
+
+From the repository root, start the backend:
+
+```bash
+uv sync
+uv run uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
+```
+
+In a second terminal, start the frontend in live mode:
+
+```bash
+cd frontend
+npm ci
+VITE_API_MODE=live VITE_API_BASE_URL=http://127.0.0.1:8000 \
+  npm run dev -- --host 127.0.0.1
+```
+
+Open `http://127.0.0.1:4173`. Use one backend worker for V0 because active
+review state is process-local. Generated review snapshots and exports are
+written under the ignored `outputs/relay/` directory. Real email sending is
+disabled by default; the browser prepares a draft only. In live mode a backend
+failure is shown as `Backend unavailable`; the browser does not substitute
+fixture results.
+
+## Backend CLI
+
+The profile-driven CLI remains available:
 
 ```bash
 uv sync
 cd backend
 uv run python -m app.cli verify
 uv run python -m app.cli profiles
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm run dev
 ```
 
 ## Demo Message
