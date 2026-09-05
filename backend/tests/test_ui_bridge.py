@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.profiles import available
 from app.ui_bridge.schemas import MAX_BATCH_BYTES, MAX_FILE_BYTES, MAX_FILES
-from app.ui_bridge.store import STORE
+from app.ui_bridge.store import STORE, Job
 
 ROOT = Path(__file__).resolve().parents[2]
 STATEMENTS = ROOT / "samples" / "01-bank-statements-to-journal-entries" / "statements"
@@ -284,6 +284,72 @@ def test_unknown_purpose_is_rejected_not_treated_as_a_source(client: TestClient)
     )
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "INVALID_MANIFEST"
+
+
+def test_manifest_extra_fields_are_rejected(client: TestClient):
+    blob = b"%PDF-1.4\n"
+    item = entry("safe.pdf", blob)
+    item["browser_command"] = "do-not-run"
+    response = submit(client, [item], [blob], key=f"extra-{uuid.uuid4().hex}")
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "INVALID_MANIFEST"
+
+
+def test_multipart_order_and_content_type_must_match_the_manifest(client: TestClient):
+    blob = b"%PDF-1.4\n"
+    entries = [
+        entry("one.pdf", blob, client_file_id="one"),
+        entry("two.pdf", blob, client_file_id="two"),
+    ]
+    manifest = json.dumps({
+        "profile_id": "journal-entries",
+        "case_name": "Multipart contract",
+        "files": entries,
+    })
+    reversed_response = client.post(
+        "/api/ui/v1/jobs",
+        data={"manifest": manifest},
+        files=[
+            ("files", ("two.pdf", blob, "application/pdf")),
+            ("files", ("one.pdf", blob, "application/pdf")),
+        ],
+        headers={"Idempotency-Key": f"order-{uuid.uuid4().hex}"},
+    )
+    assert reversed_response.status_code == 422
+    assert reversed_response.json()["detail"]["code"] == "UPLOAD_FILENAME_MISMATCH"
+
+    mime_response = client.post(
+        "/api/ui/v1/jobs",
+        data={"manifest": json.dumps({
+            "profile_id": "journal-entries",
+            "case_name": "Multipart MIME contract",
+            "files": [entries[0]],
+        })},
+        files=[("files", ("one.pdf", blob, "text/plain"))],
+        headers={"Idempotency-Key": f"mime-{uuid.uuid4().hex}"},
+    )
+    assert mime_response.status_code == 415
+    assert mime_response.json()["detail"]["code"] == "UNSUPPORTED_CONTENT_TYPE"
+
+
+def test_event_trace_is_actually_bounded_and_uses_the_shared_contract(tmp_path: Path):
+    job = Job(
+        job_id="job_event_contract",
+        idempotency_key="event-contract-key",
+        request_fingerprint="event-contract-fingerprint",
+        profile_id="journal-entries",
+        case_name="Event contract",
+        directory=tmp_path,
+        files=[],
+    )
+    for index in range(101):
+        job.add_event("JOB_QUEUED", f"queued {index}")
+
+    assert job.events_truncated is True
+    assert len(job.events) == 100
+    assert job.events[0]["meta"]["sequence"] == 2
+    assert job.events[-1]["meta"]["sequence"] == 101
+    assert set(job.events[-1]) == {"kind", "label", "detail", "status", "body", "meta", "at"}
 
 
 @pytest.mark.parametrize(
