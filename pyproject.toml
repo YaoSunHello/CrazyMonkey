@@ -1,0 +1,29 @@
+[project]
+name = "crazymonkey"
+version = "0.1.0"
+description = "Turn fund bank statements into journal entries that provably foot."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+    "pydantic",
+    "pydantic-settings",
+    "pdfplumber",
+    "openpyxl",
+    "openai-agents[litellm]",
+    "python-dotenv",
+    "daytona",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+# Not an installable package — this project is run from `backend/`, where the
+# FastAPI app lives as `app.main:app`. uv manages the environment only.
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]

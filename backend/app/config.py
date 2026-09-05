@@ -1,0 +1,90 @@
+"""Configuration, read once from the environment.
+
+The model endpoint is deliberately not hard-coded anywhere: it is whatever
+`.env` says, and the served model id is read from the endpoint itself rather
+than assumed, because a model string copied from another project is the kind
+of confidently-wrong value that costs an hour to find.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import urllib.request
+from functools import cached_property
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    llm_base_url: str = ""
+    llm_api_key: str = ""
+    llm_model: str = ""
+    llm_user_agent: str = "CrazyMonkey/0.1"
+    # The served model is a hybrid reasoning model. "off" disables the channel
+    # entirely; low / medium / high ask the server to budget it.
+    #
+    # Measured on this task: unbounded thinking produced 120,000 characters of
+    # reasoning in 28 minutes and no code at all. Some budget is needed.
+    llm_thinking: str = "low"
+
+    daytona_api_key: str = ""
+    daytona_target: str = "eu"
+
+    agent_max_attempts: int = 4
+    agent_max_turns: int = 20
+    agent_timeout: int = 300
+
+    @cached_property
+    def resolved_model(self) -> str:
+        """The served model id, asked for rather than guessed.
+
+        Falls back to `llm_model` when the endpoint cannot be reached, so an
+        offline unit test does not have to make a network call.
+        """
+        if self.llm_model:
+            return self.llm_model
+        request = urllib.request.Request(f"{self.llm_base_url.rstrip('/')}/models")
+        request.add_header("Authorization", f"Bearer {self.llm_api_key}")
+        request.add_header("User-Agent", self.llm_user_agent)
+        with urllib.request.urlopen(request, timeout=30) as response:
+            served = json.load(response)["data"]
+        if not served:
+            raise RuntimeError(f"{self.llm_base_url} serves no models")
+        return served[0]["id"]
+
+    # Overrides the prefix derived from the base URL, for an endpoint whose
+    # host does not give the provider away.
+    llm_provider: str = ""
+
+    @property
+    def litellm_model(self) -> str:
+        """LiteLLM routes by model-string prefix.
+
+        Derived from the endpoint rather than hard-coded, because this runs
+        against both a self-hosted vLLM and Google's OpenAI-compatible
+        endpoint.
+
+        `hosted_vllm/` is deliberate for the self-hosted case: it makes LiteLLM
+        send its own User-Agent, and the CDN in front of that endpoint returns
+        403 for the OpenAI SDK's default one. Google's endpoint has no such
+        block, so plain `openai/` — LiteLLM's generic OpenAI-compatible route —
+        is right there.
+        """
+        if self.llm_provider:
+            prefix = self.llm_provider.rstrip("/")
+        elif "googleapis.com" in self.llm_base_url:
+            prefix = "openai"
+        else:
+            prefix = "hosted_vllm"
+        return f"{prefix}/{self.resolved_model}"
+
+
+def load_settings() -> Settings:
+    # A descriptive User-Agent has to reach every request, including ones made
+    # by libraries we do not control, so it goes into the environment too.
+    settings = Settings()
+    os.environ.setdefault("OR_SITE_URL", "")
+    return settings

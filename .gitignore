@@ -8,3 +8,25 @@ node_modules/
 outputs/*
 !outputs/.gitkeep
 
+# Working knowledge base — event material, credential notes, half-formed thinking
+docs/
+
+# The organisers have since committed the dataset themselves, under
+# samples/01-bank-statements-to-journal-entries/, and these rules do not match it.
+# They cover only the older flat drop-in some of us still have on disk, so an
+# unpacked copy of the zip does not get committed a second time.
+samples/statements/
+samples/workbook/
+samples/DATASET_README.md
+
+# Local working notes for Claude — not part of the deliverable.
+CLAUDE.md
+
+# Any .env variant, not just .env — a backup written beside it is still secrets.
+.env
+.env.*
+*.env
+!.env.example
+
+# Local setup helpers may carry a key as a default argument.
+setup_*.sh
