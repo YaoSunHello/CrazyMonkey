@@ -1,0 +1,50 @@
+.product-shell {
+  min-height: 100vh;
+}
+
+.product-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 24px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.product-header__brand {
+  font-family: var(--hand);
+  font-size: 20px;
+  color: var(--text);
+}
+
+.step-indicator {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.step-indicator__item {
+  position: relative;
+  padding-bottom: 2px;
+}
+
+.step-indicator__item--active {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.step-indicator__item--done {
+  color: var(--teal);
+}
+
+@media (max-width: 640px) {
+  .step-indicator {
+    gap: 12px;
+  }
+}

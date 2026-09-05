@@ -1,0 +1,55 @@
+.run-animation {
+  margin-top: 32px;
+  padding: 28px 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+}
+
+.run-animation__scroll {
+  overflow-x: auto;
+}
+
+.run-animation__svg {
+  min-width: 900px;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.ra-title {
+  font-family: var(--hand);
+  font-size: 19px;
+  fill: var(--text-muted);
+  text-anchor: middle;
+}
+
+.ra-title--active {
+  fill: var(--accent-strong);
+}
+
+.ra-title--done {
+  fill: var(--teal);
+}
+
+.run-animation__oval--pulse {
+  animation: ra-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes ra-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.run-animation__caption {
+  margin-top: 18px;
+  text-align: center;
+  font-family: var(--hand);
+  font-size: 17px;
+  color: var(--text-muted);
+}

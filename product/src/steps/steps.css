@@ -1,0 +1,364 @@
+.step {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.step--wide {
+  max-width: 920px;
+}
+
+.step__kicker {
+  font-family: var(--hand);
+  font-size: 17px;
+  color: var(--accent-strong);
+  margin-bottom: 10px;
+}
+
+.step__title {
+  font-size: 30px;
+}
+
+.step__lede {
+  margin-top: 12px;
+  font-size: 15px;
+  max-width: 560px;
+}
+
+.step__lede code {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--bg-elevated);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.step__actions {
+  margin-top: 36px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.step__actions--left {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn--primary:hover {
+  background: var(--accent-strong);
+}
+
+.btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--ghost {
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  color: var(--text);
+}
+
+.btn--ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+/* Upload */
+
+.dropzone {
+  margin-top: 28px;
+  padding: 40px 20px;
+  border: 2px dashed var(--surface-border);
+  border-radius: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dropzone:hover,
+.dropzone--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dropzone__title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dropzone__hint {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.file-list {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-list__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.file-list__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-list__size {
+  color: var(--text-faint);
+}
+
+.file-list__remove {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-faint);
+  padding: 0 4px;
+}
+
+.file-list__remove:hover {
+  color: var(--status-critical);
+}
+
+/* Questionnaire */
+
+.q-group {
+  margin-top: 32px;
+}
+
+.q-group__title {
+  font-size: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.q-field {
+  margin-top: 18px;
+}
+
+.q-field__prompt {
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.q-field__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.q-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.q-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.q-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.q-textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* Output */
+
+.stat-tiles {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.stat-tile {
+  padding: 16px;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-tile__label {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.stat-tile__value {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.section-heading {
+  margin-top: 40px;
+  margin-bottom: 4px;
+  font-size: 18px;
+}
+
+.data-table-wrap {
+  margin-top: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  color: var(--text-faint);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.data-table__row {
+  cursor: pointer;
+}
+
+.data-table__row:hover {
+  background: var(--bg-elevated);
+}
+
+.data-table__narrative {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.data-table__amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.data-table__detail-row td {
+  background: var(--bg-elevated);
+}
+
+.data-table__detail {
+  padding: 6px 4px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.data-table__detail p {
+  color: var(--text);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badge--good {
+  background: var(--status-good-soft);
+  color: var(--status-good);
+}
+
+.badge--warning {
+  background: var(--status-warning-soft);
+  color: #8a5c00;
+}
+
+.badge--critical {
+  background: var(--status-critical-soft);
+  color: var(--status-critical);
+}
+
+.ask-ai-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 12px 24px -10px rgba(217, 119, 87, 0.6);
+  z-index: 40;
+}
+
+.ask-ai-fab:hover {
+  background: var(--accent-strong);
+}
+
+@media (max-width: 720px) {
+  .stat-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
