@@ -12,6 +12,8 @@ at the bottom of this file rather than left as a convention.
 
 from __future__ import annotations
 
+import re
+
 from decimal import Decimal
 
 from app.score import score_rows
@@ -112,6 +114,9 @@ def test_the_agent_cannot_reach_the_answer_key():
     for kit in ("statement_kit", "reference_kit"):
         reachable.append(str(Path(agent_module.__file__).parent / "kit" / f"{kit}.py"))
 
+    # Look for an import, not for the word. Prose may legitimately mention
+    # scoring; what must never happen is the module being reachable.
+    forbidden = re.compile(r"^\s*(from\s+[\w.]*\bscore\b|import\s+[\w.]*\bscore\b)", re.M)
     for path in reachable:
         source = Path(path).read_text(encoding="utf-8")
-        assert "score" not in source, f"{path} can see the benchmark"
+        assert not forbidden.search(source), f"{path} imports the benchmark"

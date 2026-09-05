@@ -102,6 +102,43 @@ class Statement(BaseModel):
 
 CheckStatus = Literal["PASS", "FAIL", "UNRESOLVED", "CANNOT_VERIFY"]
 
+# What a single row's resolution against a reference list may say about itself.
+# Distinct from CheckStatus, which is about a whole check over many rows.
+ResolutionStatus = Literal["MATCH", "PROBABLE", "UNRESOLVED", "CANNOT_VERIFY", "FAIL"]
+
+
+class MatchResult(BaseModel):
+    """One value resolved — or deliberately not — against a reference list.
+
+    Five states, and the middle one is the interesting addition:
+
+    - ``MATCH``         found verbatim, case-insensitively, in the named table.
+    - ``PROBABLE``      a near miss the agent believes is the same thing, with
+                        the candidate it proposes, a confidence below 1, and a
+                        reason. Never treated as resolved: it routes to a person
+                        with the answer filled in rather than making them start
+                        from nothing.
+    - ``UNRESOLVED``    a value was read out of the document and matches nothing.
+    - ``CANNOT_VERIFY`` the document named nothing to resolve. A bank charge has
+                        no counterparty, and saying so is a finding, not a gap.
+    - ``FAIL``          the row is malformed.
+
+    ``PROBABLE`` is not fuzzy matching by another name. The *target* is still
+    checked for membership, so a proposal that names something no list contains
+    fails exactly as an unsourced ``MATCH`` would. What cannot be verified is
+    only the judgement that two spellings mean the same company — which is why
+    it never counts as clean, and why ``why`` is mandatory. A confidence score
+    with no reason is a guess in a costume.
+    """
+
+    status: ResolutionStatus
+    matched_name: str | None = None
+    table: str = Field(default="", description="Which reference list the match came from")
+    confidence: float | None = Field(
+        default=None, description="Below 1.0 for PROBABLE; absent for an exact MATCH"
+    )
+    why: str = Field(default="", description="Required for PROBABLE: what differed, and why it is still the same thing")
+
 
 class Check(BaseModel):
     """The result of one deterministic verification.

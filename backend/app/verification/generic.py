@@ -31,8 +31,14 @@ from app.models import Check
 
 # What a resolution may say about itself. `MATCH` and `UNRESOLVED` are the
 # honest outcomes; `FAIL` means the claim is broken; `CANNOT_VERIFY` means the
-# input needed to decide was not in this run.
-STATUSES = {"MATCH", "UNRESOLVED", "FAIL", "CANNOT_VERIFY"}
+# input needed to decide was not in this run; `PROBABLE` is a sourced proposal
+# for a person to accept, never a resolution.
+STATUSES = {"MATCH", "PROBABLE", "UNRESOLVED", "FAIL", "CANNOT_VERIFY"}
+
+# Statuses whose `matched_name` must exist verbatim in a declared table. A
+# proposal is held to the same sourcing standard as a match — what makes it a
+# proposal is that the *equivalence* is judgement, not that the target is vague.
+NAMES_A_TARGET = {"MATCH", "PROBABLE"}
 
 
 def _cap(items: list[str], limit: int = 5) -> str:
@@ -129,16 +135,16 @@ def check_membership(
             problems.append(f"row {index}: status {status or '(missing)'!r} is not one of {sorted(STATUSES)}")
             continue
         counts[status] += 1
-        if status != "MATCH":
+        if status not in NAMES_A_TARGET:
             continue
 
         key = normalise(resolution.get("matched_name") or resolution.get("matched") or "")
         table_name = normalise(resolution.get("table"))
         if not key:
-            problems.append(f"row {index}: MATCH with nothing matched")
+            problems.append(f"row {index}: {status} with nothing matched")
         elif not present(table_name, key):
             where = f"table {table_name!r}" if table_name else "any declared table"
-            problems.append(f"row {index}: MATCH on {key!r}, but it is not in {where}")
+            problems.append(f"row {index}: {status} on {key!r}, but it is not in {where}")
 
     summary = " · ".join(f"{n} {s}" for s, n in counts.items() if n)
     return Check(
@@ -147,6 +153,129 @@ def check_membership(
         status="PASS" if not problems else "FAIL",
         detail=summary or "no resolutions declared",
         evidence=_cap(problems),
+    )
+
+
+def check_span_plausibility(rows: list[dict], scope: str, options: dict) -> Check:
+    """An extracted name should look like a name, not like a sentence.
+
+    This exists because of a failure the other checks could not see. The
+    extractor captured `NI ABF I, SCSP FOR PURCHASE 100PER OF ACC INT, IN
+    CEPHALUS BIOGAS 001 LTD PREMIUM, ACCRUED INTEREST` — eighteen words —
+    and every check passed: provenance was satisfied because the span *is* a
+    literal substring, and membership honestly reported UNRESOLVED. So the run
+    was accepted on attempt one with a quarter of its rows quietly unresolved,
+    and the retry that would have fixed it never fired.
+
+    `UNRESOLVED`, never `FAIL`. A long span is suspicious, not provably wrong,
+    and failing a pass on a heuristic would blur the line between the checks
+    that are exact and the checks that advise. It is enough that it shows in
+    the report and reaches the next attempt's prompt.
+    """
+    field = options["field"]
+    limit = int(options.get("max_words", 8))
+    stops = {normalise(s).casefold() for s in options.get("stop_words", [])}
+
+    problems = []
+    seen = 0
+    for index, row in enumerate(rows):
+        value = normalise(row.get(field))
+        if not value:
+            continue
+        seen += 1
+        words = value.split()
+        if len(words) > limit:
+            problems.append(f"row {index}: {len(words)} words — {value[:60]!r}")
+        elif stops and any(w.casefold().strip(".,") in stops for w in words):
+            hit = next(w for w in words if w.casefold().strip(".,") in stops)
+            problems.append(f"row {index}: contains {hit!r}, which reads as purpose text — {value[:50]!r}")
+
+    if not seen:
+        return Check(
+            name=f"{field}_span",
+            scope=scope,
+            status="CANNOT_VERIFY",
+            detail=f"no row claims a {field}",
+        )
+    return Check(
+        name=f"{field}_span",
+        scope=scope,
+        status="PASS" if not problems else "UNRESOLVED",
+        detail=f"{seen - len(problems)}/{seen} {field} values look like a name",
+        evidence=_cap(problems),
+    )
+
+
+def check_proposal_wellformed(rows: list[dict], scope: str, options: dict) -> Check:
+    """A `PROBABLE` must name a real candidate and say why it is probable.
+
+    Membership already proves the proposed target exists. This adds the part
+    that keeps a proposal honest rather than a guess in a costume: a reason,
+    and a confidence that admits to being one.
+
+    `FAIL`, unlike the span check, because this is not a judgement call — a
+    proposal without a reason is malformed, and shipping it would let
+    similarity quietly become resolution.
+    """
+    field = options["field"]
+    problems = []
+    proposals = 0
+
+    for index, row in enumerate(rows):
+        resolution = _resolution(row, field)
+        if normalise(resolution.get("status")).upper() != "PROBABLE":
+            continue
+        proposals += 1
+        if not normalise(resolution.get("why")):
+            problems.append(f"row {index}: PROBABLE with no reason given")
+        confidence = resolution.get("confidence")
+        if not isinstance(confidence, (int, float)):
+            problems.append(f"row {index}: PROBABLE with no confidence")
+        elif not 0 < float(confidence) < 1:
+            problems.append(f"row {index}: confidence {confidence} — a proposal is never 0 or 1")
+
+    if not proposals:
+        return Check(
+            name=f"{field}_proposals",
+            scope=scope,
+            status="PASS",
+            detail="no proposals offered",
+        )
+    return Check(
+        name=f"{field}_proposals",
+        scope=scope,
+        status="PASS" if not problems else "FAIL",
+        detail=f"{proposals - len(problems)}/{proposals} proposals carry a reason and a confidence",
+        evidence=_cap(problems),
+    )
+
+
+def check_label_rate(rows: list[dict], scope: str, options: dict) -> Check:
+    """A label that should be rare must actually be rare.
+
+    The fallback label is the one that quietly absorbs everything the model
+    could not decide. One run shipped `Review` on nine of eighteen rows with
+    every other check green — technically a declared label, and useless to the
+    person who then has to read half the statement by hand.
+
+    The expected rate is profile data, because what counts as rare is a fact
+    about the use case and not about the engine.
+    """
+    label = normalise(options["label"]).casefold()
+    ceiling = float(options.get("max_share", 0.2))
+
+    hits = [i for i, row in enumerate(rows) if normalise(row.get(options["field"])).casefold() == label]
+    if not rows:
+        return Check(name=f"{label}_rate", scope=scope, status="CANNOT_VERIFY", detail="no rows")
+
+    share = len(hits) / len(rows)
+    ok = share <= ceiling
+    return Check(
+        name=f"{options['field']}_{label}_rate",
+        scope=scope,
+        status="PASS" if ok else "UNRESOLVED",
+        detail=f"{len(hits)}/{len(rows)} rows are {label!r} ({share:.0%}, expected at most {ceiling:.0%})",
+        evidence="" if ok else f"rows {hits[:10]} — a fallback label absorbing this much is a decision not made",
     )
 
 
@@ -211,6 +340,9 @@ REGISTRY = {
     "membership": check_membership,
     "completeness": check_completeness,
     "vocabulary": check_vocabulary,
+    "span": check_span_plausibility,
+    "proposals": check_proposal_wellformed,
+    "label_rate": check_label_rate,
 }
 
 
@@ -225,6 +357,8 @@ def name_for(name: str, options: dict) -> str:
     if name == "completeness":
         return "resolution_completeness"
     field = options.get("field")
+    if name == "label_rate":
+        return f"{field}_{normalise(options.get('label', '')).casefold()}_rate"
     return f"{field}_{name}" if field else name
 
 
