@@ -36,6 +36,7 @@ TABLES = os.environ.get("KIT_TABLES", "/data/tables.json")
 ROWS = os.environ.get("KIT_ROWS", "/data/rows.json")
 OUT = os.environ.get("KIT_OUT", "/work/result.json")
 ASSERTIONS = os.environ.get("KIT_ASSERTIONS", "/work/assertions.json")
+QUESTIONS = os.environ.get("KIT_QUESTIONS", "/data/questions.json")
 
 
 def normalise(value: object) -> str:
@@ -337,6 +338,24 @@ def table(name: str) -> Table:
     if name not in loaded:
         raise KeyError(f"no table {name!r} (have: {', '.join(sorted(loaded))})")
     return loaded[name]
+
+
+def questions() -> list[dict]:
+    """The questions this run is asked, and what each one needs to be answered.
+
+    Each carries `requires` — the inputs without which it cannot be answered —
+    and `available`, which the engine filled in by checking what was actually
+    mounted. Where `available` is false the honest answer is CANNOT_VERIFY
+    naming the missing input, and inventing the data instead is the single
+    failure both specifications test for by name.
+
+    Returns [] when the profile asks no questions, which is the usual case.
+    """
+    try:
+        with open(QUESTIONS, encoding="utf-8") as handle:
+            return json.load(handle)
+    except (FileNotFoundError, ValueError):
+        return []
 
 
 def rows() -> list[dict]:

@@ -435,6 +435,27 @@ async def run_agent(
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "statement.pdf").write_bytes(statement.read_bytes())
 
+    # A profile may ask questions rather than process rows. What each question
+    # needs is declared; whether the run actually has it is decided here, once,
+    # so the agent is told rather than left to guess — and so a refusal names a
+    # real missing input rather than an assumed one.
+    questions = loaded.inputs.get("questions") or []
+    if questions:
+        mounted = set(loaded.inputs.get("tables") or {})
+        answerable = [
+            {**q, "available": all(need in mounted for need in q.get("requires", []))}
+            for q in questions
+        ]
+        (data_dir / "questions.json").write_text(
+            json.dumps(answerable, indent=2), encoding="utf-8"
+        )
+        trace.tool(
+            "questions",
+            f"{sum(q['available'] for q in answerable)} of {len(answerable)} answerable "
+            f"from what this run mounted",
+            status="ok",
+        )
+
     tables = load_tables(loaded.inputs)
     if tables:
         dump_tables(tables, data_dir / "tables.json")

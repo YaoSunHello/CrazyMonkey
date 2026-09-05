@@ -405,6 +405,56 @@ def check_double_entry(rows: list[dict], scope: str, options: dict) -> Check:
     )
 
 
+def check_explanation(rows: list[dict], scope: str, options: dict) -> Check:
+    """A verdict must show its working, and a refusal must say what it needs.
+
+    Both halves matter and the second is the one usually skipped. An answer
+    without its chain cannot be checked by the person it is for — the fund
+    manager's complaint is *"I cannot trust any number I get from them"*, and a
+    bare number is exactly what he already does not trust.
+
+    A refusal is held to the same standard. `CANNOT_VERIFY` with no `because`
+    and no `missing` is as useless as a fabricated answer: it tells the reader
+    there is a problem and nothing about how to fix it. Naming the document
+    turns a dead end into a request.
+
+    `FAIL`, because this is structural rather than a judgement — the fields are
+    either there or they are not.
+    """
+    verdict_field = options.get("field", "verdict")
+    refusals = {normalise(v).upper() for v in options.get("refusals", ["CANNOT_VERIFY"])}
+
+    problems = []
+    for index, row in enumerate(rows):
+        label = normalise(row.get("question") or row.get("id") or index)
+        verdict = normalise(row.get(verdict_field)).upper()
+        if not verdict:
+            problems.append(f"{label}: no {verdict_field}")
+            continue
+
+        if verdict in refusals:
+            if not normalise(row.get("because")):
+                problems.append(f"{label}: refused without saying why")
+            if not (row.get("missing") or row.get("would_need")):
+                problems.append(f"{label}: refused without naming what it would need")
+            continue
+
+        # An answer, so it owes its working.
+        explanation = row.get("explanation") or {}
+        if not isinstance(explanation, dict) or not explanation.get("steps"):
+            problems.append(f"{label}: answered {verdict!r} without showing the steps")
+        elif not explanation.get("inputs"):
+            problems.append(f"{label}: answered {verdict!r} without naming its inputs")
+
+    return Check(
+        name="explanation",
+        scope=scope,
+        status="PASS" if not problems else "FAIL",
+        detail=f"{len(rows) - len(problems)}/{len(rows)} answers carry their reasoning",
+        evidence=_cap(problems),
+    )
+
+
 def check_completeness(rows: list[dict], scope: str, options: dict) -> Check:
     """Every row carries a status for every field that needs one.
 
@@ -471,6 +521,7 @@ REGISTRY = {
     "label_rate": check_label_rate,
     "agreement": check_agreement,
     "double_entry": check_double_entry,
+    "explanation": check_explanation,
 }
 
 
@@ -488,6 +539,8 @@ def name_for(name: str, options: dict) -> str:
         return "sample_agreement"
     if name == "double_entry":
         return "double_entry"
+    if name == "explanation":
+        return "explanation"
     field = options.get("field")
     if name == "label_rate":
         return f"{field}_{normalise(options.get('label', '')).casefold()}_rate"
