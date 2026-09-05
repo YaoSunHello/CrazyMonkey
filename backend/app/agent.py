@@ -235,6 +235,30 @@ async def run_agent(
             trace.verdict(serialised, passed=not failed)
 
             outcome["rows"] = len(rows)
+
+            # Keep the output even when it was rejected: the sandbox is about to
+            # be destroyed, and a rejected attempt is the most useful thing to
+            # look at when working out why.
+            outputs = Path(__file__).resolve().parents[2] / "outputs"
+            outputs.mkdir(exist_ok=True)
+            written = outputs / f"rows-{checked.account_short_code}.json"
+            written.write_text(
+                json.dumps(
+                    {
+                        "account": checked.account_short_code,
+                        "source_file": statement.name,
+                        "attempt": attempt,
+                        "accepted": not failed,
+                        "checks": serialised,
+                        "rows": rows,
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            outcome["output_file"] = str(written)
+            trace.tool("output", f"{written.name} · {len(rows)} rows", status="ok")
+
             if not failed:
                 outcome["passed"] = True
                 outcome["summary"] = f"{len(rows)} rows, every check green, attempt {attempt}"
