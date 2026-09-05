@@ -102,7 +102,9 @@ export function WorkspaceIntake({
   const effectiveReplayId = replays.some((item) => item.replay_id === replayId)
     ? replayId
     : replays[0]?.replay_id ?? "";
-  const canStart = connection.state === "CONNECTED" && confirmed && issues.length === 0 && !busy && !scanning;
+  const selectionReady = connection.state === "CONNECTED" && Boolean(capabilities && capabilityProfile);
+  const interactionLocked = busy || scanning || !selectionReady;
+  const canStart = selectionReady && confirmed && issues.length === 0 && !busy && !scanning;
   const supportedFormats = capabilityProfile
     ? [...capabilityProfile.source.formats, ...capabilityProfile.reference.formats]
       .map((format) => format.extension.toUpperCase())
@@ -112,6 +114,11 @@ export function WorkspaceIntake({
   async function handleFiles(fileList: FileList | null, input: HTMLInputElement | null) {
     if (busy || scanning) return;
     if (!fileList?.length) return;
+    if (!selectionReady) {
+      onNotice("Wait for the live backend to advertise a compatible workflow before selecting files.", "error");
+      if (input) input.value = "";
+      return;
+    }
     onDiscovered(filesToDiscovered(fileList));
     if (input) input.value = "";
   }
@@ -120,6 +127,10 @@ export function WorkspaceIntake({
     event.preventDefault();
     setDragActive(false);
     if (busy || scanning) return;
+    if (!selectionReady) {
+      onNotice("Wait for the live backend to advertise a compatible workflow before dropping files.", "error");
+      return;
+    }
     setScanning(true);
     try {
       const snapshot = snapshotDrop(event.dataTransfer);
@@ -233,10 +244,10 @@ export function WorkspaceIntake({
         )}
 
         <div
-          className={`folder-dropzone ${dragActive ? "is-dragging" : ""} ${busy || scanning ? "is-locked" : ""}`}
-          aria-disabled={busy || scanning}
-          onDragEnter={(event) => { event.preventDefault(); if (!busy && !scanning) setDragActive(true); }}
-          onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = busy || scanning ? "none" : "copy"; }}
+          className={`folder-dropzone ${dragActive ? "is-dragging" : ""} ${interactionLocked ? "is-locked" : ""}`}
+          aria-disabled={interactionLocked}
+          onDragEnter={(event) => { event.preventDefault(); if (!interactionLocked) setDragActive(true); }}
+          onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = interactionLocked ? "none" : "copy"; }}
           onDragLeave={(event) => { if (event.currentTarget === event.target) setDragActive(false); }}
           onDrop={(event) => void handleDrop(event)}
         >
@@ -254,14 +265,14 @@ export function WorkspaceIntake({
               hidden
               tabIndex={-1}
               multiple
-              disabled={busy || scanning}
+              disabled={interactionLocked}
               onChange={(event) => void handleFiles(event.target.files, folderRef.current)}
             />
             <button
               className="button button-primary"
               type="button"
               aria-controls={folderId}
-              disabled={busy || scanning}
+              disabled={interactionLocked}
               onClick={() => folderRef.current?.click()}
             >
               Choose folder
@@ -274,7 +285,7 @@ export function WorkspaceIntake({
               hidden
               tabIndex={-1}
               multiple
-              disabled={busy || scanning}
+              disabled={interactionLocked}
               accept={supportedFormats.includes("Waiting") ? undefined : supportedFormats.toLowerCase().replaceAll(" ", "")}
               onChange={(event) => void handleFiles(event.target.files, filesRef.current)}
             />
@@ -282,7 +293,7 @@ export function WorkspaceIntake({
               className="button button-secondary"
               type="button"
               aria-controls={filesId}
-              disabled={busy || scanning}
+              disabled={interactionLocked}
               onClick={() => filesRef.current?.click()}
             >
               Choose files

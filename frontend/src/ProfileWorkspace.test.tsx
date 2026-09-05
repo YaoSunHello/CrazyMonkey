@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { ProfileWorkspace } from "./ProfileWorkspace";
@@ -13,6 +13,28 @@ async function chooseSource(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("CrazyMonkey live workspace", () => {
+  it("keeps selection locked until a compatible live capability profile is ready", async () => {
+    const user = userEvent.setup();
+    let resolveBootstrap!: (value: typeof bootstrapFixture) => void;
+    const bootstrap = vi.fn<WorkspaceAdapter["bootstrap"]>(() => new Promise((resolve) => {
+      resolveBootstrap = resolve;
+    }));
+    render(<ProfileWorkspace adapter={makeAdapter({ bootstrap })} />);
+
+    const chooseFiles = screen.getByRole("button", { name: "Choose files" });
+    expect(chooseFiles).toBeDisabled();
+    const dropzone = screen.getByText("Drop one folder or multiple files").closest(".folder-dropzone")!;
+    const earlyFile = new File(["early bytes"], "early.pdf", { type: "application/pdf" });
+    fireEvent.drop(dropzone, { dataTransfer: { items: [], files: [earlyFile] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Wait for the live backend");
+    expect(screen.queryByText("early.pdf")).not.toBeInTheDocument();
+
+    await act(async () => resolveBootstrap(bootstrapFixture));
+    await waitFor(() => expect(chooseFiles).toBeEnabled());
+    await user.upload(screen.getByLabelText("Choose files"), earlyFile);
+    expect(await screen.findByText("early.pdf")).toBeInTheDocument();
+  });
+
   it("discovers profiles from the backend and never starts merely because a file was selected", async () => {
     const user = userEvent.setup();
     const startJob = vi.fn<WorkspaceAdapter["startJob"]>().mockResolvedValue(startFixture);
@@ -105,8 +127,7 @@ describe("CrazyMonkey live workspace", () => {
     expect(screen.getByRole("button", { name: "Choose folder" })).toBeEnabled();
   });
 
-  it("keeps Start review disabled when only health is available", async () => {
-    const user = userEvent.setup();
+  it("keeps selection and Start review unavailable when only health is available", async () => {
     const startJob = vi.fn<WorkspaceAdapter["startJob"]>();
     render(<ProfileWorkspace adapter={makeAdapter({
       bootstrap: async () => ({
@@ -121,12 +142,9 @@ describe("CrazyMonkey live workspace", () => {
     })} />);
 
     expect(await screen.findByText("Health only", { selector: "dd" })).toBeInTheDocument();
-    await chooseSource(user);
-    await user.click(screen.getByRole("checkbox", {
-      name: "I confirm these are the intended source and reference inputs.",
-    }));
-
-    expect(screen.getByRole("button", { name: "Start review" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Choose folder" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Choose files" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Start review" })).not.toBeInTheDocument();
     await waitFor(() => expect(startJob).not.toHaveBeenCalled());
   });
 
