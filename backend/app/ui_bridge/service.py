@@ -860,11 +860,13 @@ def capabilities() -> dict[str, Any]:
         if not profile.passes:
             continue
         source_kind = str(profile.inputs.get("documents", {}).get("kind", "")).casefold()
-        source_formats = (
-            [{"extension": ".pdf", "content_types": [PDF_CONTENT_TYPE]}]
-            if source_kind == "pdf"
-            else []
-        )
+        # The UI bridge is a deterministic statement-review surface. Profiles
+        # without PDF documents (for example, an agent-only screening profile)
+        # remain discoverable through /api/profiles but must not be advertised
+        # here as a workflow the bridge can actually start.
+        if source_kind != "pdf":
+            continue
+        source_formats = [{"extension": ".pdf", "content_types": [PDF_CONTENT_TYPE]}]
         reference_formats = (
             [{"extension": ".xlsx", "content_types": [XLSX_CONTENT_TYPE]}]
             if profile.inputs.get("tables")

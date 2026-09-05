@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.profiles import available
 from app.ui_bridge.schemas import MAX_BATCH_BYTES, MAX_FILE_BYTES, MAX_FILES
 from app.ui_bridge.store import STORE
 
@@ -136,6 +137,11 @@ def test_capabilities_are_explicit_and_profile_specific(client: TestClient):
         "max_path_depth": 12,
         "max_events_per_job": 100,
     }
+    assert {profile["profile_id"] for profile in body["profiles"]} == {
+        "journal-entries",
+        "pipeline-validation",
+    }
+    assert "mandate-fit" in available()
     for profile in body["profiles"]:
         assert profile["source"]["formats"] == [
             {"extension": ".pdf", "content_types": ["application/pdf"]}
