@@ -9,7 +9,7 @@
 
 CrazyMonkey is a data administrator and data engineer for private-market workflows.
 
-It takes messy fund documents, detects their data structure, extracts modelable data, verifies whether the numbers and mappings can be trusted, and flags missing information before it becomes an analyst problem.
+It takes messy fund documents, detects their data structure, extracts modelable data, verifies whether the numbers and mappings can be trusted, and flags missing information before it becomes analysts problem.
 
 ## The Problem
 
@@ -24,7 +24,7 @@ The painful part is not only extraction. It is knowing:
 - which checks passed or failed
 - which questions cannot be answered yet
 
-That work can take 3-4 days before the data is ready for modelling or review.
+That work can take 5-6 days before the data is ready for modelling or review.
 
 ## What CrazyMonkey Does
 
@@ -85,7 +85,7 @@ At business level, the final dashboard should answer:
 - What data did we receive?
 - What business questions can we answer from it?
 - How confident are we in those answers?
-- Which numbers foot back to the source?
+- Which numbers link back to the source?
 - Which mappings are incomplete?
 - What must a human collect, confirm, or escalate next?
 
@@ -96,7 +96,7 @@ The pipeline separates failure into three categories.
 | Type | Meaning | Product behavior |
 |---|---|---|
 | Pipeline failure | The system could not process the files or complete a required stage | Should be rare; retry, log, and escalate to engineering |
-| Data failure | Source data is missing, inconsistent, unmatched, or does not foot | Flag clearly in the review queue and block unsafe export |
+| Data failure | Source data is missing, inconsistent, unmatched, or does not source | Flag clearly in the review queue and block unsafe export |
 | Human follow-up | The answer requires more context, documents, or business judgement | State the missing information and suggest the next action |
 
 This distinction matters because a missing investor mapping is not the same as a broken pipeline. It is useful business information that should be surfaced early.
