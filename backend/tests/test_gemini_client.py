@@ -22,6 +22,8 @@ from app.runtime.model_client import (
     from_environment,
 )
 
+SDK_TEST_TOKEN = "-".join(("fixture", "gemini", "credential"))
+
 
 def sdk_response(content="{}", *, finish_reason="stop", response_id="chatcmpl-test"):
     return SimpleNamespace(
@@ -268,8 +270,8 @@ class ResponseBoundsTest(unittest.TestCase):
             return httpx2.Response(302, headers={"Location": "https://elsewhere.invalid/"}, stream=httpx2.ByteStream(b""))
 
         http_client = DefaultHttpxClient(transport=httpx2.MockTransport(respond), follow_redirects=False, event_hooks={"response": [_bound_response]})
-        sdk = OpenAI(api_key="test-gemini-secret", base_url=GEMINI_BASE_URL, max_retries=0, http_client=http_client)
-        client = GeminiClient(model="gemini-exact-test", _sdk=sdk, _api_key="test-gemini-secret")
+        sdk = OpenAI(api_key=SDK_TEST_TOKEN, base_url=GEMINI_BASE_URL, max_retries=0, http_client=http_client)
+        client = GeminiClient(model="gemini-exact-test", _sdk=sdk, _api_key=SDK_TEST_TOKEN)
         try:
             with self.assertRaises(RuntimeModelError):
                 client.complete_json("Plan.", {})
@@ -297,8 +299,8 @@ class ResponseBoundsTest(unittest.TestCase):
             return httpx2.Response(200, headers={"Content-Type": "application/json"}, stream=httpx2.ByteStream(json.dumps(body).encode()))
 
         http_client = DefaultHttpxClient(transport=httpx2.MockTransport(respond), follow_redirects=False, event_hooks={"response": [_bound_response]})
-        sdk = OpenAI(api_key="test-gemini-secret", base_url=GEMINI_BASE_URL, max_retries=0, http_client=http_client)
-        client = GeminiClient(model="gemini-exact-test", _sdk=sdk, _api_key="test-gemini-secret")
+        sdk = OpenAI(api_key=SDK_TEST_TOKEN, base_url=GEMINI_BASE_URL, max_retries=0, http_client=http_client)
+        client = GeminiClient(model="gemini-exact-test", _sdk=sdk, _api_key=SDK_TEST_TOKEN)
         try:
             self.assertEqual(client.complete_json("Plan.", {}, stage="investigator"), {"plans": []})
             self.assertEqual(len(requests), 1)
@@ -327,8 +329,8 @@ class ResponseBoundsTest(unittest.TestCase):
             return httpx2.Response(400, stream=OversizedStream())
 
         http_client = DefaultHttpxClient(transport=httpx2.MockTransport(respond), follow_redirects=False, event_hooks={"response": [_bound_response]})
-        sdk = OpenAI(api_key="test-gemini-secret", base_url=GEMINI_BASE_URL, max_retries=0, http_client=http_client)
-        client = GeminiClient(model="gemini-exact-test", _sdk=sdk, _api_key="test-gemini-secret")
+        sdk = OpenAI(api_key=SDK_TEST_TOKEN, base_url=GEMINI_BASE_URL, max_retries=0, http_client=http_client)
+        client = GeminiClient(model="gemini-exact-test", _sdk=sdk, _api_key=SDK_TEST_TOKEN)
         try:
             with self.assertRaises(RuntimeModelError):
                 client.complete_json("Plan.", {})

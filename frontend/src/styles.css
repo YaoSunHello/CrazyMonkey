@@ -37,6 +37,10 @@
   box-sizing: border-box;
 }
 
+.workspace-switch { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; }
+.workspace-switch button { padding: 7px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; }
+.workspace-switch button[aria-pressed="true"] { background: var(--brand); color: white; }
+
 html {
   min-width: 320px;
   background: var(--canvas);
