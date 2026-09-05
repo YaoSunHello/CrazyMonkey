@@ -169,31 +169,12 @@ async def run_agent(
             trace.tool("model", f"generating parse.py · attempt {attempt}", status="running")
             started = time.monotonic()
 
-            # The model reasons in a separate channel before it answers. Show a
-            # heartbeat rather than the raw thoughts: it can run to thousands of
-            # tokens, and what matters on screen is that it is alive and how
-            # much of the wait is thinking versus writing.
-            counters = {"thought": 0, "code": 0}
-
-            def on_thought(piece: str) -> None:
-                counters["thought"] += len(piece)
-                if counters["thought"] // 2000 != (counters["thought"] - len(piece)) // 2000:
-                    trace.out(
-                        f"thinking… {counters['thought'] // 1000}k chars, "
-                        f"{time.monotonic() - started:.0f}s",
-                        stream="stderr",
-                    )
-
-            def on_token(piece: str) -> None:
-                counters["code"] += len(piece)
-
-            reply = await stream_completion(
-                settings, prompt, on_token=on_token, on_thought=on_thought
-            )
-            if counters["thought"]:
-                trace.think(
-                    f"reasoned for {counters['thought']:,} characters before answering"
-                )
+            # The model reasons in a separate channel before it answers.
+            # trace.thought keeps the last few lines of it on screen, updating
+            # in place, so the wait shows what it is doing rather than a
+            # spinner.
+            reply = await stream_completion(settings, prompt, on_thought=trace.thought)
+            trace.end_thought()
             source = extract_code(reply)
             trace.tool(
                 "model",

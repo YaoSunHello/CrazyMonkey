@@ -16,10 +16,15 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
+import textwrap
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Literal
+
+# How many lines of live reasoning to keep on screen.
+THOUGHT_ROWS = 4
 
 EventKind = Literal["think", "tool", "code", "stdout", "stderr", "verdict", "state", "result"]
 Status = Literal["running", "ok", "fail", "skip"]
@@ -78,6 +83,11 @@ class Trace:
         self.quiet = quiet
         self.started = time.monotonic()
         self._subscribers: list[Callable[[Event], None]] = []
+        # Live reasoning window state.
+        self._thought_buffer = ""
+        self._thought_chars = 0
+        self._thought_rows = 0
+        self._thought_reported = 0
 
     def subscribe(self, callback: Callable[[Event], None]) -> None:
         """Register a sink — an SSE queue, a log file. Must not block."""
@@ -95,6 +105,80 @@ class Trace:
 
     def think(self, text: str) -> Event:
         return self.emit(Event(kind="think", body=text))
+
+    # -- live reasoning window ----------------------------------------------
+
+    def thought(self, chunk: str) -> None:
+        """Show the model's reasoning as it streams, in a rolling window.
+
+        The model reasons for tens of seconds before any code appears, and that
+        wait is the most interesting part of the run — but the reasoning can be
+        long, so it gets a fixed four-row window that updates in place rather
+        than scrolling the terminal.
+
+        When stderr is not a terminal — every piped or backgrounded run — an
+        in-place redraw is meaningless, so it degrades to a periodic heartbeat
+        instead.
+        """
+        self._thought_buffer += chunk
+        self._thought_chars += len(chunk)
+
+        if not _COLOUR:
+            # One line per 2k characters, so a log file stays readable.
+            if self._thought_chars // 2000 != self._thought_reported:
+                self._thought_reported = self._thought_chars // 2000
+                elapsed = time.monotonic() - self.started
+                print(
+                    f"{' ' * 7} {TREE_MID}thinking… "
+                    f"{self._thought_chars // 1000}k chars, {elapsed:.0f}s",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            return
+
+        rows = self._wrap_tail(self._thought_buffer, THOUGHT_ROWS)
+        self._redraw(rows)
+
+    def end_thought(self) -> Event | None:
+        """Clear the live window and record what was reasoned."""
+        if not self._thought_chars:
+            return None
+        self._redraw([])
+        total = self._thought_chars
+        tail = self._thought_buffer[-1200:]
+        self._thought_buffer, self._thought_chars, self._thought_reported = "", 0, 0
+        return self.emit(
+            Event(
+                kind="think",
+                detail=f"{total:,} characters of reasoning",
+                body=tail,
+                meta={"chars": total},
+            )
+        )
+
+    def _wrap_tail(self, text: str, rows: int) -> list[str]:
+        """The last `rows` display lines of `text`, wrapped to the terminal.
+
+        Wrapping is not cosmetic: a line longer than the terminal soft-wraps
+        onto a second row, which makes the cursor-up count below wrong and
+        walks the window up the screen, eating earlier output.
+        """
+        width = max(shutil.get_terminal_size((100, 24)).columns - 12, 30)
+        flat = " ".join(text.split())
+        if not flat:
+            return []
+        wrapped = textwrap.wrap(flat, width=width) or []
+        return wrapped[-rows:]
+
+    def _redraw(self, rows: list[str]) -> None:
+        """Replace the previously drawn window with `rows`."""
+        out = sys.stderr
+        for _ in range(self._thought_rows):
+            out.write("\033[F\033[2K")
+        for row in rows:
+            out.write(f"{' ' * 7} {TREE_MID}{DIM(row)}\n")
+        out.flush()
+        self._thought_rows = len(rows)
 
     def tool(self, name: str, detail: str = "", status: Status = "running", **meta) -> Event:
         return self.emit(Event(kind="tool", label=name, detail=detail, status=status, meta=meta))

@@ -18,3 +18,12 @@ docs/
 samples/statements/
 samples/workbook/
 samples/DATASET_README.md
+
+# Any .env variant, not just .env — a backup written beside it is still secrets.
+.env
+.env.*
+*.env
+!.env.example
+
+# Local setup helpers may carry a key as a default argument.
+setup_*.sh
