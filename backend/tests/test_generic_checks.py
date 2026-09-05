@@ -200,6 +200,61 @@ def test_the_vocabulary_comes_from_the_profile_not_the_code():
     assert check.status == "PASS"
 
 
+# --- agreement between samples -------------------------------------------
+
+
+def sampled(primary: dict, other: dict) -> dict:
+    return {**primary, "_samples": [other]}
+
+
+def test_rows_two_samples_agree_on_pass():
+    rows = [sampled({"classification": "Other"}, {"classification": "Other"})]
+    check = generic.run("agreement", rows, "T", {"fields": ["classification"]})
+    assert check.status == "PASS"
+
+
+def test_a_disagreement_is_unresolved_not_a_failure():
+    """The run is not broken — the row was not decided, and that is the finding.
+
+    Failing here would throw away a sample that is right half the time.
+    """
+    rows = [sampled({"classification": "Review"}, {"classification": "Other"})]
+    check = generic.run("agreement", rows, "T", {"fields": ["classification"]})
+    assert check.status == "UNRESOLVED"
+    assert "one sample says" in check.evidence
+
+
+def test_a_row_differing_on_two_fields_is_still_one_row():
+    """Counting disagreements rather than rows made 1 of 2 read as 0 of 2."""
+    rows = [
+        sampled(
+            {"classification": "Review", "counterparty_match": {"status": "MATCH"}},
+            {"classification": "Other", "counterparty_match": {"status": "UNRESOLVED"}},
+        ),
+        sampled({"classification": "Other"}, {"classification": "Other"}),
+    ]
+    check = generic.run(
+        "agreement", rows, "T", {"fields": ["classification", "counterparty_match"]}
+    )
+    assert "1/2 rows agree" in check.detail
+
+
+def test_one_sample_cannot_be_compared_with_itself():
+    check = generic.run("agreement", [{"classification": "Other"}], "T", {"fields": ["classification"]})
+    assert check.status == "CANNOT_VERIFY"
+
+
+def test_samples_of_different_lengths_are_not_compared():
+    """Two samples with different row counts are not comparable row by row, and
+    aligning them anyway would report an off-by-one as a disagreement."""
+    from app.agent import _attach_samples
+
+    primary = [{"a": 1}, {"a": 2}]
+    assert _attach_samples(primary, [[{"a": 1}]]) == primary
+    merged = _attach_samples(primary, [[{"a": 9}, {"a": 8}]])
+    assert merged[0]["_samples"] == [{"a": 9}]
+
+
 # --- the registry --------------------------------------------------------
 
 

@@ -134,6 +134,91 @@ def test_merge_replaces_lists_wholesale():
     assert merged["passes"] == [{"name": "c"}]
 
 
+# --- new capabilities stay off until measured -----------------------------
+
+
+def test_optional_capabilities_default_to_off():
+    """A profile that does not ask behaves exactly as it did before.
+
+    Every capability added on this branch is opt-in, so the worst case of any
+    of them is the baseline that already exists.
+    """
+    spec = a_pass()
+    assert spec.explore == 0
+    assert spec.samples == 1
+
+
+def test_no_shipped_profile_has_turned_one_on_untested():
+    """One capability at a time, measured on its own.
+
+    Turning two on together makes neither attributable — which is the mistake
+    that made a whole batch unreadable earlier. When one of these is enabled
+    deliberately, this test is the place to record that it was measured.
+    """
+    enabled = {
+        (name, spec.name): (spec.explore, spec.samples)
+        for name in available()
+        for spec in load(name).passes
+        if spec.explore or spec.samples > 1
+    }
+    assert enabled == {}, f"enabled without a recorded measurement: {enabled}"
+
+
+# --- the lint ------------------------------------------------------------
+
+
+def test_a_prompt_that_stops_explaining_a_judged_field_is_refused():
+    """The guard against a regression that shipped silently.
+
+    Replacing a prompt section took out the line saying where a project code
+    appears in a narrative. Project resolution went 10/10 to 0/7 with every
+    check still green, because the checks ask whether an answer is sound, not
+    whether the model was told what to look for.
+    """
+    from app.profiles import CheckSpec, _lint
+
+    spec = a_pass(
+        prompt="Resolve the counterparty.",
+        checks=[CheckSpec(name="membership", options={"field": "project_code_match"})],
+    )
+    with pytest.raises(ValueError) as caught:
+        _lint("test", [spec])
+    assert "project_code_match" in str(caught.value)
+
+
+def test_the_lint_accepts_a_prompt_that_does_explain_it():
+    from app.profiles import CheckSpec, _lint
+
+    spec = a_pass(
+        prompt="Fill project_code_match from the word after PROJECT.",
+        checks=[CheckSpec(name="membership", options={"field": "project_code_match"})],
+    )
+    _lint("test", [spec])  # must not raise
+
+
+def test_the_lint_covers_multi_field_checks_too():
+    from app.profiles import CheckSpec, _lint
+
+    spec = a_pass(
+        prompt="Fill counterparty_match.",
+        checks=[
+            CheckSpec(
+                name="completeness",
+                options={"fields": ["counterparty_match", "project_code_match"]},
+            )
+        ],
+    )
+    with pytest.raises(ValueError) as caught:
+        _lint("test", [spec])
+    assert "project_code_match" in str(caught.value)
+
+
+def test_every_shipped_profile_passes_the_lint():
+    """If this fails, a real run would have started against a broken prompt."""
+    for name in available():
+        load(name)
+
+
 # --- the firewall --------------------------------------------------------
 
 

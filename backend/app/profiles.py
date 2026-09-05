@@ -143,6 +143,18 @@ class Pass:
     checks: list[CheckSpec] = field(default_factory=list)
     nudges: list[Nudge] = field(default_factory=list)
     max_attempts: int = 4
+    # How many independent times to run this pass. Above one, the extra samples
+    # are compared and disagreement is reported rather than hidden: two batches
+    # over the same statements flipped 27 of 100 classifications, and a single
+    # run states a coin flip as confidently as a certainty. Costs a full pass
+    # each, so it is worth it only where the judgement is genuinely uncertain.
+    samples: int = 1
+    # How many rounds the agent may spend looking at the data before it
+    # writes the real script. Zero keeps today's behaviour exactly: one
+    # generation, one execution, a verdict. Each round costs a model call,
+    # and only the first attempt spends them - a retry already carries the
+    # verifier's objections, which beat a fresh look.
+    explore: int = 0
     # Whether this pass reads the previous pass's rows instead of the source
     # document. Resolution builds on extraction; extraction starts from the PDF.
     inherits_rows: bool = False
@@ -250,8 +262,41 @@ def _build_pass(raw: dict) -> Pass:
         checks=[CheckSpec(**c) for c in raw.get("checks", [])],
         nudges=[Nudge(**{**n, "text": _text(n["text"])}) for n in raw.get("nudges", [])],
         max_attempts=raw.get("max_attempts", 4),
+        samples=raw.get("samples", 1),
+        explore=raw.get("explore", 0),
         inherits_rows=raw.get("inherits_rows", False),
     )
+
+
+def _lint(profile_id: str, passes: list[Pass]) -> None:
+    """Every field a pass is judged on must be explained by that pass's prompt.
+
+    This exists because of a regression that no test could catch. A prompt
+    section was replaced wholesale, taking with it the one line that said where
+    a project code appears in a narrative — and project resolution went from
+    10/10 to 0/7 while every check still reported green, because the checks ask
+    whether an answer is *sound*, not whether the model was told what to look
+    for.
+
+    A prompt is code. The engine already knows which fields it will judge, so
+    it can insist they are mentioned. Cheap, and it turns a silent quality
+    collapse into a refusal to start.
+    """
+    for spec in passes:
+        wanted = {
+            check.options["field"] for check in spec.checks if check.options.get("field")
+        }
+        for group in (check.options.get("fields", []) for check in spec.checks):
+            wanted.update(group)
+
+        missing = sorted(f for f in wanted if f not in spec.prompt)
+        if missing:
+            raise ValueError(
+                f"profile {profile_id!r}, pass {spec.name!r}: the prompt never mentions "
+                f"{', '.join(missing)}, but the verifier judges "
+                f"{'them' if len(missing) > 1 else 'it'}. A field the model is not told "
+                f"about is a field it will get wrong quietly."
+            )
 
 
 def load(profile_id: str) -> Profile:
@@ -263,6 +308,8 @@ def load(profile_id: str) -> Profile:
     names = [p.name for p in passes]
     if len(set(names)) != len(names):
         raise ValueError(f"profile {profile_id!r} has duplicate pass names: {names}")
+
+    _lint(profile_id, passes)
 
     return Profile(
         id=raw.get("id", profile_id),

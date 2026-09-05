@@ -142,21 +142,41 @@ def score_rows(rows: list[dict], truth: dict[Decimal, dict]) -> dict:
     return tally
 
 
-def score_runs(paths: list[Path], location: str) -> dict:
-    """Score several runs against one answer key, and total them."""
+def score_runs(paths: list[Path], location: str, holdout: list[str] | None = None) -> dict:
+    """Score several runs against one answer key, split tune from hold-out.
+
+    The split is the whole point. Prompts are changed by looking at failures,
+    which means a number measured on the documents that were looked at is a
+    number about this week's data rather than about the pipeline. So the
+    documents named in `holdout` are never opened while tuning, and **their
+    number is the result**; the tune number is reported beside it only so the
+    gap between them is visible. A wide gap means we memorised.
+    """
     truth = load_truth(location)
-    total = None
+    holdout = holdout or []
     per_run = []
+    totals: dict[str, dict | None] = {"tune": None, "holdout": None, "all": None}
 
     for path in paths:
         payload = json.loads((path / "rows.json").read_text(encoding="utf-8"))
+        account = payload.get("account", "")
         result = score_rows(payload.get("rows", []), truth)
         result["run"] = path.name
-        result["account"] = payload.get("account", "")
+        result["account"] = account
+        result["split"] = "holdout" if account in holdout else "tune"
         per_run.append(result)
-        total = result if total is None else _add(total, result)
 
-    return {"truth_rows": len(truth), "runs": per_run, "total": total or {}}
+        for key in (result["split"], "all"):
+            totals[key] = result if totals[key] is None else _add(totals[key], result)
+
+    return {
+        "truth_rows": len(truth),
+        "holdout_accounts": holdout,
+        "runs": per_run,
+        "tune": totals["tune"] or {},
+        "holdout": totals["holdout"] or {},
+        "total": totals["all"] or {},
+    }
 
 
 def _add(a: dict, b: dict) -> dict:

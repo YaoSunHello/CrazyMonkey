@@ -51,6 +51,141 @@ def extract_code(text: str) -> str:
     return text.strip()
 
 
+EXPLORE_ASK = """\
+
+Before you write it, you may look at the data.
+
+Write a short throwaway script that PRINTS whatever you want to know — the first
+few rows, what a narrative actually looks like, whether a pattern you are about
+to rely on really holds, how many rows it would match. It is not the answer and
+nothing is judged on it; it is a look at the data before you commit.
+
+Its stdout comes back to you, capped, and then you write the real file.
+
+Worth knowing: every previous run wrote its parser blind and made the same
+mistake — capturing eighteen words of a narrative where three were wanted — and
+printing five extracted values would have shown it immediately.
+
+Reply with the throwaway script in a single ```python code block.
+"""
+
+
+async def _explore(
+    spec, *, executor, trace, settings: Settings, base: str, rounds: int
+) -> str:
+    """Let the agent look at the data before it writes the real script.
+
+    The turn loop, brought back deliberately and bounded. It was removed early
+    on for a good reason — against a quantised model at ~220s a turn it was
+    unusable — and never revisited when the model changed to one ten times
+    faster. This is the part of it that pays.
+
+    It cannot reintroduce what actually killed the original loop: the model
+    writes *code*, not tool-call JSON, so there is no argument schema to
+    malform and no way to abort a run by emitting a bad one. A script that
+    fails to run just prints a traceback, which is itself informative.
+
+    Returns a transcript to fold into the real prompt, or "" if nothing useful
+    came back.
+    """
+    transcript = []
+    for turn in range(1, rounds + 1):
+        trace.tool("explore", f"round {turn} of {rounds}", status="running")
+        prompt = base + EXPLORE_ASK
+        if transcript:
+            prompt += "\nWhat you have seen so far:\n\n" + "\n".join(transcript)
+
+        reply = await stream_completion(settings, prompt, on_thought=trace.thought)
+        trace.end_thought()
+        source = extract_code(reply)
+        if not source:
+            break
+
+        script = f"explore-{turn}.py"
+        trace.code(f"{WORKDIR}/{script}", source)
+        await executor.put(f"{WORKDIR}/{script}", source.encode("utf-8"))
+        execution = await executor.run_python(script, timeout=120)
+
+        # Capped hard. An exploration that prints a whole workbook would push
+        # the real task out of the context window, which would cost far more
+        # than the look is worth.
+        seen = (execution.stdout or execution.stderr or "")[:4000]
+        trace.tool("explore", f"{len(seen)} chars back", status="ok")
+        transcript.append(f"--- you ran {script} and it printed ---\n{seen}")
+
+    if not transcript:
+        return ""
+    return "\n\nYou looked at the data first. This is what you saw:\n\n" + "\n".join(transcript)
+
+
+async def _agent_assertions(executor, trace) -> list[dict]:
+    """What the agent says it checked about its own output.
+
+    These are the agent's claims, recorded as claims. They prove nothing on
+    their own — it could report `holds: true` without looking — so they are
+    never a substitute for the verifier, and they are labelled `self-reported`
+    wherever they appear.
+
+    Their value is twofold, and both are real. Asking for them makes the agent
+    look at its own output before submitting, which it has never had to do; and
+    a claim that does *not* hold names the problem far more precisely than a
+    check written in advance ever could, because the agent knows what it was
+    unsure of.
+
+    **They can only add failures.** A claim that does not hold fails the
+    attempt; no claim can rescue one the real checks rejected. That asymmetry is
+    what keeps them safe, and it is asserted in the tests.
+    """
+    try:
+        raw = await executor.get(f"{WORKDIR}/assertions.json")
+        claims = json.loads(raw.decode())
+    except Exception:  # noqa: BLE001 — no assertions is the normal case
+        return []
+    if not isinstance(claims, list):
+        return []
+
+    out = []
+    for claim in claims:
+        if not isinstance(claim, dict) or not claim.get("name"):
+            continue
+        holds = bool(claim.get("holds"))
+        out.append(
+            {
+                "name": f"self:{claim['name']}",
+                "scope": "agent",
+                "status": "PASS" if holds else "FAIL",
+                "detail": f"self-reported — {str(claim.get('detail', ''))[:120]}",
+                "evidence": "" if holds else str(claim.get("detail", ""))[:400],
+            }
+        )
+    if out:
+        broken = sum(1 for c in out if c["status"] == "FAIL")
+        trace.tool(
+            "assertions",
+            f"{len(out)} self-reported · {broken} not holding",
+            status="ok" if not broken else "fail",
+        )
+    return out
+
+
+def _attach_samples(primary: list[dict], extra: list[list[dict]]) -> list[dict]:
+    """Carry the other samples' readings on each row, under `_samples`.
+
+    Aligned by position, and only where the counts agree — two samples of a
+    pass that produced different numbers of rows are not comparable row by row,
+    and pretending otherwise would report disagreements that are really an
+    off-by-one. In that case the extra sample is dropped and the agreement
+    check reports that it had nothing to compare.
+    """
+    usable = [other for other in extra if len(other) == len(primary)]
+    if not usable:
+        return primary
+    return [
+        {**row, "_samples": [other[index] for other in usable]}
+        for index, row in enumerate(primary)
+    ]
+
+
 async def _install_kit(executor, name: str) -> None:
     """Put this pass's toolkit in the sandbox, as `kit`.
 
@@ -160,6 +295,20 @@ async def _run_pass(
         trace.state("attempt", stage=stage, n=attempt, of=spec.max_attempts)
 
         base = build_prompt({f["name"] for f in failures})
+
+        # Only on the first attempt. A retry already carries the verifier's
+        # exact objections, which is better information than anything a fresh
+        # look would produce, and paying for another round would be waste.
+        if spec.explore and attempt == 1:
+            base += await _explore(
+                spec,
+                executor=executor,
+                trace=trace,
+                settings=settings,
+                base=base,
+                rounds=spec.explore,
+            )
+
         prompt = (
             base
             if attempt == 1
@@ -193,6 +342,7 @@ async def _run_pass(
         # Stale output is worse than none: without this a run that writes
         # nothing gets verified against the previous attempt's file.
         await executor.remove(f"{WORKDIR}/result.json")
+        await executor.remove(f"{WORKDIR}/assertions.json")
         await executor.put(f"{WORKDIR}/{script}", source.encode("utf-8"))
 
         trace.tool("run_python", script, status="running")
@@ -218,6 +368,7 @@ async def _run_pass(
             continue
 
         serialised = judge(rows)
+        serialised += await _agent_assertions(executor, trace)
         failed = [c for c in serialised if c["status"] == "FAIL"]
         trace.verdict(serialised, passed=not failed)
 
@@ -284,6 +435,27 @@ async def run_agent(
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "statement.pdf").write_bytes(statement.read_bytes())
 
+    # A profile may ask questions rather than process rows. What each question
+    # needs is declared; whether the run actually has it is decided here, once,
+    # so the agent is told rather than left to guess — and so a refusal names a
+    # real missing input rather than an assumed one.
+    questions = loaded.inputs.get("questions") or []
+    if questions:
+        mounted = set(loaded.inputs.get("tables") or {})
+        answerable = [
+            {**q, "available": all(need in mounted for need in q.get("requires", []))}
+            for q in questions
+        ]
+        (data_dir / "questions.json").write_text(
+            json.dumps(answerable, indent=2), encoding="utf-8"
+        )
+        trace.tool(
+            "questions",
+            f"{sum(q['available'] for q in answerable)} of {len(answerable)} answerable "
+            f"from what this run mounted",
+            status="ok",
+        )
+
     tables = load_tables(loaded.inputs)
     if tables:
         dump_tables(tables, data_dir / "tables.json")
@@ -344,6 +516,40 @@ async def run_agent(
                 script=f"{spec.name}.py",
                 stage=spec.name,
             )
+
+            # Sample the pass again when the profile asks for it, and carry the
+            # extra readings on each row. Done here rather than inside the loop
+            # so the retry mechanism is untouched: each sample converges on its
+            # own, and only then are they compared.
+            if spec.samples > 1 and result["passed"]:
+                extra = []
+                for sample in range(2, spec.samples + 1):
+                    trace.state("sampling", stage=spec.name, n=sample, of=spec.samples)
+                    again = await _run_pass(
+                        spec,
+                        executor=executor,
+                        trace=trace,
+                        run=run,
+                        build_prompt=build_prompt,
+                        judge=judge,
+                        settings=settings,
+                        script=f"{spec.name}-{sample}.py",
+                        stage=f"{spec.name}-{sample}",
+                    )
+                    # An extra sample that could not satisfy the checks is not
+                    # evidence about anything, so it is dropped rather than
+                    # allowed to manufacture a disagreement.
+                    if again["passed"] and again.get("result"):
+                        extra.append(again["result"])
+
+                if extra:
+                    merged = _attach_samples(result["result"], extra)
+                    result["result"] = merged
+                    # Re-judge with the samples attached so the agreement check
+                    # can see them. Agreement returns UNRESOLVED, never FAIL, so
+                    # this cannot turn an accepted pass into a rejected one.
+                    result["checks"] = judge(merged)
+                    trace.verdict(result["checks"], passed=True)
 
             all_checks.extend(result["checks"])
             outcome["attempts"] += result["attempts"]

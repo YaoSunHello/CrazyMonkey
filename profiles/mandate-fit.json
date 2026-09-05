@@ -1,0 +1,176 @@
+{
+  "id": "mandate-fit",
+  "label": "LP mandate-fit screening",
+  "description": "Five screening questions an LP analyst asks before a fund goes to IC. Answers what the supplied data supports and, for the rest, names the document it would need. Specified by docs/business-case.md section 1A.",
+
+  "inputs": {
+    "workbook": {
+      "location": "samples/01-bank-statements-to-journal-entries/workbook"
+    },
+    "tables": {
+      "legal_entities": {"sheet": "Legal Entity Master List", "columns": ["Legal Entity"]},
+      "investors": {"sheet": "Investor Master List", "columns": ["Legal Entity", "Investor", "Vehicle"]},
+      "deals_positions": {"sheet": "Deal & Position Master List", "columns": ["Legal Entity", "Deal Name", "Position", "Security Type"]}
+    },
+
+    "questions": [
+      {
+        "id": "ips_bands",
+        "asks": "Does the fund's stated strategy, sector focus and geography sit inside our IPS bands?",
+        "requires": ["ips_bands", "fund_strategy"],
+        "method": "compare the fund's declared strategy, sector and geography against each band in the IPS",
+        "would_need": "the Investment Policy Statement with its strategy, sector and geography bands, and the fund's PPM or strategy summary"
+      },
+      {
+        "id": "leverage_ceiling",
+        "asks": "What is the target leverage at portfolio-company level, and does it breach our ceiling?",
+        "requires": ["portfolio_leverage", "leverage_ceiling"],
+        "method": "compare target or actual debt/EBITDA per portfolio company against the ceiling",
+        "would_need": "portfolio-company leverage from the GP's reporting, and our own leverage ceiling from the IPS"
+      },
+      {
+        "id": "vintage_concentration",
+        "asks": "Does adding this fund overconcentrate us in one vintage year?",
+        "requires": ["fund_vintage", "portfolio_commitments"],
+        "method": "group commitments by vintage year and express each year as a share of the total, before and after adding this fund",
+        "would_need": "the vintage year of each fund held, and the commitment amount against each"
+      },
+      {
+        "id": "exclusion_policy",
+        "asks": "Does the GP's exclusion policy match ours, or do we need a side letter carve-out?",
+        "requires": ["gp_exclusions", "our_exclusions"],
+        "method": "set-difference the two exclusion lists; anything we exclude and they do not needs a carve-out",
+        "would_need": "the GP's exclusion policy from the LPA or PPM, and our own exclusion list"
+      },
+      {
+        "id": "manager_concentration",
+        "asks": "Does a single-LP or single-manager concentration limit break once this is sized?",
+        "requires": ["portfolio_commitments", "concentration_limits", "proposed_commitment"],
+        "method": "sum existing commitments per manager, add the proposed one, divide by total portfolio, compare against the limit",
+        "would_need": "commitments by manager, the concentration limits from the IPS, and the size proposed for this fund"
+      }
+    ]
+  },
+
+  "passes": [
+    {
+      "name": "screen",
+      "kit": "reference_kit",
+      "judge": "generic",
+      "max_attempts": 3,
+      "prompt": [
+        "You are screening a private-markets fund for an LP analyst, before it goes",
+        "to an investment committee. You are given a set of questions and whatever",
+        "reference data this run happened to mount.",
+        "",
+        "Write a Python file, `screen.py`. The `kit` module gives you:",
+        "",
+        "    kit.questions()   -> the questions, each with `requires`, `method`,",
+        "                         `would_need`, and `available` — which the engine",
+        "                         set by checking what this run actually mounted",
+        "    kit.tables()      -> the reference lists present",
+        "    kit.table(name)   -> columns, contains, find, values, candidates",
+        "    kit.write_result(answers)",
+        "    kit.write_assertions([...])   -> what you checked about your own answer",
+        "",
+        "Emit one answer per question, in the order given:",
+        "",
+        "    {\"question\": \"<id>\", \"verdict\": \"...\", \"because\": \"...\",",
+        "     \"missing\": [...], \"explanation\": {\"inputs\": [...], \"steps\": [...]},",
+        "     \"evidence\": [...]}",
+        "",
+        "`verdict` is one of `PASS`, `BREACH`, `NEEDS_CARVE_OUT`, `CANNOT_VERIFY`.",
+        "",
+        "## The rule that matters most here",
+        "",
+        "**If `available` is false, the answer is `CANNOT_VERIFY`.** Say in `because`",
+        "what is missing in plain words, list the input names in `missing`, and carry",
+        "the question's own `would_need` through so the analyst knows what to go and",
+        "ask for.",
+        "",
+        "Do not estimate. Do not reason from what a fund of this type usually does.",
+        "Do not treat the absence of an exclusion as compliance. A confident answer",
+        "built on data that is not in front of you is the worst thing this can",
+        "produce — worse than no answer, because a person will act on it.",
+        "",
+        "Most of these questions will not be answerable from what is mounted here,",
+        "and that is the expected outcome rather than a failure of yours.",
+        "",
+        "## When you can answer",
+        "",
+        "Write the calculation yourself — the arithmetic differs per question and no",
+        "helper exists for it. Concentration is a group-and-divide; vintage is a",
+        "group-by-year; a band check is an interval test. `method` on each question",
+        "says what the calculation is.",
+        "",
+        "Then show your working. `explanation.inputs` names each value and where it",
+        "came from; `explanation.steps` is the arithmetic written out so a person can",
+        "follow it; `because` is one plain sentence saying what the answer means.",
+        "An analyst who cannot check your number will not use it — that is the whole",
+        "complaint this product exists to answer.",
+        "",
+        "Finish by recording what you checked with `kit.write_assertions`. Be honest:",
+        "a claim that does not hold fails the attempt and tells you what to fix, and",
+        "a claim that does hold cannot make a failing attempt pass."
+      ],
+
+      "checks": [
+        {
+          "name": "explanation",
+          "options": {"field": "verdict", "refusals": ["CANNOT_VERIFY"]},
+          "describe": "an answer shows its inputs and steps; a refusal says why and names what it would need"
+        },
+        {
+          "name": "vocabulary",
+          "options": {
+            "field": "verdict",
+            "allowed": ["PASS", "BREACH", "NEEDS_CARVE_OUT", "CANNOT_VERIFY"]
+          },
+          "describe": "the verdict must be one of the four declared"
+        }
+      ],
+
+      "nudges": [
+        {
+          "text": [
+            "The supplied data is a fund administrator's bank statements and their",
+            "  reference lists. It carries no Investment Policy Statement, no vintage",
+            "  years, no commitment amounts, no leverage figures and no exclusion",
+            "  policy — that has been checked. So expect to refuse most of these, and",
+            "  refuse them precisely: the analyst's next action is to go and get the",
+            "  document you name."
+          ]
+        },
+        {
+          "check_failed": "explanation",
+          "text": [
+            "Either an answer arrived without its working, or a refusal arrived without",
+            "  saying what it needs. Both are unusable. A verdict needs",
+            "  `explanation.inputs` and `explanation.steps`; a CANNOT_VERIFY needs",
+            "  `because` and `missing`."
+          ]
+        }
+      ]
+    }
+  ],
+
+  "output": {
+    "envelope": {
+      "run_id": "@run_id",
+      "document_set": "lp_mandate_fit_screening",
+      "source_files": "@input_documents",
+      "questions": "@rows",
+      "checks": "@checks",
+      "review_queue": "@derive:review_queue",
+      "summary": "@derive:summary"
+    },
+    "row": {
+      "question": "$question",
+      "verdict": "$verdict",
+      "because": "$because",
+      "missing": "$missing",
+      "explanation": "$explanation",
+      "evidence": "$evidence"
+    }
+  }
+}
