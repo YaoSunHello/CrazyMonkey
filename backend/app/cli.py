@@ -339,12 +339,15 @@ def command_runs(args: argparse.Namespace) -> int:
     if not records:
         log("No runs recorded yet.")
         return 2
-    log(f"{'run':<26} {'account':<12} {'result':<9} {'rows':>5} {'try':>4} {'secs':>6}")
+    log(
+        f"{'run':<26} {'account':<12} {'profile':<20} {'result':<9} "
+        f"{'rows':>5} {'try':>4} {'secs':>6}"
+    )
     for record in records[: args.limit]:
         verdict = "accepted" if record.accepted else "rejected"
         log(
-            f"{record.run_id:<26} {record.account:<12} {verdict:<9} "
-            f"{record.rows:>5} {record.attempts:>4} {record.seconds:>6.0f}"
+            f"{record.run_id:<26} {record.account:<12} {record.profile or '-':<20} "
+            f"{verdict:<9} {record.rows:>5} {record.attempts:>4} {record.seconds:>6.0f}"
         )
     return 0
 

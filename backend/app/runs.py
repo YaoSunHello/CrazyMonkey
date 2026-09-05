@@ -90,6 +90,9 @@ class RunRecord:
     run_id: str
     path: Path
     account: str = ""
+    # Which track this run was on. Empty for runs recorded before profiles
+    # existed, which is why nothing may assume it is set.
+    profile: str = ""
     model: str = ""
     attempts: int = 0
     accepted: bool = False
@@ -122,6 +125,7 @@ def list_runs() -> list[RunRecord]:
                 run_id=directory.name,
                 path=directory,
                 account=summary.get("account", directory.name.split("-")[-1]),
+                profile=summary.get("profile", ""),
                 model=summary.get("model", ""),
                 attempts=summary.get("attempts", 0),
                 accepted=bool(summary.get("accepted")),
