@@ -88,9 +88,14 @@ async def stream_completion(
         "stream": True,
         "temperature": 0,
     }
-    if not settings.llm_enable_thinking:
-        # vLLM passes this through to the chat template. Off means the whole
-        # budget goes to the answer; on is the server default.
+    thinking = settings.llm_thinking.strip().lower()
+    if thinking in ("off", "false", "none", "0"):
+        # Passed through to the chat template: the whole budget goes to the answer.
         payload["chat_template_kwargs"] = {"enable_thinking": False}
+    elif thinking in ("low", "medium", "high"):
+        # Keep the channel, but bound it. Unbounded reasoning on this task ran
+        # to 120k characters without producing an answer.
+        payload["reasoning_effort"] = thinking
+        payload["chat_template_kwargs"] = {"enable_thinking": True}
 
     return await asyncio.to_thread(_stream, settings, payload, on_token, on_thought)

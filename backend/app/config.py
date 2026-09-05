@@ -23,11 +23,12 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = ""
     llm_user_agent: str = "CrazyMonkey/0.1"
-    # The served model is a hybrid reasoning model and thinks by default. Left
-    # on, as the server ships it. Set false to spend the tokens on the answer
-    # instead — measured: a long prompt with thinking on returned 0 characters
-    # after 285s, the same prompt with it off returned 3,400.
-    llm_enable_thinking: bool = True
+    # The served model is a hybrid reasoning model. "off" disables the channel
+    # entirely; low / medium / high ask the server to budget it.
+    #
+    # Measured on this task: unbounded thinking produced 120,000 characters of
+    # reasoning in 28 minutes and no code at all. Some budget is needed.
+    llm_thinking: str = "low"
 
     daytona_api_key: str = ""
     daytona_target: str = "eu"
