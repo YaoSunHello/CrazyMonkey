@@ -9,7 +9,7 @@ SOURCE WORKSPACES:
 
 SOURCE BRANCH: `codex/fullstack-continuation` plus selectively reviewed frontend work from `Leo`, `leo2`, and `adjust-for-frontend`
 
-CRAZYMONKEY BRANCH: `codex/frontend-on-main`, based on `origin/main` at `3884b9a8d312b18bdc6b8d4715bceb5099d78821`
+CRAZYMONKEY BRANCH: `codex/frontend-on-main`, originally based on `origin/main` at `3884b9a8d312b18bdc6b8d4715bceb5099d78821` and updated through `origin/main` at `3172d82`
 
 FILES MIGRATED:
 
