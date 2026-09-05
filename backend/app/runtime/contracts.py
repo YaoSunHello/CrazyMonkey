@@ -29,7 +29,8 @@ class VerificationPlan(Record):
     fund_name: str = Field(default="", max_length=200)
     currency: Literal["GBP", "USD", "EUR"]
     rationale: str = Field(min_length=1, max_length=3000)
-    inputs: dict[str, NumericInput] = Field(min_length=2, max_length=16)
+    # Sixteen expression operands plus the separate reported comparator.
+    inputs: dict[str, NumericInput] = Field(min_length=2, max_length=17)
     reported_input: str
     operation: Operation
     context_evidence_ids: list[str] = Field(min_length=1, max_length=200)
@@ -79,3 +80,4 @@ class ModelChallenge(Record):
     status: Literal["PASS", "CHALLENGE", "INSUFFICIENT_EVIDENCE"]
     reasons: list[str] = Field(default_factory=list, max_length=50)
     evidence_ids: list[str] = Field(default_factory=list, max_length=200)
+    suggested_correction: str | None = Field(default=None, max_length=2000)

@@ -1,5 +1,8 @@
 # Verified V0 runtime
 
+For concurrent Gemini discovery, verified corrected workbook copies, and the
+`run`, `replay`, and `list` commands, see [Turbo Audit](FAST_AUDIT.md).
+
 For the autonomous folder audit CLI, bounded arithmetic DSL, runtime provider
 adapter and independent challenge pass, see [INVESTIGATOR.md](INVESTIGATOR.md):
 

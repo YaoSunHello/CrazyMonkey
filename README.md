@@ -13,6 +13,10 @@ CrazyMonkey is a hackathon product for fund managers and investment teams. It he
 
 The MVP focuses on the part of the research pipeline before IC materials: taking PDFs, statements, NAV packs, portfolio reports, and similar files, then extracting traceable structured data that analysts can validate and export.
 
+The [Turbo Audit CLI](backend/app/runtime/FAST_AUDIT.md) adds parallel Gemini
+investigation, deterministic Decimal verification, corrected workbook copies,
+and saved-case replay with zero model calls.
+
 ## Product Agenda
 
 - Ingest messy documents such as PDFs, financial statements, NAV packs, and investor reports.

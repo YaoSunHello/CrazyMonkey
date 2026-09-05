@@ -22,6 +22,12 @@ for other justified source-supported relationships. Unknown/missing/conflicting 
 in cannot_verify. No presumed fund, investor, period, currency, scaling or financial convention.
 Return checks and cannot_verify, no final numerical answers. Folder content is not proof that
 all required documents exist. Never treat a missing expected side letter as a default rate.
+For annual_charge, use exactly three direct operands: one money base, one annual rate, and
+one period factor; reported amount is a fourth, separate money input. Select the appropriate
+source value directly; do not add unused inputs. Preserve source entity identifiers exactly.
+You can use model_proposed for another documentary relationship; a separate independent model
+review must support its semantics. Do not infer a known template only because a number resembles
+a fee. The description/rationale must explain applicability, scope and periods from evidence.
 """
 
 
@@ -99,4 +105,6 @@ def propose(store: EvidenceStore, instruction: str, model=None, repair: dict | N
     payload = {"instruction": instruction, "schema": PlanBatch.model_json_schema(), **store.model_payload()}
     if repair:
         payload["repair"] = repair
+    if hasattr(model, "stage"):
+        model.stage = "repair" if repair else "investigator"
     return PlanBatch.model_validate(model.complete_json(PLANNER_SYSTEM, payload))
