@@ -1,19 +1,50 @@
-"""The HTTP surface.
+"""The combined CrazyMonkey HTTP surface.
 
-Small on purpose. The pipeline is driven from the CLI; what a frontend needs
-from the backend today is to know which tracks exist, so it can offer them
-rather than hard-coding a use case of its own.
-
-Profiles are JSON on disk precisely so these routes are a passthrough. When a
-caller is eventually allowed to adjust a profile at run time, the thing it
-sends is the same document shape it reads here.
+The original profile endpoints remain a thin view over the JSON-on-disk track
+definitions. BEACON's review routes are mounted alongside them so the browser
+can send original files through ATLAS, the verified runtime, and RELAY without
+changing the existing CLI pipeline.
 """
 
+import os
+
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.profiles import load, load_all
+from app.relay.api import router as relay_router
+from app.runtime.api import router as runtime_router
+from app.runtime.beacon import router as beacon_router
 
 app = FastAPI(title="CrazyMonkey API")
+
+cors_origins = [
+    item.strip()
+    for item in os.getenv(
+        "CRAZYMONKEY_CORS_ORIGINS",
+        "http://localhost:4173,http://127.0.0.1:4173,"
+        "http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if item.strip()
+]
+if cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+        allow_headers=["Content-Type", "If-None-Match"],
+        expose_headers=[
+            "Content-Disposition",
+            "ETag",
+            "X-Review-Version",
+            "X-Snapshot-SHA256",
+        ],
+    )
+
+app.include_router(relay_router)
+app.include_router(runtime_router)
+app.include_router(beacon_router)
 
 
 @app.get("/health")

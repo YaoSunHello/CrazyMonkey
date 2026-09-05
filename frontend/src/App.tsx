@@ -3,6 +3,7 @@ import { reviewAdapter as defaultReviewAdapter } from "./api/reviewAdapter";
 import { EmailDialog } from "./components/EmailDialog";
 import { EvidenceDialog } from "./components/EvidenceDialog";
 import { FindingDetail } from "./components/FindingDetail";
+import { PackWorkspace } from "./components/PackWorkspace";
 import { ProcessingScreen } from "./components/ProcessingScreen";
 import { ReviewSummary } from "./components/ReviewSummary";
 import { UploadScreen } from "./components/UploadScreen";
@@ -30,6 +31,12 @@ interface AppProps {
 }
 
 export function App({ adapter = defaultReviewAdapter }: AppProps) {
+  const packWorkspaceEnabled = import.meta.env.VITE_ENABLE_PACK_WORKSPACE === "1";
+  const [workspace, setWorkspace] = useState<"NAV" | "PACK">(() =>
+    packWorkspaceEnabled && new URLSearchParams(window.location.search).get("workspace") === "pack"
+      ? "PACK"
+      : "NAV",
+  );
   const [screen, setScreen] = useState<Screen>("UPLOAD");
   const [documents, setDocuments] = useState<DetectedUpload[]>([]);
   const [reviewId, setReviewId] = useState<string>();
@@ -81,7 +88,7 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
       document.querySelector<HTMLElement>("#main-content h1")?.focus();
     });
     return () => window.cancelAnimationFrame(handle);
-  }, [screen]);
+  }, [screen, workspace]);
 
   useEffect(() => {
     if (screen !== "PROCESSING" || !reviewId || processingError) return;
@@ -319,16 +326,34 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
           <span>Crazy<span>Monkey</span></span>
         </a>
         <div className="header-meta">
+          {packWorkspaceEnabled && (
+            <nav className="workspace-switch" aria-label="Review workspace">
+              <button type="button" aria-pressed={workspace === "PACK"} onClick={() => setWorkspace("PACK")}>
+                Full pack
+              </button>
+              <button type="button" aria-pressed={workspace === "NAV"} onClick={() => setWorkspace("NAV")}>
+                NAV review
+              </button>
+            </nav>
+          )}
           <span className={`mode-pill mode-${adapter.mode}`}>
-            <span aria-hidden="true" />{adapter.mode === "mock" ? "Development fixture mode" : "Live adapter configured"}
+            <span aria-hidden="true" />
+            {workspace === "PACK"
+              ? "Pack API workspace"
+              : adapter.mode === "mock"
+                ? "Development fixture mode"
+                : "Live adapter configured"}
           </span>
           <span className="header-divider" aria-hidden="true" />
-          <span className="workspace-name">NAV Review Workspace</span>
+          <span className="workspace-name">
+            {workspace === "PACK" ? "Full Pack Workspace" : "NAV Review Workspace"}
+          </span>
         </div>
       </header>
 
       <main id="main-content" tabIndex={-1}>
-        {screen === "UPLOAD" && (
+        {packWorkspaceEnabled && workspace === "PACK" && <PackWorkspace />}
+        {workspace === "NAV" && screen === "UPLOAD" && (
           <UploadScreen
             documents={documents}
             adapterMode={adapter.mode}
@@ -342,7 +367,7 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
             onLoadDemo={() => void loadDemo()}
           />
         )}
-        {screen === "PROCESSING" && (
+        {workspace === "NAV" && screen === "PROCESSING" && (
           <ProcessingScreen
             progress={progress}
             error={processingError}
@@ -351,7 +376,7 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
             onBack={() => setScreen("UPLOAD")}
           />
         )}
-        {screen === "SUMMARY" && review && (
+        {workspace === "NAV" && screen === "SUMMARY" && review && (
           <ReviewSummary
             review={review}
             exportBusy={exportBusy}
@@ -360,7 +385,7 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
             onPrepareEmail={() => void prepareEmail()}
           />
         )}
-        {screen === "DETAIL" && review && selectedFinding && (
+        {workspace === "NAV" && screen === "DETAIL" && review && selectedFinding && (
           <FindingDetail
             finding={selectedFinding}
             reviewContext={review}
@@ -376,8 +401,8 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
         )}
       </main>
 
-      {evidence && <EvidenceDialog evidence={evidence} onClose={() => setEvidence(undefined)} />}
-      {emailDraft && review && (
+      {workspace === "NAV" && evidence && <EvidenceDialog evidence={evidence} onClose={() => setEvidence(undefined)} />}
+      {workspace === "NAV" && emailDraft && review && (
         <EmailDialog
           draft={emailDraft}
           canSend={review.outputCapabilities.emailSend}
@@ -387,7 +412,7 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
         />
       )}
 
-      {notice && (
+      {workspace === "NAV" && notice && (
         <div className={`toast toast-${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>
           <span aria-hidden="true">{notice.tone === "success" ? "✓" : notice.tone === "error" ? "!" : "i"}</span>
           <p>{notice.message}</p>

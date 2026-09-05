@@ -2,13 +2,21 @@ import { HttpReviewAdapter } from "./httpReviewAdapter";
 import { MockReviewAdapter } from "./mockReviewAdapter";
 import type { ReviewAdapter } from "../types";
 
-const apiMode = import.meta.env.VITE_API_MODE ?? "mock";
+export function createReviewAdapter(apiMode?: string, configuredBaseUrl?: string): ReviewAdapter {
+  const mode = apiMode ?? "mock";
+  if (mode !== "mock" && mode !== "live") {
+    throw new Error(`Unsupported VITE_API_MODE: ${mode}`);
+  }
+  if (mode === "mock") return new MockReviewAdapter();
 
-if (apiMode !== "mock" && apiMode !== "live") {
-  throw new Error(`Unsupported VITE_API_MODE: ${apiMode}`);
+  const baseUrl = configuredBaseUrl?.trim();
+  if (!baseUrl) {
+    throw new Error("VITE_API_BASE_URL is required when VITE_API_MODE=live. No fixture fallback was used.");
+  }
+  return new HttpReviewAdapter(baseUrl);
 }
 
-export const reviewAdapter: ReviewAdapter =
-  apiMode === "live"
-    ? new HttpReviewAdapter(import.meta.env.VITE_API_BASE_URL ?? "")
-    : new MockReviewAdapter();
+export const reviewAdapter = createReviewAdapter(
+  import.meta.env.VITE_API_MODE,
+  import.meta.env.VITE_API_BASE_URL,
+);

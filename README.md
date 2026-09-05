@@ -10,7 +10,36 @@
 
 CrazyMonkey is a hackathon product for fund managers and investment teams. It helps transform messy investment documents into clean, model-ready datasets.
 
+See [BEACON](frontend/BEACON.md) for the frontend and review workflow.
+
 The MVP focuses on the part of the research pipeline before IC materials: taking PDFs, statements, NAV packs, portfolio reports, and similar files, then extracting traceable structured data that analysts can validate and export.
+
+## Run the connected V0
+
+The existing profile-driven CLI/backend remains available. The same FastAPI
+process now also mounts the ATLAS, verified-runtime, BEACON, and RELAY routes
+used by the browser.
+
+From the repository root:
+
+```bash
+uv sync
+uv run uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
+```
+
+In a second terminal:
+
+```bash
+cd frontend
+npm ci
+VITE_API_MODE=live VITE_API_BASE_URL=http://127.0.0.1:8000 \
+  npm run dev -- --host 127.0.0.1
+```
+
+Open `http://127.0.0.1:4173`. Use one backend worker for V0 because active
+review state is process-local. Generated review snapshots and exports are
+written under the ignored `outputs/relay/` directory. Real email sending is
+disabled by default; the browser prepares a draft only.
 
 ## Product Agenda
 

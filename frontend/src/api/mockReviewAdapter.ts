@@ -160,6 +160,9 @@ export class MockReviewAdapter implements ReviewAdapter {
 
     const feeBaseInput = finding.calculation.inputs.find((input) => input.label === "Fee base");
     if (!feeBaseInput) throw new Error("The fee base is unavailable.");
+    if (typeof finding.administratorValue.amount !== "number") {
+      throw new Error("The development fixture expected a numeric administrator value.");
+    }
     const feeBase = parseMoneyLabel(feeBaseInput.value);
     const expectedAmount = feeBase * (correction.annualRate / 100) * 0.25;
     const difference = Math.abs(finding.administratorValue.amount - expectedAmount);
@@ -264,7 +267,7 @@ export class MockReviewAdapter implements ReviewAdapter {
     return {
       id: `draft-${review.id}`,
       status: "DRAFT",
-      recipient: "fund-operations@example.com",
+      recipient: "",
       subject: `${review.periodLabel} — items requiring review`,
       body: [
         "Hello,",
