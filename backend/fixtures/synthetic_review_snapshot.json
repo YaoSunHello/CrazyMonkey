@@ -1,0 +1,497 @@
+{
+  "schema_version": "relay-output-snapshot-v1",
+  "run_id": "review-demo-q3-2026",
+  "version": 1,
+  "fund_name": "Example Growth Fund III",
+  "reporting_period": "Q3 2026",
+  "mode": "SYNTHETIC_DEMO",
+  "timestamp": "2026-09-05T08:45:00Z",
+  "source": "DEVELOPMENT_FIXTURE",
+  "source_notice": "Pre-baked synthetic output aligned with Atlas's Q3 2026 fixture expectations. These findings are not the result of a live Atlas run.",
+  "source_documents": [
+    {
+      "document_id": "doc-nav",
+      "filename": "Administrator_NAV_Q3_2026.xlsx",
+      "role": "NAV_WORKBOOK",
+      "sha256": null,
+      "recognition": "RECOGNISED",
+      "supplied": true
+    },
+    {
+      "document_id": "doc-lpa",
+      "filename": "Example_Growth_Fund_III_LPA.pdf",
+      "role": "LPA",
+      "sha256": null,
+      "recognition": "RECOGNISED",
+      "supplied": true
+    },
+    {
+      "document_id": "doc-register",
+      "filename": "investor_input_register.csv",
+      "role": "INVESTOR_REGISTER",
+      "sha256": null,
+      "recognition": "RECOGNISED",
+      "supplied": true
+    },
+    {
+      "document_id": "doc-lp02-side-letter",
+      "filename": "LP02_Side_Letter.pdf",
+      "role": "SIDE_LETTER",
+      "sha256": null,
+      "recognition": "RECOGNISED",
+      "supplied": true
+    },
+    {
+      "document_id": "doc-lp03-side-letter",
+      "filename": "LP03_Side_Letter.pdf",
+      "role": "SIDE_LETTER",
+      "sha256": null,
+      "recognition": "RECOGNISED",
+      "supplied": true
+    },
+    {
+      "document_id": "doc-lp04-side-letter",
+      "filename": "LP04_Side_Letter.pdf",
+      "role": "SIDE_LETTER",
+      "sha256": null,
+      "recognition": "RECOGNISED",
+      "supplied": true
+    }
+  ],
+  "coverage": {
+    "scope": "Management-fee checks only",
+    "checks_expected": 6,
+    "checks_completed": 6,
+    "investor_ids": ["LP01", "LP02", "LP03", "LP04", "LP05", "LP06"]
+  },
+  "findings": [
+    {
+      "finding_id": "finding-lp01-fee",
+      "investor_id": "LP01",
+      "check_type": "Management fee",
+      "administrator_value": 50000,
+      "expected_value": 50000,
+      "difference": 0,
+      "variance_direction": "NO_VARIANCE",
+      "currency": "GBP",
+      "computational_status": "MATCH",
+      "human_review_status": "UNREVIEWED",
+      "explanation": "The administrator applied the 2.0% annual LPA fee to LP01 for the quarter.",
+      "calculation_id": "calc-lp01-fee",
+      "evidence_ids": ["ev-lpa-fee", "ev-lp01-workbook"]
+    },
+    {
+      "finding_id": "finding-lp02-fee",
+      "investor_id": "LP02",
+      "check_type": "Management fee",
+      "administrator_value": 37500,
+      "expected_value": 37500,
+      "difference": 0,
+      "variance_direction": "NO_VARIANCE",
+      "currency": "GBP",
+      "computational_status": "MATCH",
+      "human_review_status": "UNREVIEWED",
+      "explanation": "The administrator applied LP02's effective 1.5% side-letter rate for the quarter.",
+      "calculation_id": "calc-lp02-fee",
+      "evidence_ids": ["ev-lpa-fee", "ev-lp02-side-letter", "ev-lp02-workbook"]
+    },
+    {
+      "finding_id": "finding-lp03-fee",
+      "investor_id": "LP03",
+      "check_type": "Management fee",
+      "administrator_value": 50000,
+      "expected_value": 37500,
+      "difference": 12500,
+      "variance_direction": "ADMINISTRATOR_OVERSTATED",
+      "currency": "GBP",
+      "computational_status": "DISCREPANCY",
+      "human_review_status": "UNREVIEWED",
+      "explanation": "The administrator used the standard 2.0% fee from the LPA. LP03's effective side letter changes the applicable management fee to 1.5% for this period.",
+      "calculation_id": "calc-lp03-fee",
+      "evidence_ids": ["ev-lpa-fee", "ev-lp03-side-letter", "ev-lp03-workbook"]
+    },
+    {
+      "finding_id": "finding-lp04-fee",
+      "investor_id": "LP04",
+      "check_type": "Management fee",
+      "administrator_value": 50000,
+      "expected_value": 40000,
+      "difference": 10000,
+      "variance_direction": "ADMINISTRATOR_OVERSTATED",
+      "currency": "GBP",
+      "computational_status": "DISCREPANCY",
+      "human_review_status": "UNREVIEWED",
+      "explanation": "The administrator reported a fee base of GBP 10,000,000, while the investor register supports GBP 8,000,000 at the 2.0% LPA rate.",
+      "calculation_id": "calc-lp04-fee",
+      "evidence_ids": ["ev-lpa-fee", "ev-lp04-side-letter", "ev-lp04-workbook"]
+    },
+    {
+      "finding_id": "finding-lp05-fee",
+      "investor_id": "LP05",
+      "check_type": "Management fee",
+      "administrator_value": 50000,
+      "expected_value": 50000,
+      "difference": 0,
+      "variance_direction": "NO_VARIANCE",
+      "currency": "GBP",
+      "computational_status": "MATCH",
+      "human_review_status": "UNREVIEWED",
+      "explanation": "The administrator applied the 2.0% annual LPA fee to LP05 for the quarter.",
+      "calculation_id": "calc-lp05-fee",
+      "evidence_ids": ["ev-lpa-fee", "ev-lp05-workbook"]
+    },
+    {
+      "finding_id": "finding-lp06-fee",
+      "investor_id": "LP06",
+      "check_type": "Management fee",
+      "administrator_value": 37500,
+      "expected_value": null,
+      "difference": null,
+      "variance_direction": "UNKNOWN",
+      "currency": "GBP",
+      "computational_status": "CANNOT_VERIFY",
+      "human_review_status": "UNREVIEWED",
+      "explanation": "The investor register indicates that LP06 has a side letter, but no matching side-letter document was provided.",
+      "calculation_id": null,
+      "evidence_ids": ["ev-lpa-fee", "ev-lp06-workbook"]
+    }
+  ],
+  "investor_terms": [
+    {
+      "investor_id": "LP01",
+      "term": "Management fee",
+      "default_rate_fraction": 0.02,
+      "override_rate_fraction": null,
+      "applicable_rate_fraction": 0.02,
+      "fee_base": 10000000,
+      "currency": "GBP",
+      "evidence_ids": ["ev-lpa-fee"],
+      "applicability_state": "ESTABLISHED"
+    },
+    {
+      "investor_id": "LP02",
+      "term": "Management fee",
+      "default_rate_fraction": 0.02,
+      "override_rate_fraction": 0.015,
+      "applicable_rate_fraction": 0.015,
+      "fee_base": 10000000,
+      "currency": "GBP",
+      "evidence_ids": ["ev-lpa-fee", "ev-lp02-side-letter"],
+      "applicability_state": "ESTABLISHED"
+    },
+    {
+      "investor_id": "LP03",
+      "term": "Management fee",
+      "default_rate_fraction": 0.02,
+      "override_rate_fraction": 0.015,
+      "applicable_rate_fraction": 0.015,
+      "fee_base": 10000000,
+      "currency": "GBP",
+      "evidence_ids": ["ev-lpa-fee", "ev-lp03-side-letter"],
+      "applicability_state": "ESTABLISHED"
+    },
+    {
+      "investor_id": "LP04",
+      "term": "Management fee",
+      "default_rate_fraction": 0.02,
+      "override_rate_fraction": null,
+      "applicable_rate_fraction": 0.02,
+      "fee_base": 8000000,
+      "currency": "GBP",
+      "evidence_ids": ["ev-lpa-fee", "ev-lp04-side-letter"],
+      "applicability_state": "ESTABLISHED"
+    },
+    {
+      "investor_id": "LP05",
+      "term": "Management fee",
+      "default_rate_fraction": 0.02,
+      "override_rate_fraction": null,
+      "applicable_rate_fraction": 0.02,
+      "fee_base": 10000000,
+      "currency": "GBP",
+      "evidence_ids": ["ev-lpa-fee"],
+      "applicability_state": "ESTABLISHED"
+    },
+    {
+      "investor_id": "LP06",
+      "term": "Management fee",
+      "default_rate_fraction": 0.02,
+      "override_rate_fraction": null,
+      "applicable_rate_fraction": null,
+      "fee_base": null,
+      "currency": "GBP",
+      "evidence_ids": ["ev-lpa-fee"],
+      "applicability_state": "MISSING_EVIDENCE"
+    }
+  ],
+  "calculations": [
+    {
+      "calculation_id": "calc-lp01-fee",
+      "finding_id": "finding-lp01-fee",
+      "investor_id": "LP01",
+      "fee_base": 10000000,
+      "annual_rate_fraction": 0.02,
+      "period_factor": 0.25,
+      "expected_value": 50000,
+      "reported_value": 50000,
+      "difference": 0,
+      "currency": "GBP",
+      "expression": "GBP 10,000,000 x 2.00% x 0.25"
+    },
+    {
+      "calculation_id": "calc-lp02-fee",
+      "finding_id": "finding-lp02-fee",
+      "investor_id": "LP02",
+      "fee_base": 10000000,
+      "annual_rate_fraction": 0.015,
+      "period_factor": 0.25,
+      "expected_value": 37500,
+      "reported_value": 37500,
+      "difference": 0,
+      "currency": "GBP",
+      "expression": "GBP 10,000,000 x 1.50% x 0.25"
+    },
+    {
+      "calculation_id": "calc-lp03-fee",
+      "finding_id": "finding-lp03-fee",
+      "investor_id": "LP03",
+      "fee_base": 10000000,
+      "annual_rate_fraction": 0.015,
+      "period_factor": 0.25,
+      "expected_value": 37500,
+      "reported_value": 50000,
+      "difference": 12500,
+      "currency": "GBP",
+      "expression": "GBP 10,000,000 x 1.50% x 0.25"
+    },
+    {
+      "calculation_id": "calc-lp04-fee",
+      "finding_id": "finding-lp04-fee",
+      "investor_id": "LP04",
+      "fee_base": 8000000,
+      "annual_rate_fraction": 0.02,
+      "period_factor": 0.25,
+      "expected_value": 40000,
+      "reported_value": 50000,
+      "difference": 10000,
+      "currency": "GBP",
+      "expression": "GBP 8,000,000 x 2.00% x 0.25"
+    },
+    {
+      "calculation_id": "calc-lp05-fee",
+      "finding_id": "finding-lp05-fee",
+      "investor_id": "LP05",
+      "fee_base": 10000000,
+      "annual_rate_fraction": 0.02,
+      "period_factor": 0.25,
+      "expected_value": 50000,
+      "reported_value": 50000,
+      "difference": 0,
+      "currency": "GBP",
+      "expression": "GBP 10,000,000 x 2.00% x 0.25"
+    }
+  ],
+  "evidence_references": [
+    {
+      "evidence_id": "ev-lpa-fee",
+      "document_id": "doc-lpa",
+      "filename": "Example_Growth_Fund_III_LPA.pdf",
+      "document_role": "LPA",
+      "source_kind": "PDF",
+      "locator": "Section 8.1 - page 1",
+      "quoted_text": "The default annual management fee is 2.0% of the applicable investor Fee Base.",
+      "value": null,
+      "context": "Quarterly in arrears unless modified by an investor agreement."
+    },
+    {
+      "evidence_id": "ev-lp01-workbook",
+      "document_id": "doc-nav",
+      "filename": "Administrator_NAV_Q3_2026.xlsx",
+      "document_role": "NAV_WORKBOOK",
+      "source_kind": "SPREADSHEET",
+      "locator": "Investor Fees!F4",
+      "quoted_text": null,
+      "value": "GBP 50,000",
+      "context": "LP01 Q3 management fee reported by the administrator"
+    },
+    {
+      "evidence_id": "ev-lp02-side-letter",
+      "document_id": "doc-lp02-side-letter",
+      "filename": "LP02_Side_Letter.pdf",
+      "document_role": "SIDE_LETTER",
+      "source_kind": "PDF",
+      "locator": "Section 3.1 - page 1",
+      "quoted_text": "The annual management fee applicable to LP02 is 1.5% of the Fee Base.",
+      "value": null,
+      "context": "Investor-specific override"
+    },
+    {
+      "evidence_id": "ev-lp02-workbook",
+      "document_id": "doc-nav",
+      "filename": "Administrator_NAV_Q3_2026.xlsx",
+      "document_role": "NAV_WORKBOOK",
+      "source_kind": "SPREADSHEET",
+      "locator": "Investor Fees!F5",
+      "quoted_text": null,
+      "value": "GBP 37,500",
+      "context": "LP02 Q3 management fee reported by the administrator"
+    },
+    {
+      "evidence_id": "ev-lp03-side-letter",
+      "document_id": "doc-lp03-side-letter",
+      "filename": "LP03_Side_Letter.pdf",
+      "document_role": "SIDE_LETTER",
+      "source_kind": "PDF",
+      "locator": "Section 3.1 - page 1",
+      "quoted_text": "The annual management fee applicable to LP03 is 1.5% of the Fee Base.",
+      "value": null,
+      "context": "Investor-specific override"
+    },
+    {
+      "evidence_id": "ev-lp03-workbook",
+      "document_id": "doc-nav",
+      "filename": "Administrator_NAV_Q3_2026.xlsx",
+      "document_role": "NAV_WORKBOOK",
+      "source_kind": "SPREADSHEET",
+      "locator": "Investor Fees!F6",
+      "quoted_text": null,
+      "value": "GBP 50,000",
+      "context": "LP03 Q3 management fee reported by the administrator"
+    },
+    {
+      "evidence_id": "ev-lp04-side-letter",
+      "document_id": "doc-lp04-side-letter",
+      "filename": "LP04_Side_Letter.pdf",
+      "document_role": "SIDE_LETTER",
+      "source_kind": "PDF",
+      "locator": "Section 3.1 - page 1",
+      "quoted_text": "No management-fee rate variation is granted; the LPA default remains applicable.",
+      "value": null,
+      "context": "Investor-specific confirmation that the default rate remains applicable"
+    },
+    {
+      "evidence_id": "ev-lp04-workbook",
+      "document_id": "doc-nav",
+      "filename": "Administrator_NAV_Q3_2026.xlsx",
+      "document_role": "NAV_WORKBOOK",
+      "source_kind": "SPREADSHEET",
+      "locator": "Investor Fees!F7",
+      "quoted_text": null,
+      "value": "GBP 50,000",
+      "context": "LP04 Q3 management fee reported by the administrator"
+    },
+    {
+      "evidence_id": "ev-lp05-workbook",
+      "document_id": "doc-nav",
+      "filename": "Administrator_NAV_Q3_2026.xlsx",
+      "document_role": "NAV_WORKBOOK",
+      "source_kind": "SPREADSHEET",
+      "locator": "Investor Fees!F8",
+      "quoted_text": null,
+      "value": "GBP 50,000",
+      "context": "LP05 Q3 management fee reported by the administrator"
+    },
+    {
+      "evidence_id": "ev-lp06-workbook",
+      "document_id": "doc-nav",
+      "filename": "Administrator_NAV_Q3_2026.xlsx",
+      "document_role": "NAV_WORKBOOK",
+      "source_kind": "SPREADSHEET",
+      "locator": "Investor Fees!F9",
+      "quoted_text": null,
+      "value": "GBP 37,500",
+      "context": "LP06 Q3 management fee reported by the administrator"
+    }
+  ],
+  "challenger_concerns": [
+    {
+      "concern_id": "challenge-lp03",
+      "finding_id": "finding-lp03-fee",
+      "summary": "The administrator appears to use the LPA default instead of the investor-specific override.",
+      "status": "OPEN"
+    },
+    {
+      "concern_id": "challenge-lp04",
+      "finding_id": "finding-lp04-fee",
+      "summary": "The administrator fee base does not match the investor register for LP04.",
+      "status": "OPEN"
+    },
+    {
+      "concern_id": "challenge-lp06",
+      "finding_id": "finding-lp06-fee",
+      "summary": "An expected investor agreement is missing, so the applicable fee term cannot be established.",
+      "status": "OPEN"
+    }
+  ],
+  "verifier_results": [
+    {
+      "verifier_result_id": "verify-lp01",
+      "finding_id": "finding-lp01-fee",
+      "status": "COMPLETE",
+      "statement": "Deterministic recalculation agrees with the administrator value."
+    },
+    {
+      "verifier_result_id": "verify-lp02",
+      "finding_id": "finding-lp02-fee",
+      "status": "COMPLETE",
+      "statement": "Deterministic recalculation agrees with the administrator value."
+    },
+    {
+      "verifier_result_id": "verify-lp03",
+      "finding_id": "finding-lp03-fee",
+      "status": "COMPLETE",
+      "statement": "Deterministic recalculation confirms an expected fee of GBP 37,500."
+    },
+    {
+      "verifier_result_id": "verify-lp04",
+      "finding_id": "finding-lp04-fee",
+      "status": "COMPLETE",
+      "statement": "Deterministic recalculation confirms an expected fee of GBP 40,000."
+    },
+    {
+      "verifier_result_id": "verify-lp05",
+      "finding_id": "finding-lp05-fee",
+      "status": "COMPLETE",
+      "statement": "Deterministic recalculation agrees with the administrator value."
+    },
+    {
+      "verifier_result_id": "verify-lp06",
+      "finding_id": "finding-lp06-fee",
+      "status": "UNRESOLVED",
+      "statement": "The expected fee cannot be recalculated without the investor-specific agreement."
+    }
+  ],
+  "human_review_decisions": [
+    {"finding_id": "finding-lp01-fee", "state": "UNREVIEWED", "reviewer_label": null, "timestamp": null, "notes": null},
+    {"finding_id": "finding-lp02-fee", "state": "UNREVIEWED", "reviewer_label": null, "timestamp": null, "notes": null},
+    {"finding_id": "finding-lp03-fee", "state": "UNREVIEWED", "reviewer_label": null, "timestamp": null, "notes": null},
+    {"finding_id": "finding-lp04-fee", "state": "UNREVIEWED", "reviewer_label": null, "timestamp": null, "notes": null},
+    {"finding_id": "finding-lp05-fee", "state": "UNREVIEWED", "reviewer_label": null, "timestamp": null, "notes": null},
+    {"finding_id": "finding-lp06-fee", "state": "UNREVIEWED", "reviewer_label": null, "timestamp": null, "notes": null}
+  ],
+  "audit_trail": [
+    {
+      "timestamp": "2026-09-05T08:45:00Z",
+      "run_version": 1,
+      "finding_id": null,
+      "reviewer": "ATLAS SYNTHETIC FIXTURE",
+      "action": "REVIEW_SNAPSHOT_CREATED",
+      "previous_state": null,
+      "new_state": "FROZEN_INPUT_READY",
+      "note": "Synthetic management-fee review prepared for the local demonstration."
+    }
+  ],
+  "unresolved_issues": [
+    {
+      "issue_id": "unresolved-lp06",
+      "finding_id": "finding-lp06-fee",
+      "severity": "REVIEW_REQUIRED",
+      "summary": "Upload the LP06 side letter before establishing the applicable fee term.",
+      "missing_evidence": ["SIDE_LETTER"]
+    }
+  ],
+  "limitations": [
+    "Pre-baked synthetic output fixture; not a live Atlas run or regulated sign-off.",
+    "Source documents are generated separately, so this output fixture does not claim document hashes."
+  ]
+}
