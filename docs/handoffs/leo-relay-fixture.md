@@ -2,7 +2,7 @@
 
 STATUS: MIGRATED
 
-SOURCE WORKSPACE: `/Users/leonardaarons-ditson/Documents/ChatGPT/YLOOKUP WIN`
+SOURCE WORKSPACE: the original local workspace (unborn branch; no remote)
 
 SOURCE BRANCH: `feature/relay-outputs` (local unborn branch; no commits and no remote)
 

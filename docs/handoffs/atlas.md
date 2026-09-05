@@ -2,7 +2,7 @@
 
 STATUS: MIGRATED
 
-SOURCE WORKSPACE: `/Users/leonardaarons-ditson/Documents/ChatGPT/YLOOKUP WIN/.worktrees/atlas-core`
+SOURCE WORKSPACE: the original local workspace's `.worktrees/atlas-core` checkout
 
 SOURCE BRANCH: `feature/atlas-core`
 

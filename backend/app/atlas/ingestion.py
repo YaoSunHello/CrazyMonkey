@@ -35,6 +35,7 @@ MAX_XLSX_MEMBERS = 10_000
 MAX_WORKBOOK_ROWS = 20_000
 MAX_WORKBOOK_COLUMNS = 500
 MAX_NONEMPTY_CELLS = 100_000
+MAX_WORKBOOK_GRID_CELLS = 1_000_000
 MAX_CSV_ROWS = 50_000
 MAX_CSV_COLUMNS = 500
 MAX_CELL_CHARS = 32_000
@@ -56,13 +57,15 @@ class RoleGuess:
 
 def detect_document_role(filename: str) -> RoleGuess:
     name = Path(filename).name.lower()
-    if "side" in name and "letter" in name:
+    words = re.findall(r"[a-z0-9]+", Path(name).stem)
+    phrases = set(zip(words, words[1:]))
+    if ("side", "letter") in phrases or "sideletter" in words:
         return RoleGuess(DocumentRole.SIDE_LETTER, True, "filename identifies a side letter")
-    if "lpa" in name or "partnership_agreement" in name or "partnership agreement" in name:
+    if "lpa" in words or ("partnership", "agreement") in phrases:
         return RoleGuess(DocumentRole.LPA, True, "filename identifies an LPA")
-    if "nav" in name and name.endswith(".xlsx"):
+    if "nav" in words and name.endswith(".xlsx"):
         return RoleGuess(DocumentRole.NAV_WORKBOOK, True, "filename identifies a NAV workbook")
-    if "register" in name or "investor_input" in name or "investor input" in name:
+    if "register" in words or ("investor", "input") in phrases:
         return RoleGuess(
             DocumentRole.INVESTOR_REGISTER,
             True,
@@ -84,7 +87,13 @@ def normalize_file(
     path = Path(path)
     if not path.is_file():
         raise IngestionError("FILE_NOT_FOUND", f"Source file does not exist: {path.name}")
-    data = path.read_bytes()
+    # Bound the read itself; checking after read_bytes() allows an oversized
+    # upload to exhaust memory before its size is rejected.
+    try:
+        with path.open("rb") as source:
+            data = source.read(MAX_FILE_BYTES + 1)
+    except OSError as exc:
+        raise IngestionError("FILE_READ_FAILED", f"Could not read {path.name}") from exc
     if len(data) > MAX_FILE_BYTES:
         raise IngestionError(
             "FILE_TOO_LARGE",
@@ -182,21 +191,29 @@ def _normalize_pdf(
         raise IngestionError("PDF_PARSE_FAILED", f"Could not parse {path.name}: {exc}") from exc
     if reader.is_encrypted:
         raise IngestionError("ENCRYPTED_PDF", f"Encrypted PDF is not supported: {path.name}")
-    if len(reader.pages) > MAX_PDF_PAGES:
+    try:
+        page_count = len(reader.pages)
+    except Exception as exc:
+        raise IngestionError("PDF_PARSE_FAILED", f"Could not read pages in {path.name}") from exc
+    if page_count > MAX_PDF_PAGES:
         raise IngestionError(
             "PDF_PAGE_LIMIT",
-            f"{path.name} has {len(reader.pages)} pages; limit is {MAX_PDF_PAGES}",
+            f"{path.name} has {page_count} pages; limit is {MAX_PDF_PAGES}",
         )
 
     warnings: list[str] = []
     evidence: list[SourceRef] = []
     total_chars = 0
     section: str | None = None
-    for page_number, page in enumerate(reader.pages, start=1):
+    for page_number in range(1, page_count + 1):
         try:
+            page = reader.pages[page_number - 1]
             text = page.extract_text() or ""
         except Exception as exc:
             warnings.append(f"Page {page_number} could not be extracted: {type(exc).__name__}")
+            continue
+        if not text.strip():
+            warnings.append(f"Page {page_number} has no usable text; image-only content requires OCR")
             continue
         if len(text) > MAX_PDF_PAGE_CHARS:
             warnings.append(f"Page {page_number} text was truncated at {MAX_PDF_PAGE_CHARS} characters")
@@ -222,12 +239,13 @@ def _normalize_pdf(
                 SourceRef(
                     evidence_id=stable_id(
                         "ev",
+                        document_id,
                         document_hash,
                         "pdf",
                         page_number,
                         start,
                         end,
-                        block,
+                        raw_block,
                     ),
                     document_id=document_id,
                     document_hash=document_hash,
@@ -236,7 +254,7 @@ def _normalize_pdf(
                     section=section,
                     text_start=start,
                     text_end=end,
-                    quote=block,
+                    quote=raw_block,
                 )
             )
 
@@ -262,7 +280,7 @@ def _normalize_pdf(
             warnings=warnings,
         ),
         evidence=evidence,
-        layout={"page_count": len(reader.pages), "text_based": True},
+        layout={"page_count": page_count, "text_based": True},
     )
 
 
@@ -300,7 +318,10 @@ def _normalize_xlsx(
     storage_key: str,
     role_confirmed: bool,
 ) -> NormalizedDocument:
-    _inspect_xlsx_zip(path, data)
+    try:
+        _inspect_xlsx_zip(path, data)
+    except zipfile.BadZipFile as exc:
+        raise IngestionError("INVALID_XLSX", f"{path.name} has an invalid XLSX package directory") from exc
     try:
         formulas_book = load_workbook(
             io.BytesIO(data),
@@ -321,12 +342,21 @@ def _normalize_xlsx(
     evidence: list[SourceRef] = []
     sheets: list[WorkbookSheet] = []
     nonempty_cells = 0
+    grid_cells = 0
     try:
         for sheet in formulas_book.worksheets:
             if sheet.max_row > MAX_WORKBOOK_ROWS or sheet.max_column > MAX_WORKBOOK_COLUMNS:
                 raise IngestionError(
                     "WORKSHEET_DIMENSION_LIMIT",
                     f"Sheet {sheet.title!r} exceeds the {MAX_WORKBOOK_ROWS}x{MAX_WORKBOOK_COLUMNS} limit",
+                )
+            # iter_rows() materializes blank cells too, so the nonempty-cell
+            # limit alone cannot protect a large sparse worksheet rectangle.
+            grid_cells += sheet.max_row * sheet.max_column
+            if grid_cells > MAX_WORKBOOK_GRID_CELLS:
+                raise IngestionError(
+                    "WORKBOOK_GRID_LIMIT",
+                    f"{path.name} exceeds the {MAX_WORKBOOK_GRID_CELLS} worksheet scan cell limit",
                 )
             cached_sheet = values_book[sheet.title]
             sheets.append(
@@ -341,7 +371,7 @@ def _normalize_xlsx(
             )
             for row in sheet.iter_rows():
                 for cell in row:
-                    if cell.value is None:
+                    if cell.value is None or (isinstance(cell.value, str) and not cell.value.strip()):
                         continue
                     nonempty_cells += 1
                     if nonempty_cells > MAX_NONEMPTY_CELLS:
@@ -349,12 +379,19 @@ def _normalize_xlsx(
                             "WORKBOOK_CELL_LIMIT",
                             f"{path.name} exceeds the {MAX_NONEMPTY_CELLS} non-empty cell limit",
                         )
+                    if cell.data_type == "f" and not isinstance(cell.value, str):
+                        raise IngestionError(
+                            "UNSUPPORTED_XLSX_FORMULA",
+                            f"{sheet.title}!{cell.coordinate} uses an unsupported array or data-table formula",
+                        )
                     original = str(cell.value)
                     if len(original) > MAX_CELL_CHARS:
                         warnings.append(f"{sheet.title}!{cell.coordinate} was truncated")
                         original = original[:MAX_CELL_CHARS]
                     formula = original if cell.data_type == "f" else None
                     cached = cached_sheet[cell.coordinate].value if formula else None
+                    if cell.data_type == "e" or (formula and cached_sheet[cell.coordinate].data_type == "e"):
+                        warnings.append(f"{sheet.title}!{cell.coordinate} contains an Excel error value")
                     cache_status = (
                         "PRESENT_UNVERIFIED"
                         if formula and cached is not None
@@ -370,6 +407,7 @@ def _normalize_xlsx(
                         SourceRef(
                             evidence_id=stable_id(
                                 "ev",
+                                document_id,
                                 document_hash,
                                 "xlsx",
                                 sheet.title,
@@ -394,6 +432,8 @@ def _normalize_xlsx(
         formulas_book.close()
         values_book.close()
 
+    if not evidence:
+        raise IngestionError("EMPTY_XLSX", f"No usable cell values were extracted from {path.name}")
     if not role_confirmed:
         warnings.append("Document role requires reviewer confirmation")
     status = ExtractionStatus.PARTIAL if warnings else ExtractionStatus.COMPLETE
@@ -425,6 +465,41 @@ def _decode_csv(path: Path, data: bytes) -> str:
     raise IngestionError("CSV_ENCODING", f"{path.name} must use UTF-8 encoding")
 
 
+def _csv_rows(path: Path, text: str, dialect, warnings: list[str]) -> Iterable[list[str]]:
+    stream = io.StringIO(text, newline="")
+    reader = csv.reader(stream, dialect, strict=True)
+    try:
+        start = 0
+        for row in reader:
+            end = stream.tell()
+            if dialect.skipinitialspace:
+                # Let csv.reader handle quoting, including multiline records.
+                # A second standard parse retains unquoted leading spaces when
+                # both interpretations agree on the fields and their contents.
+                try:
+                    raw_rows = list(csv.reader(
+                        io.StringIO(text[start:end], newline=""), dialect,
+                        strict=True, skipinitialspace=False,
+                    ))
+                except csv.Error:
+                    raw_rows = []
+                if len(raw_rows) == 1 and len(raw_rows[0]) == len(row):
+                    raw = raw_rows[0]
+                    if all(left.strip() == right.strip() for left, right in zip(raw, row)):
+                        row = raw
+                    else:
+                        warnings.append(f"Line {reader.line_num} uses CSV separator whitespace before quoted fields")
+                        row = [left if left.strip() == right.strip() else right for left, right in zip(raw, row)]
+                else:
+                    warnings.append(f"Line {reader.line_num} uses CSV separator whitespace before quoted fields")
+            start = end
+            yield row
+    except csv.Error as exc:
+        raise IngestionError(
+            "CSV_PARSE_FAILED", f"Could not parse {path.name} near line {reader.line_num}"
+        ) from exc
+
+
 def _normalize_csv(
     path: Path,
     data: bytes,
@@ -439,15 +514,19 @@ def _normalize_csv(
         dialect = csv.Sniffer().sniff(text[:8192], delimiters=",;\t|")
     except csv.Error:
         dialect = csv.excel
-    reader = csv.reader(io.StringIO(text, newline=""), dialect)
+    warnings: list[str] = []
+    reader = iter(_csv_rows(path, text, dialect, warnings))
     try:
         raw_headers = next(reader)
     except StopIteration as exc:
         raise IngestionError("EMPTY_CSV", f"{path.name} has no header row") from exc
     if len(raw_headers) > MAX_CSV_COLUMNS:
         raise IngestionError("CSV_COLUMN_LIMIT", f"{path.name} has too many columns")
+    if not raw_headers:
+        raise IngestionError("EMPTY_CSV", f"{path.name} has no header row")
+    if any(len(header) > MAX_CELL_CHARS for header in raw_headers):
+        raise IngestionError("CSV_HEADER_LIMIT", f"{path.name} contains an oversized column header")
     headers = _normalise_headers(raw_headers)
-    warnings: list[str] = []
     evidence: list[SourceRef] = []
     row_count = 1
     for row_number, row in enumerate(reader, start=2):
@@ -456,9 +535,15 @@ def _normalize_csv(
             raise IngestionError("CSV_ROW_LIMIT", f"{path.name} exceeds {MAX_CSV_ROWS} data rows")
         if len(row) > MAX_CSV_COLUMNS:
             raise IngestionError("CSV_COLUMN_LIMIT", f"Row {row_number} has too many columns")
+        if len(row) > len(headers):
+            raise IngestionError(
+                "CSV_ROW_WIDTH_MISMATCH", f"Row {row_number} has more fields than the header"
+            )
+        if len(row) < len(headers) and any(value.strip() for value in row):
+            warnings.append(f"Row {row_number} has missing trailing fields")
         padded = row + [""] * (len(headers) - len(row))
-        for index, value in enumerate(padded[: len(headers)]):
-            if value == "":
+        for index, value in enumerate(padded):
+            if not value.strip():
                 continue
             if len(value) > MAX_CELL_CHARS:
                 warnings.append(f"Row {row_number}, {headers[index]} was truncated")
@@ -467,6 +552,7 @@ def _normalize_csv(
                 SourceRef(
                     evidence_id=stable_id(
                         "ev",
+                        document_id,
                         document_hash,
                         "csv",
                         row_number,
@@ -483,6 +569,8 @@ def _normalize_csv(
                     data_type="string",
                 )
             )
+    if not evidence:
+        raise IngestionError("EMPTY_CSV", f"No usable data rows were extracted from {path.name}")
     if not role_confirmed:
         warnings.append("Document role requires reviewer confirmation")
     status = ExtractionStatus.PARTIAL if warnings else ExtractionStatus.COMPLETE
@@ -507,10 +595,14 @@ def _normalize_csv(
 
 def _normalise_headers(raw_headers: Iterable[str]) -> list[str]:
     headers: list[str] = []
-    seen: dict[str, int] = {}
+    seen: set[str] = set()
     for index, raw in enumerate(raw_headers, start=1):
         base = raw.strip() or f"column_{get_column_letter(index)}"
-        count = seen.get(base, 0) + 1
-        seen[base] = count
-        headers.append(base if count == 1 else f"{base}_{count}")
+        header = base
+        count = 1
+        while header in seen:
+            count += 1
+            header = f"{base}_{count}"
+        seen.add(header)
+        headers.append(header)
     return headers

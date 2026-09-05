@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 
 NonEmpty = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+ExactText = Annotated[str, StringConstraints(strip_whitespace=False)]
+ExactNonEmpty = Annotated[str, StringConstraints(strip_whitespace=False, min_length=1)]
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{64}$")]
 Money = Annotated[Decimal, Field(max_digits=24, decimal_places=6)]
 Rate = Annotated[Decimal, Field(ge=Decimal("0"), le=Decimal("1"), decimal_places=8)]
@@ -106,14 +108,14 @@ class StageState(str, Enum):
 
 class SourceDocument(StrictModel):
     document_id: NonEmpty
-    filename: NonEmpty
+    filename: ExactNonEmpty
     document_hash: Sha256
     role: DocumentRole
     mime_type: NonEmpty
     size_bytes: int = Field(ge=0)
     extraction_status: ExtractionStatus
     warnings: list[str] = Field(default_factory=list)
-    original_storage_key: NonEmpty
+    original_storage_key: ExactNonEmpty
 
 
 class SourceRef(StrictModel):
@@ -125,20 +127,20 @@ class SourceRef(StrictModel):
     section: str | None = None
     text_start: int | None = Field(default=None, ge=0)
     text_end: int | None = Field(default=None, ge=0)
-    sheet: str | None = None
+    sheet: ExactText | None = None
     cell: str | None = None
     csv_row: int | None = Field(default=None, ge=1)
-    csv_column: str | None = None
-    quote: str | None = None
-    original_value: str | None = None
+    csv_column: ExactText | None = None
+    quote: ExactText | None = None
+    original_value: ExactText | None = None
     normalized_value: str | None = None
-    formula: str | None = None
-    cached_value: str | None = None
+    formula: ExactText | None = None
+    cached_value: ExactText | None = None
     cache_status: Literal["NOT_APPLICABLE", "PRESENT_UNVERIFIED", "MISSING"] = (
         "NOT_APPLICABLE"
     )
     data_type: str | None = None
-    number_format: str | None = None
+    number_format: ExactText | None = None
 
     @model_validator(mode="after")
     def validate_locator_and_support(self) -> "SourceRef":
@@ -148,7 +150,7 @@ class SourceRef(StrictModel):
             raise ValueError("workbook evidence requires sheet and cell")
         if self.kind == EvidenceKind.CSV_CELL and not (self.csv_row and self.csv_column):
             raise ValueError("CSV evidence requires row and column")
-        if self.quote is None and self.original_value is None:
+        if not self.quote and not self.original_value:
             raise ValueError("evidence requires exact supporting text or original value")
         if (
             self.text_start is not None
@@ -169,7 +171,7 @@ class SourceRef(StrictModel):
 
 
 class WorkbookSheet(StrictModel):
-    name: NonEmpty
+    name: ExactNonEmpty
     max_row: int = Field(ge=0)
     max_column: int = Field(ge=0)
     hidden: bool = False
@@ -183,6 +185,20 @@ class NormalizedDocument(StrictModel):
     workbook_sheets: list[WorkbookSheet] = Field(default_factory=list)
     csv_headers: list[str] = Field(default_factory=list)
     layout: dict[str, str | int | bool] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_evidence_documents(self) -> "NormalizedDocument":
+        evidence_ids: set[str] = set()
+        for ref in self.evidence:
+            if ref.evidence_id in evidence_ids:
+                raise ValueError("evidence IDs must be unique within a document")
+            evidence_ids.add(ref.evidence_id)
+            if (
+                ref.document_id != self.document.document_id
+                or ref.document_hash != self.document.document_hash
+            ):
+                raise ValueError("evidence must reference the containing document and hash")
+        return self
 
 
 class StageProgress(StrictModel):
@@ -219,6 +235,18 @@ class InvestorRule(StrictModel):
     extraction_state: RuleState
     unresolved_questions: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def validate_date_ranges(self) -> "InvestorRule":
+        if self.period_end < self.period_start:
+            raise ValueError("period_end must not precede period_start")
+        if (
+            self.effective_from is not None
+            and self.effective_to is not None
+            and self.effective_to < self.effective_from
+        ):
+            raise ValueError("effective_to must not precede effective_from")
+        return self
+
 
 class Calculation(StrictModel):
     calculation_id: NonEmpty
@@ -232,7 +260,7 @@ class Calculation(StrictModel):
     period_factor: Rate
     currency: Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
     rounding: Literal["ROUND_HALF_UP_0.01"] = "ROUND_HALF_UP_0.01"
-    tolerance: Money
+    tolerance: Money = Field(ge=Decimal("0"))
     expected_amount: Money
     reported_amount: Money
     difference: Money
@@ -267,6 +295,17 @@ class VerifierResult(StrictModel):
     blocking_concern_ids: list[NonEmpty] = Field(default_factory=list)
     explanation: NonEmpty
 
+    @model_validator(mode="after")
+    def validate_asserted_result(self) -> "VerifierResult":
+        if self.status in (FindingStatus.MATCH, FindingStatus.DISCREPANCY):
+            if self.calculation_id is None or not self.checks:
+                raise ValueError("an asserted result requires a calculation and verifier checks")
+            if self.blocking_concern_ids:
+                raise ValueError("an asserted result cannot have blocking concerns")
+            if self.status == FindingStatus.MATCH and any(not check.passed for check in self.checks):
+                raise ValueError("a match cannot have failed verifier checks")
+        return self
+
 
 class Finding(StrictModel):
     finding_id: NonEmpty
@@ -289,6 +328,24 @@ class Finding(StrictModel):
     reviewer_label: str | None = None
     reviewer_note: str | None = None
     reviewed_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_evidence_and_assertion(self) -> "Finding":
+        ref_ids = [ref.evidence_id for ref in self.source_refs]
+        if (
+            len(set(ref_ids)) != len(ref_ids)
+            or len(set(self.evidence_ids)) != len(self.evidence_ids)
+            or set(self.evidence_ids) != set(ref_ids)
+        ):
+            raise ValueError("finding evidence IDs must resolve exactly to unique source references")
+        if self.status in (FindingStatus.MATCH, FindingStatus.DISCREPANCY):
+            required = (
+                self.reported_value, self.expected_value, self.difference,
+                self.currency, self.calculation_id,
+            )
+            if any(value is None for value in required) or not self.source_refs:
+                raise ValueError("an asserted finding requires amounts, currency, calculation and evidence")
+        return self
 
 
 class ReviewDecision(StrictModel):
@@ -340,6 +397,67 @@ class ReviewSnapshot(StrictModel):
     unresolved_items: list[str] = Field(default_factory=list)
     limitations: list[NonEmpty]
     summary: CoverageSummary | None = None
+
+    @model_validator(mode="after")
+    def validate_record_references(self) -> "ReviewSnapshot":
+        def index(records: list, key: str) -> dict:
+            result = {getattr(record, key): record for record in records}
+            if len(result) != len(records):
+                raise ValueError(f"duplicate {key} in snapshot")
+            return result
+
+        def linked(records: dict, record_id: str, investor_id: str):
+            record = records.get(record_id)
+            if record is None or record.investor_id != investor_id:
+                raise ValueError("snapshot references must resolve to the same investor")
+            return record
+
+        documents = index(self.source_documents, "document_id")
+        rules = index(self.rules, "rule_id")
+        calculations = index(self.calculations, "calculation_id")
+        concerns = index(self.challenger_concerns, "concern_id")
+        verifiers = index(self.verifier_results, "verifier_result_id")
+        index(self.findings, "finding_id")
+        for calculation in self.calculations:
+            rule = linked(rules, calculation.rule_id, calculation.investor_id)
+            if calculation.rule_version != rule.rule_version:
+                raise ValueError("calculation must reference the stored rule version")
+        for concern in self.challenger_concerns:
+            if concern.rule_id is not None:
+                linked(rules, concern.rule_id, concern.investor_id)
+        for verifier in self.verifier_results:
+            if verifier.rule_id is not None:
+                linked(rules, verifier.rule_id, verifier.investor_id)
+            if verifier.calculation_id is not None:
+                calculation = linked(calculations, verifier.calculation_id, verifier.investor_id)
+                if verifier.rule_id is not None and verifier.rule_id != calculation.rule_id:
+                    raise ValueError("verifier rule must match its calculation")
+            for concern_id in verifier.blocking_concern_ids:
+                linked(concerns, concern_id, verifier.investor_id)
+        evidence: dict[str, SourceRef] = {}
+        for finding in self.findings:
+            verifier = linked(verifiers, finding.verifier_result_id, finding.investor_id)
+            if finding.status != verifier.status or finding.calculation_id != verifier.calculation_id:
+                raise ValueError("finding status and calculation must match its verifier result")
+            if finding.calculation_id is not None:
+                calculation = linked(calculations, finding.calculation_id, finding.investor_id)
+                for finding_field, calculation_field in (
+                    ("reported_value", "reported_amount"), ("expected_value", "expected_amount"),
+                    ("difference", "difference"), ("currency", "currency"),
+                ):
+                    value = getattr(finding, finding_field)
+                    if value is not None and value != getattr(calculation, calculation_field):
+                        raise ValueError("finding values must match their referenced calculation")
+            for concern_id in finding.challenger_concern_ids:
+                linked(concerns, concern_id, finding.investor_id)
+            for ref in finding.source_refs:
+                document = documents.get(ref.document_id)
+                if document is None or document.document_hash != ref.document_hash:
+                    raise ValueError("finding evidence must reference a stored document and hash")
+                if ref.evidence_id in evidence and evidence[ref.evidence_id] != ref:
+                    raise ValueError("one evidence ID cannot identify different source references")
+                evidence[ref.evidence_id] = ref
+        return self
 
     @model_validator(mode="after")
     def compute_and_validate_summary(self) -> "ReviewSnapshot":
