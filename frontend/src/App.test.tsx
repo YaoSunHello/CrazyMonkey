@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { beforeEach } from "vitest";
 import { App } from "./App";
 import { MockReviewAdapter } from "./api/mockReviewAdapter";
 import type { ReviewProgress, ReviewResult } from "./types";
@@ -27,10 +28,14 @@ class BelowExpectedMockReviewAdapter extends ImmediateMockReviewAdapter {
   }
 }
 
+beforeEach(() => {
+  window.history.replaceState({}, "", "/?workspace=nav");
+});
+
 describe("CrazyMonkey review workflow", () => {
   it("renders the synthetic review totals and keeps human review separate from the finding status", async () => {
     const user = userEvent.setup();
-    render(<App adapter={new ImmediateMockReviewAdapter()} initialWorkspace="NAV" />);
+    render(<App adapter={new ImmediateMockReviewAdapter()} />);
 
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
 
@@ -71,7 +76,7 @@ describe("CrazyMonkey review workflow", () => {
   it("does not imply uploaded packs can be reviewed in development fixture mode", async () => {
     const user = userEvent.setup();
     const adapter = new MockReviewAdapter();
-    render(<App adapter={adapter} initialWorkspace="NAV" />);
+    render(<App adapter={adapter} />);
 
     const input = screen.getByLabelText("Select files") as HTMLInputElement;
     await user.upload(input, [
@@ -96,7 +101,7 @@ describe("CrazyMonkey review workflow", () => {
 
   it("shows a signed negative difference as an absolute magnitude below reconstruction", async () => {
     const user = userEvent.setup();
-    render(<App adapter={new BelowExpectedMockReviewAdapter()} initialWorkspace="NAV" />);
+    render(<App adapter={new BelowExpectedMockReviewAdapter()} />);
 
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     await user.click(await screen.findByRole("button", { name: "Review next exception" }));

@@ -159,13 +159,18 @@ def _statement_details(lines: list[list[dict]]) -> dict[str, str]:
 def parse_statement(path: str | Path) -> Statement:
     """Parse one statement PDF.
 
-    The account short code is taken from the filename, which the dataset README
-    documents as carrying the entity, bank, currency and account short code.
+    Dataset filenames carry the currency and account short code. Renamed
+    uploads use the printed currency and full account number instead.
     """
     path = Path(path)
     parts = path.stem.split("_")
-    currency_from_name, code = parts[-2], parts[-1]
-    short_code = f"{currency_from_name}_{code}"
+    named_account = (
+        len(parts) >= 2
+        and re.fullmatch(r"[A-Z]{3}", parts[-2]) is not None
+        and re.fullmatch(r"[0-9]+", parts[-1]) is not None
+    )
+    currency_from_name = parts[-2] if named_account else ""
+    short_code = f"{currency_from_name}_{parts[-1]}" if named_account else ""
 
     statement = Statement(source_file=path.name, account_short_code=short_code)
     rows: list[StatementRow] = []
@@ -239,7 +244,47 @@ def parse_statement(path: str | Path) -> Statement:
                     current.narrative_provenance = _bbox(line, page_no)
 
     statement.rows = rows
+    if not named_account:
+        account = re.sub(r"[^A-Za-z0-9]", "", statement.account_number)
+        statement.account_short_code = "_".join(
+            part for part in (statement.currency.strip(), account) if part
+        ) or path.stem
     return statement
+
+
+class UnsupportedStatementError(ValueError):
+    """A readable PDF does not contain the supported statement evidence."""
+
+
+def ensure_supported_statement(statement: Statement) -> None:
+    """Require a statement layout before interpreting its arithmetic checks.
+
+    This is a format/evidence gate, not another verifier. Broken arithmetic
+    still reaches the existing checks and remains a computational failure.
+    """
+    text = statement.full_text
+    has_transaction = any(
+        row.bank_reference.strip()
+        and row.bank_reference in text
+        and DATE.fullmatch(row.value_date)
+        and row.balance is not None
+        and row.balance.is_finite()
+        and (row.credit is not None or row.debit is not None)
+        and 1 <= row.provenance.page <= len(statement.page_text)
+        for row in statement.rows
+    )
+    if (
+        not statement.rows
+        or not statement.account_number.strip()
+        or re.fullmatch(r"[A-Z]{3}", statement.currency.strip()) is None
+        or statement.closing_balance is None
+        or not statement.closing_balance.is_finite()
+        or not has_transaction
+    ):
+        raise UnsupportedStatementError(
+            f"{statement.source_file} is a readable PDF but not a supported Calder "
+            "bank-statement layout with account, currency, closing balance and transaction evidence"
+        )
 
 
 def parse_all(directory: str | Path) -> list[Statement]:

@@ -125,10 +125,10 @@ It contains seven bank statement PDFs and a reference workbook. The workflow tes
 
 ## Vision: Phase 2 and Beyond
 
-Phase 1 proves the core loop on one document type and three profiles. It is not the full product. The rest of this README before this point describes what is real today; everything below is the roadmap, not a claim about current state.
+Phase 1 proves the core loop on one document type and three profiles. It is not the full product. The bullets below distinguish remaining roadmap work from the connected local V0 documented later in this README.
 
 - **Wider document coverage.** NAV packs, portfolio reports, capital-call notices, and scanned or photographed statements (with an OCR fallback), not just bank statement PDFs.
-- **A connected, interactive review UI.** An upload window, a due-diligence questionnaire that scopes what a run checks, a live view of the agent loop while it runs, and a review screen with edit/accept/reject actions on individual rows — wired to the real backend rather than demo data.
+- **Broader interactive review (roadmap).** The connected V0 now provides folder/file inventory, profile selection, bounded job progress, source-linked findings, separate human-review state, and only backend-supported downloads. A due-diligence questionnaire, broader row-edit/accept/reject workflows, and additional document families remain roadmap work.
 - **A broader profile library.** One profile per business question a fund manager actually asks — see [`docs/business-case.md`](docs/business-case.md) for the due-diligence questions (mandate fit, track record, fees, legal/governance, operational quality) still to become profiles beyond `mandate-fit`, `journal-entries`, and `pipeline-validation`.
 - **An in-context AI assistant.** A chat surface over a run's structured dataset that answers from the extracted data only, and explicitly says so when a question is out of scope — never fabricates an answer or a citation.
 - **Cross-fund and cross-administrator comparison.** The mapping problem at portfolio scale: reconciling definitional drift (e.g. what "net IRR" means) across multiple GPs at once, not just one fund's statements.
@@ -181,17 +181,21 @@ occupied, choose unused ones explicitly:
 CRAZYMONKEY_BACKEND_PORT=8030 CRAZYMONKEY_FRONTEND_PORT=4200 ./scripts/start-v0.sh
 ```
 
-Open the printed frontend URL. The default workspace is **Bank statements**:
-choose deterministic statement validation, upload one or more original PDF
-statements, and select **Start processing**. No LPA or NAV workbook is required.
-The result contains the real parser output, deterministic checks, exact source
-links, source hashes and a downloadable JSON artifact. The existing NAV review
-remains available from the workspace switch.
+Open the printed frontend URL. The default **Profile workflows** workspace runs
+the live local UI bridge: select **Bank statement validation**, upload one or
+more original text PDFs, and select **Start review**. A reference workbook is
+optional. The browser sends the selected bytes to FastAPI; ATLAS normalizes and
+source-links each input before the existing statement parser and deterministic
+verifier run. Results include the actual rows, arithmetic checks, exact original
+source downloads, source hashes, human-review state, and a downloadable JSON
+record.
 
-The model-backed `journal-entries` and `pipeline-validation` workflows require
-both an uploaded reference workbook and backend-only LLM and Daytona
-configuration. If either is absent or a model call fails, the run is blocked or
-fails visibly; it never substitutes deterministic or fixture output.
+This default bridge is deliberately labelled **Local deterministic**. It does
+not run the model-backed resolution/classification passes, and the result
+reports `agent_resolution: NOT_RUN` rather than implying otherwise. The
+existing NAV review and RELAY export/email-draft surfaces remain available from
+the workspace switch; replay data appears only when a reviewer explicitly opens
+a recorded replay and is never a silent live fallback.
 
 From the repository root, start the backend:
 
@@ -209,12 +213,14 @@ VITE_API_MODE=live VITE_API_BASE_URL=http://127.0.0.1:8000 \
   npm run dev -- --host 127.0.0.1
 ```
 
-Open `http://127.0.0.1:4173`. Use one backend worker for V0 because active
-review state is process-local. Generated review snapshots and exports are
-written under the ignored `outputs/relay/` directory. Real email sending is
-disabled by default; the browser prepares a draft only. In live mode a backend
-failure is shown as `Backend unavailable`; the browser does not substitute
-fixture results.
+Open `http://127.0.0.1:4173` for Profile workflows or
+`http://127.0.0.1:4173/?workspace=nav` for NAV review. Use one backend worker for V0 because active
+review state is process-local. In Profile workflows, accepted jobs, sources,
+review state, and JSON artifacts are also process-local. In NAV review,
+generated snapshots and exports are written under the ignored
+`outputs/relay/` directory; real email sending is disabled by default and the
+browser prepares a draft only. In live mode a backend failure is shown as
+`Backend unavailable`; the browser does not substitute fixture results.
 
 ## Backend CLI
 

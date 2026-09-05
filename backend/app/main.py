@@ -15,7 +15,7 @@ from app.profiles import load, load_all
 from app.relay.api import router as relay_router
 from app.runtime.api import router as runtime_router
 from app.runtime.beacon import router as beacon_router
-from app.statement_jobs import router as statement_jobs_router
+from app.ui_bridge import router as ui_bridge_router
 
 app = FastAPI(title="CrazyMonkey API")
 
@@ -34,7 +34,7 @@ if cors_origins:
         allow_origins=cors_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
-        allow_headers=["Content-Type", "If-None-Match"],
+        allow_headers=["Content-Type", "If-None-Match", "Idempotency-Key"],
         expose_headers=[
             "Content-Disposition",
             "ETag",
@@ -46,7 +46,7 @@ if cors_origins:
 app.include_router(relay_router)
 app.include_router(runtime_router)
 app.include_router(beacon_router)
-app.include_router(statement_jobs_router)
+app.include_router(ui_bridge_router)
 
 
 @app.get("/health")

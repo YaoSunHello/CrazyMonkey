@@ -138,7 +138,7 @@ export function PackWorkspace({ baseUrl = import.meta.env.VITE_API_BASE_URL || "
   return (
     <section className="pack-workspace page-enter" aria-labelledby="pack-heading">
       <header className="pack-heading">
-        <div><p className="eyebrow">Financial document workspace</p><h1 id="pack-heading">Bring the whole dataset.</h1>
+        <div><p className="eyebrow">Financial document workspace</p><h1 id="pack-heading" tabIndex={-1}>Bring the whole dataset.</h1>
           <p>Import workbooks, PDFs and supporting notes. Follow each file from extraction through model review.</p></div>
         <span className={`pack-connection ${config?.configured ? "is-configured" : ""}`}>
           {config?.configured ? "Model configured on backend" : configError ? "Backend unavailable" : config ? "Model configuration needed" : "Checking backend…"}

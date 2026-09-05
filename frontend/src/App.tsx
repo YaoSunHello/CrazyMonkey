@@ -4,9 +4,9 @@ import { EmailDialog } from "./components/EmailDialog";
 import { EvidenceDialog } from "./components/EvidenceDialog";
 import { FindingDetail } from "./components/FindingDetail";
 import { PackWorkspace } from "./components/PackWorkspace";
+import { ProfileWorkspace } from "./ProfileWorkspace";
 import { ProcessingScreen } from "./components/ProcessingScreen";
 import { ReviewSummary } from "./components/ReviewSummary";
-import { StatementWorkspace } from "./components/StatementWorkspace";
 import { UploadScreen } from "./components/UploadScreen";
 import type {
   DetectedUpload,
@@ -20,6 +20,7 @@ import type {
   ReviewResult,
   TermCorrection,
 } from "./types";
+import type { WorkspaceAdapter } from "./workspaceTypes";
 
 type Screen = "UPLOAD" | "PROCESSING" | "SUMMARY" | "DETAIL";
 
@@ -29,18 +30,15 @@ const maxFileSizeBytes = 25 * 1024 * 1024;
 
 interface AppProps {
   adapter?: ReviewAdapter;
-  initialWorkspace?: "STATEMENTS" | "NAV" | "PACK";
+  profileAdapter?: WorkspaceAdapter;
 }
 
-export function App({ adapter = defaultReviewAdapter, initialWorkspace }: AppProps) {
+type Workspace = "PROFILE" | "NAV" | "PACK";
+
+export function App({ adapter = defaultReviewAdapter, profileAdapter }: AppProps) {
   const packWorkspaceEnabled = import.meta.env.VITE_ENABLE_PACK_WORKSPACE === "1";
-  const [workspace, setWorkspace] = useState<"STATEMENTS" | "NAV" | "PACK">(() => {
-    if (initialWorkspace) return initialWorkspace;
-    const requested = new URLSearchParams(window.location.search).get("workspace")?.toLowerCase();
-    if (requested === "nav") return "NAV";
-    if (requested === "pack" && packWorkspaceEnabled) return "PACK";
-    return "STATEMENTS";
-  });
+  const [workspace, setWorkspace] = useState<Workspace>(() => workspaceFromLocation(packWorkspaceEnabled));
+  const [profileWorkspaceMounted, setProfileWorkspaceMounted] = useState(workspace === "PROFILE");
   const [screen, setScreen] = useState<Screen>("UPLOAD");
   const [documents, setDocuments] = useState<DetectedUpload[]>([]);
   const [reviewId, setReviewId] = useState<string>();
@@ -88,11 +86,47 @@ export function App({ adapter = defaultReviewAdapter, initialWorkspace }: AppPro
   }, [adapter.mode, documents.length, missingRoles, unconfirmed.length]);
 
   useEffect(() => {
+    if (workspace === "NAV") return;
     const handle = window.requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>("#main-content h1")?.focus();
+      document.querySelector<HTMLElement>(`#main-content [data-workspace-panel="${workspace}"] h1`)?.focus();
+    });
+    return () => window.cancelAnimationFrame(handle);
+  }, [workspace]);
+
+  useEffect(() => {
+    if (workspace !== "NAV") return;
+    const handle = window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('#main-content [data-workspace-panel="NAV"] h1')?.focus();
     });
     return () => window.cancelAnimationFrame(handle);
   }, [screen, workspace]);
+
+  useEffect(() => {
+    document.title = workspace === "PROFILE"
+      ? "CrazyMonkey — Profile workflows"
+      : workspace === "PACK"
+        ? "CrazyMonkey — Full Pack"
+        : "CrazyMonkey — NAV review";
+  }, [workspace]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const nextWorkspace = workspaceFromLocation(packWorkspaceEnabled);
+      if (nextWorkspace === "PROFILE") setProfileWorkspaceMounted(true);
+      setWorkspace(nextWorkspace);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [packWorkspaceEnabled]);
+
+  function selectWorkspace(nextWorkspace: Workspace) {
+    if (nextWorkspace === "PROFILE") setProfileWorkspaceMounted(true);
+    const url = new URL(window.location.href);
+    if (nextWorkspace === "PROFILE") url.searchParams.delete("workspace");
+    else url.searchParams.set("workspace", nextWorkspace === "NAV" ? "nav" : "pack");
+    window.history.pushState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    setWorkspace(nextWorkspace);
+  }
 
   useEffect(() => {
     if (screen !== "PROCESSING" || !reviewId || processingError) return;
@@ -331,81 +365,99 @@ export function App({ adapter = defaultReviewAdapter, initialWorkspace }: AppPro
         </a>
         <div className="header-meta">
           <nav className="workspace-switch" aria-label="Review workspace">
-            <button type="button" aria-pressed={workspace === "STATEMENTS"} onClick={() => setWorkspace("STATEMENTS")}>
-              Bank statements
+            <button type="button" aria-pressed={workspace === "PROFILE"} onClick={() => selectWorkspace("PROFILE")}>
+              Profile workflows
             </button>
-            <button type="button" aria-pressed={workspace === "NAV"} onClick={() => setWorkspace("NAV")}>
+            <button type="button" aria-pressed={workspace === "NAV"} onClick={() => selectWorkspace("NAV")}>
               NAV review
             </button>
-            {packWorkspaceEnabled && <button type="button" aria-pressed={workspace === "PACK"} onClick={() => setWorkspace("PACK")}>
-              Full pack
-            </button>}
+            {packWorkspaceEnabled && (
+              <button type="button" aria-pressed={workspace === "PACK"} onClick={() => selectWorkspace("PACK")}>
+                Full pack
+              </button>
+            )}
           </nav>
-          <span className={`mode-pill mode-${adapter.mode}`}>
+          <span className={`mode-pill mode-${workspace === "NAV" ? adapter.mode : workspace === "PROFILE" ? "profile" : "pack"}`}>
             <span aria-hidden="true" />
-            {workspace === "PACK"
+            {workspace === "PROFILE"
+              ? "Profile API workspace"
+              : workspace === "PACK"
               ? "Pack API workspace"
-              : workspace === "STATEMENTS"
-                ? "No fixture fallback"
               : adapter.mode === "mock"
                 ? "Development fixture mode"
                 : "Live adapter configured"}
           </span>
           <span className="header-divider" aria-hidden="true" />
           <span className="workspace-name">
-            {workspace === "PACK" ? "Full Pack Workspace" : workspace === "STATEMENTS" ? "Bank Statement Workspace" : "NAV Review Workspace"}
+            {workspace === "PROFILE"
+              ? "Profile Review Workspace"
+              : workspace === "PACK"
+                ? "Full Pack Workspace"
+                : "NAV Review Workspace"}
           </span>
         </div>
       </header>
 
       <main id="main-content" tabIndex={-1}>
-        {workspace === "STATEMENTS" && <StatementWorkspace />}
-        {packWorkspaceEnabled && workspace === "PACK" && <PackWorkspace />}
-        {workspace === "NAV" && screen === "UPLOAD" && (
-          <UploadScreen
-            documents={documents}
-            adapterMode={adapter.mode}
-            busy={busy}
-            canStart={canStart}
-            startHelp={startHelp}
-            onSelectFiles={selectFiles}
-            onChangeRole={changeRole}
-            onRemoveDocument={(id) => setDocuments((existing) => existing.filter((document) => document.id !== id))}
-            onStart={() => void startUploadedReview()}
-            onLoadDemo={() => void loadDemo()}
-          />
+        {profileWorkspaceMounted && (
+          <div data-workspace-panel="PROFILE" hidden={workspace !== "PROFILE"}>
+            <ProfileWorkspace adapter={profileAdapter} active={workspace === "PROFILE"} />
+          </div>
         )}
-        {workspace === "NAV" && screen === "PROCESSING" && (
-          <ProcessingScreen
-            progress={progress}
-            error={processingError}
-            retrying={retrying}
-            onRetry={() => void retryProcessing()}
-            onBack={() => setScreen("UPLOAD")}
-          />
+        {packWorkspaceEnabled && workspace === "PACK" && (
+          <div data-workspace-panel="PACK">
+            <PackWorkspace />
+          </div>
         )}
-        {workspace === "NAV" && screen === "SUMMARY" && review && (
-          <ReviewSummary
-            review={review}
-            exportBusy={exportBusy}
-            onOpenFinding={(id) => { setSelectedFindingId(id); setScreen("DETAIL"); }}
-            onExport={(format) => void requestExport(format)}
-            onPrepareEmail={() => void prepareEmail()}
-          />
-        )}
-        {workspace === "NAV" && screen === "DETAIL" && review && selectedFinding && (
-          <FindingDetail
-            finding={selectedFinding}
-            reviewContext={review}
-            saving={saving}
-            onBack={() => setScreen("SUMMARY")}
-            onOpenEvidence={setEvidence}
-            onHumanReview={updateHumanReview}
-            onCorrectTerm={correctTerm}
-            onUploadDocument={uploadMissingDocument}
-            canUploadDocument={adapter.mode === "live" && Boolean(selectedFinding.requiredAction?.documentRole)}
-            canCorrectTerm={review.outputCapabilities.termCorrection === true}
-          />
+        {workspace === "NAV" && (
+          <div data-workspace-panel="NAV">
+            {screen === "UPLOAD" && (
+              <UploadScreen
+                documents={documents}
+                adapterMode={adapter.mode}
+                busy={busy}
+                canStart={canStart}
+                startHelp={startHelp}
+                onSelectFiles={selectFiles}
+                onChangeRole={changeRole}
+                onRemoveDocument={(id) => setDocuments((existing) => existing.filter((document) => document.id !== id))}
+                onStart={() => void startUploadedReview()}
+                onLoadDemo={() => void loadDemo()}
+              />
+            )}
+            {screen === "PROCESSING" && (
+              <ProcessingScreen
+                progress={progress}
+                error={processingError}
+                retrying={retrying}
+                onRetry={() => void retryProcessing()}
+                onBack={() => setScreen("UPLOAD")}
+              />
+            )}
+            {screen === "SUMMARY" && review && (
+              <ReviewSummary
+                review={review}
+                exportBusy={exportBusy}
+                onOpenFinding={(id) => { setSelectedFindingId(id); setScreen("DETAIL"); }}
+                onExport={(format) => void requestExport(format)}
+                onPrepareEmail={() => void prepareEmail()}
+              />
+            )}
+            {screen === "DETAIL" && review && selectedFinding && (
+              <FindingDetail
+                finding={selectedFinding}
+                reviewContext={review}
+                saving={saving}
+                onBack={() => setScreen("SUMMARY")}
+                onOpenEvidence={setEvidence}
+                onHumanReview={updateHumanReview}
+                onCorrectTerm={correctTerm}
+                onUploadDocument={uploadMissingDocument}
+                canUploadDocument={adapter.mode === "live" && Boolean(selectedFinding.requiredAction?.documentRole)}
+                canCorrectTerm={review.outputCapabilities.termCorrection === true}
+              />
+            )}
+          </div>
         )}
       </main>
 
@@ -433,6 +485,14 @@ export function App({ adapter = defaultReviewAdapter, initialWorkspace }: AppPro
 
 function messageFrom(error: unknown): string {
   return error instanceof Error ? error.message : "An unexpected error occurred.";
+}
+
+function workspaceFromLocation(packWorkspaceEnabled: boolean): Workspace {
+  const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
+  if (requestedWorkspace === "nav") return "NAV";
+  if (requestedWorkspace === "profiles" || requestedWorkspace === "profile") return "PROFILE";
+  if (packWorkspaceEnabled && requestedWorkspace === "pack") return "PACK";
+  return "PROFILE";
 }
 
 function validateFiles(files: File[], existing: DetectedUpload[]): string | undefined {
