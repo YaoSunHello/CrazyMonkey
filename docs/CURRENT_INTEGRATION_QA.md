@@ -6,7 +6,7 @@ Repository: `YaoSunHello/CrazyMonkey`; branch: `Leo`.
 ## QA STATUS
 
 **PASS for the supported local offline V0. SAFE TO OPEN PR TO MAIN: YES within that scope.**
-No main merge was performed. No real email was sent. Hosted-model execution and
+No merge into main was performed. No real email was sent. Hosted-model execution and
 production readiness are not claimed.
 
 ## Phase 1: audited Git state before any source modifications
@@ -331,3 +331,14 @@ main merge, public deployment, hosted-model claims or real email sending.
 All pre-existing owner changes were preserved and committed by their owners. The
 remaining QA changes are explicitly owned, guarded against concurrent modification,
 and included above. Generated QA inputs, exports and renderings stay outside Git.
+
+## Final branch synchronization
+
+The clean committed QA snapshot passed all 216 backend tests and 116 subtests.
+A merge-tree simulation then found one README conflict with refreshed main
+`f90a22552f0204b77471069962767be0b589448a`. Main contained only README and branding
+changes relative to the shared scaffold. These were merged **into Leo**, preserving
+all five main commits, the three brand files and the QA runbook link. No merge
+**into main** was performed. Application code was unchanged by this synchronization.
+The final integration commit contains README, the existing main brand files and
+this report update; the separate QA fix commit is `745c591`.
