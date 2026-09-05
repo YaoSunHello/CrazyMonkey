@@ -61,7 +61,16 @@ def page_count() -> int:
 
 
 def lines(page: int) -> list[Line]:
-    """Every visual line on a page, top to bottom, words left to right."""
+    """Every visual line on a page, top to bottom, words left to right.
+
+    Pages are **1-based**: the first page is `lines(1)`, and the last is
+    `lines(page_count())`. Passing 0 raises rather than returning something
+    surprising — an ambiguous index here previously cost callers a dozen lines
+    of defensive probing, which is worse than a clear error.
+    """
+    total = page_count()
+    if not 1 <= page <= total:
+        raise ValueError(f"page must be between 1 and {total} (pages are 1-based), got {page}")
     with pdfplumber.open(PDF) as pdf:
         words = pdf.pages[page - 1].extract_words()
     grouped: list[Line] = []

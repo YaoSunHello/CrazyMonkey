@@ -182,6 +182,31 @@ def check_one_amount_per_row(statement: Statement) -> Check:
     )
 
 
+def _provenance_hint(reference: str, text: str) -> str:
+    """Say *why* a reference is not in the document, where that is knowable.
+
+    "not found in the PDF" is true but teaches nothing, and a caller that
+    cannot see the cause will usually resubmit the same mistake. Two
+    near-misses are common enough to name outright: extra whitespace inserted
+    between characters, and a reference that is nearly right but for case.
+    """
+    # Character-joined text keeps the document's real spaces as *runs* of
+    # spaces, so collapsing runs to one and dropping the singles recovers the
+    # original: "T T   A B C" -> "TT ABC".
+    unjoined = "  ".join(part.replace(" ", "") for part in reference.split("   "))
+    unjoined = " ".join(unjoined.split("  "))
+    for candidate in (unjoined, "".join(reference.split())):
+        if candidate and candidate != reference and candidate in text:
+            return (
+                f" — but {candidate!r} is. The reference has whitespace inserted "
+                "between characters; join them without separators."
+            )
+    squashed = "".join(reference.split())
+    if squashed and squashed.lower() in text.lower().replace(" ", ""):
+        return f" — {squashed!r} appears in the document with different spacing or case."
+    return ""
+
+
 def check_reference_provenance(statement: Statement) -> Check:
     """Every bank reference appears literally in the source PDF.
 
@@ -191,6 +216,7 @@ def check_reference_provenance(statement: Statement) -> Check:
     text = statement.full_text
     missing = [
         f"row {i}: {r.bank_reference!r} not found in the PDF text"
+        f"{_provenance_hint(r.bank_reference, text)}"
         for i, r in enumerate(statement.rows)
         if r.bank_reference and r.bank_reference not in text
     ]

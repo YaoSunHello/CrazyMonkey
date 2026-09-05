@@ -95,3 +95,21 @@ def test_missing_marker_is_unresolved_not_failed():
     checks = run_parse_checks(parse_statement(dkk))
     assert status_of(checks, "printed_openings") == "UNRESOLVED"
     assert [c for c in checks if c.status == "FAIL"] == []
+
+
+def test_provenance_failure_names_the_likely_cause(statement):
+    """"Not found" teaches nothing; the near-miss is the useful part.
+
+    A run failed 0/19 on this check because the model joined every character
+    with a space. The evidence said only "not found in the PDF text", and four
+    attempts went by without it being fixed.
+    """
+    from app.verification.checks import check_reference_provenance
+
+    real = statement.rows[0].bank_reference
+    statement.rows[0].bank_reference = " ".join(real)      # T T   A B C …
+
+    check = check_reference_provenance(statement)
+    assert check.status == "FAIL"
+    assert real in check.evidence, "the evidence should show what would have matched"
+    assert "whitespace inserted between characters" in check.evidence

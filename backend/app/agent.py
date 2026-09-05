@@ -44,7 +44,9 @@ Write a Python file, `parse.py`, that runs in a sandbox where a module `kit` is
 already available. Import it; do not rewrite it.
 
     kit.page_count() -> int
-    kit.lines(page)  -> visual lines, top to bottom. Each has:
+    kit.lines(page)  -> visual lines on that page, top to bottom.
+                        PAGES ARE 1-BASED: iterate range(1, kit.page_count()+1).
+                        Each line has:
                           line.text            the whole line as a string
                           line.words           dicts with "text" and "x0"
                           line.between(a, b)   words whose left edge is in [a, b)
@@ -72,9 +74,26 @@ first.
 - one_amount_per_row     exactly one of credit/debit
 - reference_provenance   every bank_reference appears literally in the PDF text
 
+## What statements actually look like
+
+- **They span several pages, and the transactions continue across them.** The
+  column header row repeats at the top of every page; so does the "Statement
+  details" block. Skip the furniture, keep the transactions, and keep them in
+  page order — a row dropped at a page boundary breaks the chain by exactly
+  the amount of that row.
+- Day boundaries appear *between* transactions as "Balance as at close <date>"
+  and "Balance brought forward <date>". They are markers, not transactions,
+  and their amount sits in a different column from the transaction balances.
+- The narrative is a continuation line under its transaction, labelled
+  `Narrative`. The bank wraps long names mid-word by inserting a comma, so
+  "NORDVIK INFRASTR, UCTURE V SCSP" is one name, not two.
+
 ## Rules
 
 - Never invent or adjust a number to make the chain close.
+- `bank_reference` must appear **literally** in the PDF. Join words with a
+  single space where the document has one, and with nothing where it does not
+  — inserting a space between every character is a common way to fail this.
 - Print a one-line summary to stdout at the end, e.g. "parsed 16 rows".
 
 Reply with the complete contents of parse.py in a single ```python code block,
