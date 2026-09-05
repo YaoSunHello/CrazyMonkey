@@ -263,6 +263,49 @@ def command_emit(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_score(args: argparse.Namespace) -> int:
+    """Compare recorded runs against the human's own answers.
+
+    A development benchmark. It is not in the agent's reach and must not be:
+    an agent that can see the answer key is marking its own homework.
+    """
+    from app.profiles import load as load_profile
+    from app.runs import RUNS
+    from app.score import score_runs
+
+    profile = load_profile(args.profile or DEFAULT_PROFILE)
+    location = (profile.inputs.get("workbook") or {}).get("location", "")
+    if not location:
+        log(f"Profile {profile.id} declares no workbook to score against.")
+        return 2
+
+    paths = sorted(p for p in RUNS.glob(f"{args.batch}*") if (p / "rows.json").exists())
+    if not paths:
+        log(f"No runs matching {args.batch!r} have rows to score.")
+        return 2
+
+    report = score_runs(paths, location)
+    total = report["total"]
+
+    log(f"{len(paths)} run(s) · {total['joined']} rows joined to the answer key")
+    if total["unjoined"]:
+        log(f"  {total['unjoined']} row(s) could not be joined — not scored")
+    log("")
+    log(f"  counterparty read     agent {total['counterparty']['both_named'] + total['counterparty']['agent_only']:3}"
+        f"   human {total['counterparty']['both_named'] + total['counterparty']['human_only']:3}")
+    for field in ("counterparty_matched", "project_matched"):
+        counts = total[field]
+        log(
+            f"  {field:20}  agree {counts['agree']:3}  differ {counts['differ']:3}  "
+            f"agent only {counts['agent_only']:3}  human only {counts['human_only']:3}"
+        )
+    counts = total["classification"]
+    log(f"  {'classification':20}  agree {counts['agree']:3}  differ {counts['differ']:3}   (judgement, not accuracy)")
+    log("")
+    print(json.dumps(report, indent=2, default=str))
+    return 0
+
+
 def command_profiles(args: argparse.Namespace) -> int:
     """List the tracks a run can be started on.
 
@@ -427,6 +470,15 @@ def main(argv: list[str] | None = None) -> int:
         help="present it as this profile instead of the one that produced it",
     )
     emit_cmd.set_defaults(func=command_emit)
+
+    score_cmd = subcommands.add_parser(
+        "score", help="compare recorded runs against the human's answers (dev benchmark)"
+    )
+    score_cmd.add_argument(
+        "--batch", default="", metavar="PREFIX", help="run id prefix; default all runs"
+    )
+    score_cmd.add_argument("--profile", default="", metavar="ID")
+    score_cmd.set_defaults(func=command_score)
 
     replay = subcommands.add_parser("replay", help="replay the last recorded agent run")
     replay.add_argument("--speed", type=float, default=1.0, help="playback multiplier")
