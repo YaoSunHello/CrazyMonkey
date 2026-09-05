@@ -8,3 +8,13 @@ node_modules/
 outputs/*
 !outputs/.gitkeep
 
+# Working knowledge base — event material, credential notes, half-formed thinking
+docs/
+
+# Anonymised client data supplied by the organisers.
+# Held out of the public repo until an organiser confirms it may be published:
+# the pack's README says it is "safe to hand to contestants", which is not the
+# same as safe to publish. See samples/README.md for the drop-in instructions.
+samples/statements/
+samples/workbook/
+samples/DATASET_README.md
