@@ -1,73 +1,60 @@
-"""One streamed completion against an OpenAI-compatible endpoint.
+"""One streamed completion, routed through LiteLLM.
 
-Small on purpose. The loop needs exactly one thing from the model — a long
-generation, streamed — and every line here exists because something measured
-demanded it.
+LiteLLM rather than a hand-rolled client because the endpoint is not fixed:
+this runs against a self-hosted vLLM and against Google's OpenAI-compatible
+endpoint, and those two disagree about how you ask for reasoning. LiteLLM
+normalises the call and, with `drop_params`, silently discards a parameter the
+current provider does not understand instead of failing the request.
 
-Three facts about this endpoint, all verified against the live server:
+Facts behind the non-obvious lines here, all measured against the live vLLM:
 
-1. **Streaming is mandatory.** A non-streamed call returns HTTP 524 after
-   ~125s: Cloudflare closes an idle origin request at ~100s. Streaming puts
-   the first token on the wire in under a second and the connection stays up.
-2. **The User-Agent decides whether you get in at all.** No UA, `Python-urllib`
-   and the real OpenAI SDK string (`OpenAI/Python 1.109.1`) are all rejected
-   403 by Cloudflare. A descriptive one passes. The header is set here, in the
-   one place every request goes through.
-3. **This is a hybrid reasoning model.** vLLM streams its thinking in
-   `delta.reasoning` — note, *not* `delta.reasoning_content`, which is what
-   most clients look for, so the channel is invisible to them. When thinking
-   runs long it can consume an entire `max_tokens` budget and finish with
-   `length`, empty content and no tool calls. Sending no `max_tokens` at all
-   avoids that; `enable_thinking` below turns the channel off entirely if you
-   want the tokens spent on the answer instead.
+1. **Streaming is mandatory.** A non-streamed call returned HTTP 524 after
+   ~125s — Cloudflare closes an idle origin request at ~100s. Streamed, the
+   first token arrives in under a second.
+2. **The User-Agent decides whether you are served at all.** With no header,
+   with `Python-urllib`, and with the OpenAI SDK's own `OpenAI/Python 1.109.1`,
+   the endpoint returns 403. LiteLLM's own UA passes, which is the reason for
+   the `hosted_vllm/` prefix rather than `openai/`.
+3. **Reasoning arrives on `delta.reasoning`**, not `delta.reasoning_content`
+   that most clients look for, so the channel is invisible unless you check
+   both. LiteLLM maps it to `reasoning_content`; the raw name is checked too,
+   in case the mapping changes.
 """
 
 from __future__ import annotations
 
-import asyncio
-import json
-import urllib.request
 from typing import Callable
+
+import litellm
 
 from app.config import Settings
 
-
-def _request(settings: Settings, payload: dict) -> urllib.request.Request:
-    request = urllib.request.Request(
-        settings.llm_base_url.rstrip("/") + "/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-    )
-    request.add_header("Authorization", f"Bearer {settings.llm_api_key}")
-    request.add_header("Content-Type", "application/json")
-    request.add_header("User-Agent", settings.llm_user_agent)
-    return request
+# Providers disagree about reasoning parameters. Drop what this one cannot take
+# rather than failing the call — the alternative is a provider-specific branch
+# at every call site.
+litellm.drop_params = True
+litellm.suppress_debug_info = True
 
 
-def _stream(settings: Settings, payload: dict, on_token, on_thought) -> str:
-    answer: list[str] = []
-    with urllib.request.urlopen(_request(settings, payload), timeout=settings.agent_timeout) as r:
-        for raw in r:
-            line = raw.decode("utf-8", "replace").strip()
-            if not line.startswith("data: "):
-                continue
-            body = line[6:]
-            if body == "[DONE]":
-                break
-            try:
-                delta = json.loads(body)["choices"][0]["delta"]
-            except (json.JSONDecodeError, KeyError, IndexError):
-                continue
+def _thinking_params(setting: str) -> dict:
+    """Translate one setting into whatever the provider understands.
 
-            thought = delta.get("reasoning") or delta.get("reasoning_content")
-            if thought and on_thought:
-                on_thought(thought)
-
-            piece = delta.get("content")
-            if piece:
-                answer.append(piece)
-                if on_token:
-                    on_token(piece)
-    return "".join(answer)
+    `reasoning_effort` is the portable spelling. `chat_template_kwargs` is
+    vLLM's, and is the only way to switch a hybrid model's thinking off
+    entirely; LiteLLM drops it where it means nothing.
+    """
+    thinking = setting.strip().lower()
+    if thinking in ("off", "false", "none", "0"):
+        return {
+            "reasoning_effort": "none",
+            "chat_template_kwargs": {"enable_thinking": False},
+        }
+    if thinking in ("low", "medium", "high"):
+        return {
+            "reasoning_effort": thinking,
+            "chat_template_kwargs": {"enable_thinking": True},
+        }
+    return {}
 
 
 async def stream_completion(
@@ -80,22 +67,37 @@ async def stream_completion(
     """Stream one completion and return the assistant's text.
 
     No `max_tokens`: the server's own default applies. Capping it is what lets
-    a long reasoning pass finish with `length` and nothing to show for it.
+    a long reasoning pass end at `length` with nothing to show for it — a
+    4,000-token cap produced 285s of reasoning and zero characters of answer.
     """
-    payload = {
-        "model": settings.resolved_model,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": True,
-        "temperature": 0,
-    }
-    thinking = settings.llm_thinking.strip().lower()
-    if thinking in ("off", "false", "none", "0"):
-        # Passed through to the chat template: the whole budget goes to the answer.
-        payload["chat_template_kwargs"] = {"enable_thinking": False}
-    elif thinking in ("low", "medium", "high"):
-        # Keep the channel, but bound it. Unbounded reasoning on this task ran
-        # to 120k characters without producing an answer.
-        payload["reasoning_effort"] = thinking
-        payload["chat_template_kwargs"] = {"enable_thinking": True}
+    response = await litellm.acompletion(
+        model=settings.litellm_model,
+        api_key=settings.llm_api_key,
+        api_base=settings.llm_base_url,
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
+        temperature=0,
+        timeout=settings.agent_timeout,
+        extra_headers={"User-Agent": settings.llm_user_agent},
+        **_thinking_params(settings.llm_thinking),
+    )
 
-    return await asyncio.to_thread(_stream, settings, payload, on_token, on_thought)
+    answer: list[str] = []
+    async for chunk in response:
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+        if delta is None:
+            continue
+
+        thought = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
+        if thought and on_thought:
+            on_thought(thought)
+
+        piece = getattr(delta, "content", None)
+        if piece:
+            answer.append(piece)
+            if on_token:
+                on_token(piece)
+
+    return "".join(answer)

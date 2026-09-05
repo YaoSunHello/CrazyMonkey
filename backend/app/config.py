@@ -55,13 +55,31 @@ class Settings(BaseSettings):
             raise RuntimeError(f"{self.llm_base_url} serves no models")
         return served[0]["id"]
 
+    # Overrides the prefix derived from the base URL, for an endpoint whose
+    # host does not give the provider away.
+    llm_provider: str = ""
+
     @property
     def litellm_model(self) -> str:
-        """LiteLLM routes by prefix. `hosted_vllm/` makes it send its own
-        User-Agent, which matters when a CDN in front of the endpoint blocks
-        the OpenAI SDK's default one with a 403.
+        """LiteLLM routes by model-string prefix.
+
+        Derived from the endpoint rather than hard-coded, because this runs
+        against both a self-hosted vLLM and Google's OpenAI-compatible
+        endpoint.
+
+        `hosted_vllm/` is deliberate for the self-hosted case: it makes LiteLLM
+        send its own User-Agent, and the CDN in front of that endpoint returns
+        403 for the OpenAI SDK's default one. Google's endpoint has no such
+        block, so plain `openai/` — LiteLLM's generic OpenAI-compatible route —
+        is right there.
         """
-        return f"hosted_vllm/{self.resolved_model}"
+        if self.llm_provider:
+            prefix = self.llm_provider.rstrip("/")
+        elif "googleapis.com" in self.llm_base_url:
+            prefix = "openai"
+        else:
+            prefix = "hosted_vllm"
+        return f"{prefix}/{self.resolved_model}"
 
 
 def load_settings() -> Settings:
