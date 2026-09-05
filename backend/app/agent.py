@@ -30,75 +30,11 @@ from pathlib import Path
 
 from app.config import Settings
 from app.llm import stream_completion
+from app.profiles import DEFAULT_PROFILE
 from app.runs import RunDir, new_run_id
 from app.sandbox import DATADIR, WORKDIR, build_executor
 from app.trace import Trace
 from app.verification.checks import run_parse_checks
-
-MAX_ATTEMPTS = 4
-
-TASK = f"""\
-You are parsing a bank statement PDF into transaction rows for a fund administrator.
-
-Write a Python file, `parse.py`, that runs in a sandbox where a module `kit` is
-already available. Import it; do not rewrite it.
-
-    kit.page_count() -> int
-    kit.lines(page)  -> visual lines on that page, top to bottom.
-                        PAGES ARE 1-BASED: iterate range(1, kit.page_count()+1).
-                        Each line has:
-                          line.text            the whole line as a string
-                          line.words           dicts with "text" and "x0"
-                          line.between(a, b)   words whose left edge is in [a, b)
-    kit.column_positions() -> dict of the left edge of every column, read from
-                          the statement's own header row:
-                          bank_reference, customer_reference, trn_type,
-                          value_date, credit, debit, balance, time, post_date
-    kit.write_result(rows) -> writes /work/result.json
-
-Each row is a dict with these keys:
-    bank_reference, trn_type, value_date, post_date, time, narrative,
-    credit, debit, balance, account_number, currency, page
-
-Amounts are strings, no thousands separators, sign exactly as printed. Exactly
-one of credit/debit is set; the other is None. Rows in statement order, newest
-first.
-
-## What the verifier checks
-
-- balance_chain          a row's balance minus its amount must equal the NEXT row's balance
-- closing_balance        the first row's balance equals the closing balance printed on page 1
-- printed_openings       every "Balance brought forward" marker must reproduce from the movements
-- row_count              one row per transaction. "Balance as at close" and
-                         "Balance brought forward" are day markers, NOT transactions
-- one_amount_per_row     exactly one of credit/debit
-- reference_provenance   every bank_reference appears literally in the PDF text
-
-## What statements actually look like
-
-- **They span several pages, and the transactions continue across them.** The
-  column header row repeats at the top of every page; so does the "Statement
-  details" block. Skip the furniture, keep the transactions, and keep them in
-  page order — a row dropped at a page boundary breaks the chain by exactly
-  the amount of that row.
-- Day boundaries appear *between* transactions as "Balance as at close <date>"
-  and "Balance brought forward <date>". They are markers, not transactions,
-  and their amount sits in a different column from the transaction balances.
-- The narrative is a continuation line under its transaction, labelled
-  `Narrative`. The bank wraps long names mid-word by inserting a comma, so
-  "NORDVIK INFRASTR, UCTURE V SCSP" is one name, not two.
-
-## Rules
-
-- Never invent or adjust a number to make the chain close.
-- `bank_reference` must appear **literally** in the PDF. Join words with a
-  single space where the document has one, and with nothing where it does not
-  — inserting a space between every character is a common way to fail this.
-- Print a one-line summary to stdout at the end, e.g. "parsed 16 rows".
-
-Reply with the complete contents of parse.py in a single ```python code block,
-and nothing else.
-"""
 
 
 def extract_code(text: str) -> str:
@@ -115,10 +51,65 @@ def extract_code(text: str) -> str:
     return text.strip()
 
 
-def retry_prompt(failures: list[dict], attempt: int) -> str:
+async def _install_kit(executor, name: str) -> None:
+    """Put this pass's toolkit in the sandbox, as `kit`.
+
+    Each pass gets one kit and always imports it under the same name, so the
+    agent never has to be told which module to reach for. Written per pass
+    rather than once per run because a resolution pass needs the reference
+    lists where an extraction pass needs the PDF.
+    """
+    source = (Path(__file__).parent / "kit" / f"{name}.py").read_bytes()
+    await executor.put(f"{WORKDIR}/kit.py", source)
+
+
+def _judge(spec, rows: list[dict], statement: Path, account: str, tables: dict) -> list[dict]:
+    """Run the checks this pass is judged by, and return them serialised.
+
+    Two families. `statement` runs the arithmetic checks in
+    `verification/checks.py` — every one of them, not the subset a profile
+    happens to name, because those are the contract and the CLI runs them all.
+    `generic` runs the parameterised checks a profile asks for by name.
+
+    Either way the checks come from `verification/`, which imports nothing from
+    here and cannot see a profile.
+    """
+    if spec.judge == "statement":
+        from app.ingestion.statements import parse_statement
+        from app.tools import _load_agent_rows
+
+        checked = parse_statement(statement)
+        checked.rows, unusable = _load_agent_rows(rows)
+        serialised = [c.model_dump() for c in run_parse_checks(checked)]
+
+        # A value the agent could not express as a number is its mistake to
+        # fix, so it becomes a failed check like any other rather than an
+        # exception that ends the run before anything is verified.
+        if unusable:
+            serialised.insert(
+                0,
+                {
+                    "name": "values_parse",
+                    "scope": account,
+                    "status": "FAIL",
+                    "detail": f"{len(unusable)} value(s) could not be read as numbers",
+                    "evidence": "\n".join(unusable[:5]),
+                },
+            )
+        return serialised
+
+    from app.verification import generic
+
+    return [
+        generic.run(check.name, rows, account, check.options, tables).model_dump()
+        for check in spec.checks
+    ]
+
+
+def retry_prompt(failures: list[dict], attempt: int, of: int, script: str = "parse.py") -> str:
     """Fold the verifier's exact objections into the next attempt."""
     lines = [
-        f"Your parse.py was REJECTED by the verifier. Attempt {attempt} of {MAX_ATTEMPTS}.",
+        f"Your {script} was REJECTED by the verifier. Attempt {attempt} of {of}.",
         "",
         "These checks failed:",
     ]
@@ -132,9 +123,120 @@ def retry_prompt(failures: list[dict], attempt: int) -> str:
         "The evidence names the row and the exact discrepancy. Fix the cause, not",
         "the symptom, and do not repeat the approach that just failed.",
         "",
-        "Reply with the complete corrected parse.py in a single ```python code block.",
+        f"Reply with the complete corrected {script} in a single ```python code block.",
     ]
     return "\n".join(lines)
+
+
+async def _run_pass(
+    spec,
+    *,
+    executor,
+    trace,
+    run,
+    build_prompt,
+    judge,
+    settings: Settings,
+    script: str,
+    stage: str,
+) -> dict:
+    """One pass: write a script, run it, judge it, or try again.
+
+    Lifted out of `run_agent` unchanged so a second pass reuses it rather than
+    growing a parallel copy. The shape is the one that works and is not up for
+    negotiation: **one generation per attempt**, the previous output deleted
+    before each retry, and the verifier's exact objections folded into the next
+    prompt.
+
+    What varies between passes is only the prompt, the script name, and what
+    `judge` does with the rows — never the loop.
+    """
+    outcome = {"passed": False, "attempts": 0, "rows": 0, "summary": "", "checks": []}
+    failures: list[dict] = []
+    rows: list[dict] = []
+
+    for attempt in range(1, spec.max_attempts + 1):
+        outcome["attempts"] = attempt
+        trace.state("attempt", stage=stage, n=attempt, of=spec.max_attempts)
+
+        base = build_prompt({f["name"] for f in failures})
+        prompt = (
+            base
+            if attempt == 1
+            else f"{base}\n\n{retry_prompt(failures, attempt, spec.max_attempts, script)}"
+        )
+
+        trace.tool("model", f"generating {script} · attempt {attempt}", status="running")
+        started = time.monotonic()
+
+        # The model reasons in a separate channel before it answers.
+        # trace.thought keeps the last few lines of it on screen, updating in
+        # place, so the wait shows what it is doing rather than a spinner.
+        reply = await stream_completion(settings, prompt, on_thought=trace.thought)
+        trace.end_thought()
+        source = extract_code(reply)
+        trace.tool(
+            "model",
+            f"{len(source.splitlines())} lines · {time.monotonic() - started:.0f}s",
+            status="ok",
+        )
+        if not source:
+            failures = [{"name": "generation", "detail": "model returned no code"}]
+            continue
+
+        trace.code(f"{WORKDIR}/{script}", source)
+        # Keep every attempt's source. When a run fails, the code that failed is
+        # the first thing worth reading, and digging it out of a JSONL blob is
+        # needless friction.
+        run.write_attempt(attempt, source, stage=stage)
+
+        # Stale output is worse than none: without this a run that writes
+        # nothing gets verified against the previous attempt's file.
+        await executor.remove(f"{WORKDIR}/result.json")
+        await executor.put(f"{WORKDIR}/{script}", source.encode("utf-8"))
+
+        trace.tool("run_python", script, status="running")
+        execution = await executor.run_python(script, timeout=180)
+        trace.tool(
+            "run_python",
+            f"exit {execution.exit_code}",
+            status="ok" if execution.ok else "fail",
+        )
+
+        try:
+            payload = json.loads((await executor.get(f"{WORKDIR}/result.json")).decode())
+            rows = payload["rows"] if isinstance(payload, dict) else payload
+        except Exception as exc:  # noqa: BLE001 — a bad attempt is data, not a crash
+            trace.tool("run_checks", f"no result.json — {exc}", status="fail")
+            failures = [
+                {
+                    "name": "result_json",
+                    "detail": f"{script} did not produce a readable /work/result.json",
+                    "evidence": (execution.stderr or execution.stdout or str(exc))[-800:],
+                }
+            ]
+            continue
+
+        serialised = judge(rows)
+        failed = [c for c in serialised if c["status"] == "FAIL"]
+        trace.verdict(serialised, passed=not failed)
+
+        outcome["rows"] = len(rows)
+        outcome["checks"] = serialised
+        outcome["result"] = rows
+
+        if not failed:
+            outcome["passed"] = True
+            outcome["summary"] = f"{len(rows)} rows, every check green, attempt {attempt}"
+            trace.state("accepted", stage=stage, attempt=attempt, rows=len(rows))
+            return outcome
+
+        failures = failed
+        trace.state("rejected", stage=stage, attempt=attempt, failed=len(failed))
+
+    outcome["summary"] = f"still failing after {spec.max_attempts} attempts"
+    trace.state("exhausted", stage=stage, attempts=spec.max_attempts)
+    return outcome
 
 
 async def run_agent(
@@ -144,12 +246,24 @@ async def run_agent(
     allow_local: bool = False,
     quiet: bool = False,
     batch: str = "",
+    profile: str = DEFAULT_PROFILE,
 ) -> dict:
+    """Run every pass a profile declares, stopping at the first that fails.
+
+    A later pass builds on an earlier one's output, so continuing past a
+    rejection would resolve rows the verifier has already said are wrong.
+    """
+    import os
+
     from app.ingestion.statements import parse_statement
+    from app.profiles import load as load_profile
+    from app.reference.tables import dump as dump_tables
+    from app.reference.tables import load_tables
 
     started_at = time.monotonic()
     truth = parse_statement(statement)
     account = truth.account_short_code
+    loaded = load_profile(profile)
 
     run = RunDir(new_run_id(account, batch=batch))
     trace = Trace(quiet=quiet)
@@ -157,7 +271,8 @@ async def run_agent(
         "starting",
         statement=statement.name,
         model=settings.resolved_model,
-        max_attempts=MAX_ATTEMPTS,
+        profile=profile,
+        passes=", ".join(p.name for p in loaded.passes),
         run=run.run_id,
     )
 
@@ -169,7 +284,14 @@ async def run_agent(
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "statement.pdf").write_bytes(statement.read_bytes())
 
-    import os
+    tables = load_tables(loaded.inputs)
+    if tables:
+        dump_tables(tables, data_dir / "tables.json")
+        trace.tool(
+            "reference",
+            " · ".join(f"{n} {len(t.rows)}" for n, t in sorted(tables.items())),
+            status="ok",
+        )
 
     if settings.daytona_api_key:
         os.environ["DAYTONA_API_KEY"] = settings.daytona_api_key
@@ -181,128 +303,90 @@ async def run_agent(
     statement_text = "\n\n".join(
         f"--- PAGE {number} ---\n{body}" for number, body in enumerate(truth.page_text, 1)
     )
-    base = f"{TASK}\n\nThe statement text, for reference:\n\n{statement_text}\n"
 
     outcome = {"passed": False, "attempts": 0, "rows": 0, "summary": ""}
-    failures: list[dict] = []
+    rows: list[dict] = []
+    all_checks: list[dict] = []
 
     try:
-        for attempt in range(1, MAX_ATTEMPTS + 1):
-            outcome["attempts"] = attempt
-            trace.state("attempt", n=attempt, of=MAX_ATTEMPTS)
+        for spec in loaded.passes:
+            await _install_kit(executor, spec.kit)
 
-            prompt = base if attempt == 1 else f"{base}\n\n{retry_prompt(failures, attempt)}"
-
-            trace.tool("model", f"generating parse.py · attempt {attempt}", status="running")
-            started = time.monotonic()
-
-            # The model reasons in a separate channel before it answers.
-            # trace.thought keeps the last few lines of it on screen, updating
-            # in place, so the wait shows what it is doing rather than a
-            # spinner.
-            reply = await stream_completion(settings, prompt, on_thought=trace.thought)
-            trace.end_thought()
-            source = extract_code(reply)
-            trace.tool(
-                "model",
-                f"{len(source.splitlines())} lines · {time.monotonic() - started:.0f}s",
-                status="ok",
-            )
-            if not source:
-                failures = [{"name": "generation", "detail": "model returned no code"}]
-                continue
-            trace.code(f"{WORKDIR}/parse.py", source)
-            # Keep every attempt's source. When a run fails, the code that
-            # failed is the first thing worth reading, and digging it out of a
-            # JSONL blob is needless friction.
-            run.write_attempt(attempt, source)
-
-            # Stale output is worse than none: without this a run that writes
-            # nothing gets verified against the previous attempt's file.
-            await executor.remove(f"{WORKDIR}/result.json")
-            await executor.put(f"{WORKDIR}/parse.py", source.encode("utf-8"))
-
-            trace.tool("run_python", "parse.py", status="running")
-            execution = await executor.run_python("parse.py", timeout=180)
-            trace.tool(
-                "run_python",
-                f"exit {execution.exit_code}",
-                status="ok" if execution.ok else "fail",
-            )
-
-            try:
-                payload = json.loads((await executor.get(f"{WORKDIR}/result.json")).decode())
-                rows = payload["rows"] if isinstance(payload, dict) else payload
-            except Exception as exc:  # noqa: BLE001 — a bad attempt is data, not a crash
-                trace.tool("run_checks", f"no result.json — {exc}", status="fail")
-                failures = [
-                    {
-                        "name": "result_json",
-                        "detail": "parse.py did not produce a readable /work/result.json",
-                        "evidence": (execution.stderr or execution.stdout or str(exc))[-800:],
-                    }
-                ]
-                continue
-
-            from app.tools import _load_agent_rows
-
-            checked = parse_statement(statement)
-            checked.rows, unusable = _load_agent_rows(rows)
-            checks = run_parse_checks(checked)
-            serialised = [c.model_dump() for c in checks]
-
-            # A value the agent could not express as a number is its mistake to
-            # fix, so it becomes a failed check like any other rather than an
-            # exception that ends the run before anything is verified.
-            if unusable:
-                serialised.insert(
-                    0,
-                    {
-                        "name": "values_parse",
-                        "scope": checked.account_short_code,
-                        "status": "FAIL",
-                        "detail": f"{len(unusable)} value(s) could not be read as numbers",
-                        "evidence": "\n".join(unusable[:5]),
-                    },
+            if spec.inherits_rows:
+                # The previous pass's output becomes this one's input as data
+                # rather than as prompt text. A hundred rows quoted into a
+                # prompt is both expensive and something the model can copy
+                # imperfectly; a file it reads is neither.
+                await executor.put(
+                    f"{DATADIR}/rows.json", json.dumps({"rows": rows}).encode("utf-8")
                 )
 
-            failed = [c for c in serialised if c["status"] == "FAIL"]
-            trace.verdict(serialised, passed=not failed)
+            def build_prompt(failed: set[str], spec=spec) -> str:
+                """Rebuilt each attempt, because a nudge can be scoped to a
+                check and advice about a check nobody failed is noise competing
+                with the failure that actually needs fixing."""
+                task = spec.compose(document=account, failed=failed)
+                if spec.inherits_rows:
+                    return f"{task}\nThere are {len(rows)} rows to resolve.\n"
+                return f"{task}\nThe statement text, for reference:\n\n{statement_text}\n"
 
-            outcome["rows"] = len(rows)
+            def judge(produced: list[dict], spec=spec) -> list[dict]:
+                return _judge(spec, produced, statement, account, tables)
+
+            result = await _run_pass(
+                spec,
+                executor=executor,
+                trace=trace,
+                run=run,
+                build_prompt=build_prompt,
+                judge=judge,
+                settings=settings,
+                script=f"{spec.name}.py",
+                stage=spec.name,
+            )
+
+            all_checks.extend(result["checks"])
+            outcome["attempts"] += result["attempts"]
+            if result.get("result"):
+                rows = result["result"]
+                outcome["rows"] = len(rows)
 
             # Keep the output even when it was rejected: the sandbox is about to
             # be destroyed, and a rejected attempt is the most useful thing to
             # look at when working out why.
+            last = spec is loaded.passes[-1]
             written = run.write_rows(
                 {
                     "account": account,
                     "source_file": statement.name,
-                    "attempt": attempt,
-                    "accepted": not failed,
-                    "checks": serialised,
+                    "profile": profile,
+                    "stage": spec.name,
+                    "attempt": result["attempts"],
+                    "accepted": result["passed"],
+                    # Every check the run has done so far, not just this pass's.
+                    # The arithmetic that settled the rows is part of why the
+                    # output can be trusted, and dropping it from the record
+                    # would leave an audit trail that cannot answer the
+                    # question it exists for.
+                    "checks": all_checks,
                     "rows": rows,
-                }
+                },
+                stage="" if last else spec.name,
             )
             outcome["output_file"] = str(written)
             trace.tool("output", f"{written.name} · {len(rows)} rows", status="ok")
 
-            if not failed:
-                outcome["passed"] = True
-                outcome["summary"] = f"{len(rows)} rows, every check green, attempt {attempt}"
-                trace.state("accepted", attempt=attempt, rows=len(rows))
+            outcome["passed"] = result["passed"]
+            outcome["summary"] = f"{spec.name}: {result['summary']}"
+            if not result["passed"]:
                 break
-
-            failures = failed
-            trace.state("rejected", attempt=attempt, failed=len(failed))
-        else:
-            outcome["summary"] = f"still failing after {MAX_ATTEMPTS} attempts"
-            trace.state("exhausted", attempts=MAX_ATTEMPTS)
     finally:
         await executor.close()
 
     outcome["account"] = account
     outcome["run_id"] = run.run_id
+    outcome["profile"] = profile
+    outcome["checks"] = all_checks
     outcome["seconds"] = round(time.monotonic() - started_at, 1)
 
     trace.save(run.trace_path)
@@ -311,6 +395,7 @@ async def run_agent(
             "run_id": run.run_id,
             "account": account,
             "source_file": statement.name,
+            "profile": profile,
             "model": settings.resolved_model,
             "attempts": outcome["attempts"],
             "accepted": outcome["passed"],
@@ -324,6 +409,8 @@ async def run_agent(
     return {"outcome": outcome, "events": len(trace.events), "trace": trace, "run": run}
 
 
-def main(statement: Path, *, allow_local: bool = False) -> dict:
+def main(statement: Path, *, allow_local: bool = False, profile: str = DEFAULT_PROFILE) -> dict:
     settings = Settings(_env_file=str(Path(__file__).resolve().parents[2] / ".env"))
-    return asyncio.run(run_agent(statement, settings, allow_local=allow_local))
+    return asyncio.run(
+        run_agent(statement, settings, allow_local=allow_local, profile=profile)
+    )

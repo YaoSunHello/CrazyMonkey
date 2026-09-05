@@ -24,6 +24,7 @@ from pathlib import Path
 
 from app.ingestion.statements import parse_all, parse_statement
 from app.models import Check, Statement
+from app.profiles import DEFAULT_PROFILE
 from app.verification.checks import run_parse_checks
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -42,7 +43,7 @@ STATEMENTS = next(
 
 OUTPUTS = ROOT / "outputs"
 
-MARK = {"PASS": "PASS", "FAIL": "FAIL", "UNRESOLVED": "UNRE"}
+MARK = {"PASS": "PASS", "FAIL": "FAIL", "UNRESOLVED": "UNRE", "CANNOT_VERIFY": "N/A "}
 
 
 def log(message: str = "") -> None:
@@ -108,13 +109,13 @@ def command_verify(args: argparse.Namespace) -> int:
     statements = _load(args.account)
     if args.corrupt is not None:
         _corrupt(statements, args.corrupt)
-    tally = {"PASS": 0, "FAIL": 0, "UNRESOLVED": 0}
+    tally = {"PASS": 0, "FAIL": 0, "UNRESOLVED": 0, "CANNOT_VERIFY": 0}
     payload = []
 
     for statement in statements:
         checks = run_parse_checks(statement)
         for check in checks:
-            tally[check.status] += 1
+            tally[check.status] = tally.get(check.status, 0) + 1
         _report(statement, checks)
         log("")
         payload.append(
@@ -129,10 +130,13 @@ def command_verify(args: argparse.Namespace) -> int:
     rows = sum(len(s.rows) for s in statements)
     elapsed = time.monotonic() - started
     log(f"{len(statements)} statements · {rows} rows · {elapsed:.2f}s")
-    log(
+    summary = (
         f"{tally['PASS']} passed · {tally['FAIL']} failed · "
         f"{tally['UNRESOLVED']} unresolved (need a human)"
     )
+    if tally["CANNOT_VERIFY"]:
+        summary += f" · {tally['CANNOT_VERIFY']} cannot verify (input not in this run)"
+    log(summary)
     if tally["FAIL"]:
         log("")
         log("Refusing to emit journal entries: the arithmetic does not hold.")
@@ -182,7 +186,9 @@ def command_agent(args: argparse.Namespace) -> int:
             return 2
 
     if len(pdfs) == 1:
-        result = run_one(pdfs[0], allow_local=args.allow_local_execution)
+        result = run_one(
+            pdfs[0], allow_local=args.allow_local_execution, profile=args.profile
+        )
         outcome = result["outcome"]
         log("")
         log(f"Run {outcome['run_id']} -> {result['run'].path}")
@@ -196,11 +202,133 @@ def command_agent(args: argparse.Namespace) -> int:
             settings,
             limit=args.parallel or DEFAULT_PARALLEL,
             allow_local=args.allow_local_execution,
+            profile=args.profile,
         )
     )
     outcomes = [r["outcome"] for r in results]
     print(json.dumps(outcomes, indent=2))
     return 0 if all(o.get("passed") for o in outcomes) else 1
+
+
+def command_emit(args: argparse.Namespace) -> int:
+    """Project a recorded run into a profile's envelope.
+
+    Separate from `agent` on purpose: the same run can be presented as journal
+    entries or as a validation package without being re-run, which is the point
+    of holding the projection as data. It also means a presentation can be
+    fixed without spending a model call.
+    """
+    from app.emit import build, file_digest
+    from app.profiles import load as load_profile
+    from app.runs import resolve
+
+    run = resolve(args.run)
+    if run is None:
+        log("No such run. Try `runs` to list them.")
+        return 2
+
+    rows_path = run.path / "rows.json"
+    if not rows_path.exists():
+        log(f"Run {run.run_id} produced no rows to emit.")
+        return 2
+
+    recorded = json.loads(rows_path.read_text(encoding="utf-8"))
+    summary_path = run.path / "summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else {}
+
+    # The profile that produced the run unless the caller names another, so
+    # re-presenting an existing run is one flag rather than a re-run.
+    profile = load_profile(args.profile or recorded.get("profile") or DEFAULT_PROFILE)
+
+    source_file = recorded.get("source_file", "")
+    statement = STATEMENTS / source_file
+    documents = [file_digest(statement)] if statement.exists() else [{"filename": source_file}]
+
+    payload = build(
+        profile,
+        {
+            "run_id": summary.get("run_id", run.run_id),
+            "profile": profile.id,
+            "model": summary.get("model", ""),
+            "account": recorded.get("account", ""),
+            "source_file": source_file,
+            "input_documents": documents,
+            "rows": recorded.get("rows", []),
+            "checks": recorded.get("checks", []),
+        },
+    )
+
+    log(f"{run.run_id} · profile {profile.id} · {len(recorded.get('rows', []))} rows")
+    print(json.dumps(payload, indent=2, default=str))
+    return 0
+
+
+def command_score(args: argparse.Namespace) -> int:
+    """Compare recorded runs against the human's own answers.
+
+    A development benchmark. It is not in the agent's reach and must not be:
+    an agent that can see the answer key is marking its own homework.
+    """
+    from app.profiles import load as load_profile
+    from app.runs import RUNS
+    from app.score import score_runs
+
+    profile = load_profile(args.profile or DEFAULT_PROFILE)
+    location = (profile.inputs.get("workbook") or {}).get("location", "")
+    if not location:
+        log(f"Profile {profile.id} declares no workbook to score against.")
+        return 2
+
+    paths = sorted(p for p in RUNS.glob(f"{args.batch}*") if (p / "rows.json").exists())
+    if not paths:
+        log(f"No runs matching {args.batch!r} have rows to score.")
+        return 2
+
+    report = score_runs(paths, location)
+    total = report["total"]
+
+    log(f"{len(paths)} run(s) · {total['joined']} rows joined to the answer key")
+    if total["unjoined"]:
+        log(f"  {total['unjoined']} row(s) could not be joined — not scored")
+    log("")
+    log(f"  counterparty read     agent {total['counterparty']['both_named'] + total['counterparty']['agent_only']:3}"
+        f"   human {total['counterparty']['both_named'] + total['counterparty']['human_only']:3}")
+    for field in ("counterparty_matched", "project_matched"):
+        counts = total[field]
+        log(
+            f"  {field:20}  agree {counts['agree']:3}  differ {counts['differ']:3}  "
+            f"agent only {counts['agent_only']:3}  human only {counts['human_only']:3}"
+        )
+    counts = total["classification"]
+    log(f"  {'classification':20}  agree {counts['agree']:3}  differ {counts['differ']:3}   (judgement, not accuracy)")
+    log("")
+    print(json.dumps(report, indent=2, default=str))
+    return 0
+
+
+def command_profiles(args: argparse.Namespace) -> int:
+    """List the tracks a run can be started on.
+
+    The same summaries the API serves, so what a person sees here and what a
+    frontend offers cannot drift.
+    """
+    from app.profiles import load_all
+
+    profiles = load_all()
+    if not profiles:
+        log("No profiles found.")
+        return 2
+
+    for profile in profiles:
+        summary = profile.summary()
+        log(f"{summary['id']}")
+        log(f"    {summary['label']}")
+        log(f"    passes: {', '.join(summary['passes']) or '(none)'}")
+        if summary["tables"]:
+            log(f"    tables: {', '.join(summary['tables'])}")
+        log("")
+    print(json.dumps([p.summary() for p in profiles], indent=2))
+    return 0
 
 
 def command_runs(args: argparse.Namespace) -> int:
@@ -211,12 +339,15 @@ def command_runs(args: argparse.Namespace) -> int:
     if not records:
         log("No runs recorded yet.")
         return 2
-    log(f"{'run':<26} {'account':<12} {'result':<9} {'rows':>5} {'try':>4} {'secs':>6}")
+    log(
+        f"{'run':<26} {'account':<12} {'profile':<20} {'result':<9} "
+        f"{'rows':>5} {'try':>4} {'secs':>6}"
+    )
     for record in records[: args.limit]:
         verdict = "accepted" if record.accepted else "rejected"
         log(
-            f"{record.run_id:<26} {record.account:<12} {verdict:<9} "
-            f"{record.rows:>5} {record.attempts:>4} {record.seconds:>6.0f}"
+            f"{record.run_id:<26} {record.account:<12} {record.profile or '-':<20} "
+            f"{verdict:<9} {record.rows:>5} {record.attempts:>4} {record.seconds:>6.0f}"
         )
     return 0
 
@@ -318,7 +449,39 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="run model-written code in a local subprocess (no isolation)",
     )
+    agent_cmd.add_argument(
+        "--profile",
+        default=DEFAULT_PROFILE,
+        metavar="ID",
+        help=f"which track to run (default {DEFAULT_PROFILE}); see `profiles`",
+    )
     agent_cmd.set_defaults(func=command_agent)
+
+    profiles_cmd = subcommands.add_parser(
+        "profiles", help="list the tracks a run can be started on"
+    )
+    profiles_cmd.set_defaults(func=command_profiles)
+
+    emit_cmd = subcommands.add_parser(
+        "emit", help="project a recorded run into a profile's output envelope"
+    )
+    emit_cmd.add_argument("--run", default="", metavar="ID", help="default: the latest run")
+    emit_cmd.add_argument(
+        "--profile",
+        default="",
+        metavar="ID",
+        help="present it as this profile instead of the one that produced it",
+    )
+    emit_cmd.set_defaults(func=command_emit)
+
+    score_cmd = subcommands.add_parser(
+        "score", help="compare recorded runs against the human's answers (dev benchmark)"
+    )
+    score_cmd.add_argument(
+        "--batch", default="", metavar="PREFIX", help="run id prefix; default all runs"
+    )
+    score_cmd.add_argument("--profile", default="", metavar="ID")
+    score_cmd.set_defaults(func=command_score)
 
     replay = subcommands.add_parser("replay", help="replay the last recorded agent run")
     replay.add_argument("--speed", type=float, default=1.0, help="playback multiplier")

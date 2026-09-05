@@ -100,7 +100,7 @@ class Statement(BaseModel):
         return "\n".join(self.page_text)
 
 
-CheckStatus = Literal["PASS", "FAIL", "UNRESOLVED"]
+CheckStatus = Literal["PASS", "FAIL", "UNRESOLVED", "CANNOT_VERIFY"]
 
 
 class Check(BaseModel):
@@ -114,6 +114,13 @@ class Check(BaseModel):
                      the agent must repair it. Blocks emitting anything.
     - ``UNRESOLVED`` the row parsed fine, but a value has no match in the
                      reference data. A human decides; this never blocks.
+    - ``CANNOT_VERIFY`` the input needed to decide was not in this run — no
+                     reference table was mounted, or the document prints
+                     nothing to check against. Distinct from ``UNRESOLVED``:
+                     there, we looked and found nothing; here, we could not
+                     look. Both specifications hard-fail a pipeline that lets a
+                     missing input become a ``MATCH``, and separating these two
+                     is how that is kept honest.
 
     A boolean would force ``UNRESOLVED`` into one of the two wrong buckets: as
     a failure it blocks output that is legitimately complete, and as a pass it

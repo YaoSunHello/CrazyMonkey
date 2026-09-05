@@ -276,7 +276,12 @@ class Trace:
             checks = event.meta.get("checks", [])
             for check in checks:
                 status = check.get("status", "PASS")
-                icon = {"PASS": GREEN("✓"), "FAIL": RED("✗"), "UNRESOLVED": YELLOW("?")}[status]
+                icon = {
+                    "PASS": GREEN("✓"),
+                    "FAIL": RED("✗"),
+                    "UNRESOLVED": YELLOW("?"),
+                    "CANNOT_VERIFY": YELLOW("–"),
+                }.get(status, YELLOW("?"))
                 name = check.get("name", "")
                 write(f"{' ' * 7} {TREE_MID}{icon} {name:<24}{DIM(check.get('detail', ''))}")
                 for line in (check.get("evidence") or "").splitlines()[:3]:
@@ -286,6 +291,8 @@ class Trace:
                 f"{tally['PASS']} passed · {tally['FAIL']} failed · "
                 f"{tally['UNRESOLVED']} unresolved"
             )
+            if tally["CANNOT_VERIFY"]:
+                summary += f" · {tally['CANNOT_VERIFY']} cannot verify"
             write(f"{' ' * 7} {TREE_END}{(GREEN if event.status == 'ok' else RED)(summary)}")
 
         elif event.kind == "state":
@@ -307,7 +314,14 @@ class Trace:
 
 
 def _tally(checks: list[dict]) -> dict[str, int]:
-    tally = {"PASS": 0, "FAIL": 0, "UNRESOLVED": 0}
+    """Count by status, tolerating one this renderer has not been taught yet.
+
+    A status added to the model must not be able to crash the display of a run
+    that is otherwise fine — losing the whole trace to a KeyError would hide
+    the very thing the reader came for.
+    """
+    tally = {"PASS": 0, "FAIL": 0, "UNRESOLVED": 0, "CANNOT_VERIFY": 0}
     for check in checks:
-        tally[check.get("status", "PASS")] += 1
+        status = check.get("status", "PASS")
+        tally[status] = tally.get(status, 0) + 1
     return tally

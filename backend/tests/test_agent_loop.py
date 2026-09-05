@@ -47,7 +47,7 @@ def test_retry_prompt_carries_the_evidence_not_just_the_verdict():
             "but row 4 reads 16336667.40 (delta -100.00)",
         }
     ]
-    prompt = retry_prompt(failures, attempt=2)
+    prompt = retry_prompt(failures, attempt=2, of=4)
 
     assert "balance_chain" in prompt
     assert "14/15 links hold" in prompt
@@ -58,7 +58,7 @@ def test_retry_prompt_carries_the_evidence_not_just_the_verdict():
 
 
 def test_retry_prompt_handles_a_failure_with_no_evidence():
-    prompt = retry_prompt([{"name": "result_json", "detail": "no readable result.json"}], 3)
+    prompt = retry_prompt([{"name": "result_json", "detail": "no readable result.json"}], 3, 4)
     assert "result_json" in prompt
     assert "Attempt 3" in prompt
 

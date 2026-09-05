@@ -22,7 +22,7 @@ oracle — the pipeline can tell whether it did well without being told.
 
 ```bash
 uv sync
-uv run pytest                                   # 14 tests
+uv run pytest                                   # 91 tests
 cd backend
 uv run python -m app.cli verify                 # all seven statements
 ```
@@ -37,8 +37,64 @@ Expect `38 passed · 0 failed · 4 unresolved`.
 | `python -m app.cli verify --account GBP_3252` | Just one |
 | `python -m app.cli verify --account GBP_3252 --corrupt 3` | Damage a row on purpose; watch the verifier reject it |
 | `python -m app.cli parse --account GBP_3252` | Print the rows with their PDF citations |
+| `python -m app.cli profiles` | List the tracks a run can be started on |
 | `python -m app.cli agent --account GBP_3252` | Let the model write the parser and satisfy the verifier |
+| `python -m app.cli agent --all --profile pipeline-validation` | Every statement, on the other track |
+| `python -m app.cli emit --run <id> --profile <id>` | Present a recorded run in a profile's envelope |
 | `python -m app.cli replay` | Replay the last recorded agent run, no model needed |
+
+## Profiles
+
+A profile is a JSON document in [`../profiles/`](../profiles) saying what a use
+case is. The engine knows nothing about banks; it mounts what the profile
+declares, asks a model for a script, runs it, and judges it with checks the
+profile names. Four keys and nothing else:
+
+```
+inputs   which documents and reference tables to mount
+passes   per pass: the prompt, the kit, and the checks that judge it
+output   how the finished run is projected into this case's envelope
+label    what a person picking between tracks should see
+```
+
+Two ship today, over the same seven statements:
+
+| Profile | Emits | Specified by |
+|---|---|---|
+| `journal-entries` | statement rows, mapping results, journal entries, review queue | [`../docs/backend-model-evaluation.md`](../docs/backend-model-evaluation.md) |
+| `pipeline-validation` | export candidates, blocked exports, mapping summary, audit trail | [`../docs/business-case-2-model-pipeline-validation.md`](../docs/business-case-2-model-pipeline-validation.md) |
+
+The second **adds no Python**. It inherits the first's inputs, passes and checks
+and overrides one key, `output`. That is the test the design has to keep
+passing: a use case that needs code is a use case the abstraction has not
+understood.
+
+`GET /api/profiles` serves the same list, so a frontend can offer them as tracks
+rather than hard-coding one.
+
+### Passes
+
+A profile splits its work into passes, and each pass is the same
+write → run → verify → retry loop with its own kit, checks and attempt budget:
+
+| Pass | Writes | Judged by |
+|---|---|---|
+| `extract` | rows from the PDF | the six arithmetic checks in `verification/checks.py` |
+| `resolve` | counterparty, project code, classification | the parameterised checks in `verification/generic.py` |
+
+Separate budgets matter: a resolution that will not come good cannot spend the
+extraction that already did.
+
+### Nudges
+
+A profile can carry guidance on *how* to go about something — never on what
+counts as correct. Nudges are scoped, because advice about a check nobody failed
+is noise competing with the failure that needs fixing: always, for named
+documents, or only on a retry where a named check failed.
+
+The firewall is mechanical rather than conventional: `verification/` imports
+nothing from `profiles.py`, so a nudge cannot disable a check or move a
+tolerance.
 
 Progress goes to stderr, JSON to stdout, so `... > out.json` gives a clean file and a readable log.
 Exit code 1 on any `FAIL`.
@@ -46,10 +102,16 @@ Exit code 1 on any `FAIL`.
 ## Layout
 
 ```
+profiles/*.json             what a use case is — inputs, passes, output
 app/
+  profiles.py               load them, and compose the layered prompt
   ingestion/statements.py   pdfplumber → rows, with page + bbox on every value
-  verification/checks.py    the checks. No LLM, no sandbox, no network
-  kit/statement_kit.py      uploaded into the sandbox for the agent to build on
+  reference/tables.py       any spreadsheet → named lookup tables
+  verification/checks.py    the arithmetic checks
+  verification/generic.py   provenance · membership · completeness · vocabulary
+  kit/statement_kit.py      uploaded into the sandbox for the extraction pass
+  kit/reference_kit.py      …and for the resolution pass
+  emit.py                   a finished run → whichever envelope a profile asks for
   sandbox.py                Daytona (disposable) or a local subprocess
   llm.py                    one streamed completion
   agent.py                  the write → run → verify → retry loop
@@ -58,9 +120,46 @@ app/
 tests/                      run offline, no credentials needed
 ```
 
+`kit/reference_kit.py` is imported by both the sandbox and the host. One `Table`
+implementation means a lookup that succeeds in the agent's code cannot fail in
+the verifier over a different whitespace rule — a silent divergence there is
+exactly the class of bug this pipeline exists to catch.
+
 **`verification/` imports nothing from `agent.py` or `sandbox.py`, and never will.** Its tests pass
 with `openai-agents` and `daytona` uninstalled. That is the mechanical guarantee that the agent is
 judged by exactly the code the CLI runs, rather than by a second implementation that has drifted.
+
+## What resolution can and cannot settle
+
+`python -m app.cli score` compares a run against the human's own answers in the
+`Staging Sheet`. It is a development benchmark and is **not** reachable from the
+agent — an agent that can see the answer key is marking its own homework, and
+that isolation is asserted in `tests/test_score.py` rather than left as a
+convention.
+
+Three different things get lumped together as "matching", and only two of them
+have an answer:
+
+| | Has an oracle? | How it is judged |
+|---|---|---|
+| Reading a name out of a narrative | **yes** — every counterparty string the workbook pulled is still literally in its PDF | `provenance`: the value must be a substring of that row's narrative |
+| Matching it to a list | **yes** — the value is in the list or it is not | `membership`: a `MATCH` names its table and a key present verbatim in it |
+| Choosing *which* list, and classifying the row | **no** | scored as agreement with the human, never reported as accuracy |
+
+The third row is where the dataset's own README warns that "the counterparty
+bridge is not string similarity". A worked example from a real run: the
+narrative writes `NORDVIK INFRA.V CN SC,`. That resolves to
+`Nordvik Infrastructure V CN SCSp` on the legal entity master, which is correct
+and verifiable. The human wrote `NI V CN SCSp`, from the related party master —
+the same company under an abbreviation the supplied data never states. Both are
+real entries; only one is what the journal wanted. No amount of prompting
+closes that gap, because the alias is not in the data. It is a review item, and
+the pipeline treats it as one.
+
+The property that does hold, and the one worth having: **nothing is invented.**
+Every match names a row that exists, every extracted string is in its own
+document, and everything else is `UNRESOLVED` or `CANNOT_VERIFY` with a
+citation.
 
 ## Three check outcomes, not two
 
