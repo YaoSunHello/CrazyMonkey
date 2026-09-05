@@ -61,3 +61,33 @@ def test_retry_prompt_handles_a_failure_with_no_evidence():
     prompt = retry_prompt([{"name": "result_json", "detail": "no readable result.json"}], 3)
     assert "result_json" in prompt
     assert "Attempt 3" in prompt
+
+
+def test_a_thousands_separator_is_accepted_not_fatal():
+    """The model copying "103,014.97" off the statement is a formatting slip.
+
+    Rejecting the whole attempt for it would waste a round trip, and raising
+    would end the run before a single check had been evaluated.
+    """
+    from app.tools import _load_agent_rows
+
+    rows, problems = _load_agent_rows([{"balance": "103,014.97", "debit": "-5.21"}])
+    assert str(rows[0].balance) == "103014.97"
+    assert problems == []
+
+
+def test_an_unreadable_amount_is_reported_not_raised():
+    from app.tools import _load_agent_rows
+
+    rows, problems = _load_agent_rows([{"balance": "n/a"}, {"balance": "12.00"}])
+    assert rows[0].balance is None
+    assert str(rows[1].balance) == "12.00"
+    assert problems == ["row 0: balance 'n/a' is not a number"]
+
+
+def test_a_bad_page_number_does_not_stop_the_row():
+    from app.tools import _load_agent_rows
+
+    rows, problems = _load_agent_rows([{"balance": "1.00", "page": "front"}])
+    assert rows[0].provenance.page == 1
+    assert any("page" in p for p in problems)

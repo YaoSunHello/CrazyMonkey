@@ -212,9 +212,25 @@ async def run_agent(
             from app.tools import _load_agent_rows
 
             checked = parse_statement(statement)
-            checked.rows = _load_agent_rows(rows)
+            checked.rows, unusable = _load_agent_rows(rows)
             checks = run_parse_checks(checked)
             serialised = [c.model_dump() for c in checks]
+
+            # A value the agent could not express as a number is its mistake to
+            # fix, so it becomes a failed check like any other rather than an
+            # exception that ends the run before anything is verified.
+            if unusable:
+                serialised.insert(
+                    0,
+                    {
+                        "name": "values_parse",
+                        "scope": checked.account_short_code,
+                        "status": "FAIL",
+                        "detail": f"{len(unusable)} value(s) could not be read as numbers",
+                        "evidence": "\n".join(unusable[:5]),
+                    },
+                )
+
             failed = [c for c in serialised if c["status"] == "FAIL"]
             trace.verdict(serialised, passed=not failed)
 

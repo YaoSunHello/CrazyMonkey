@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from agents import function_tool
@@ -100,9 +100,46 @@ async def run_python(filename: str) -> str:
     return f"exit_code={result.exit_code}\n{tail or '(no output)'}"
 
 
-def _load_agent_rows(payload: list[dict]) -> list[StatementRow]:
+def _amount(raw: object) -> tuple[Decimal | None, str | None]:
+    """Coerce one amount, reporting what went wrong rather than raising.
+
+    Returns (value, problem). A value the agent could not express as a number
+    is a check the verifier should fail — it is the agent's mistake to fix on
+    the next attempt — not an exception that ends the run before anything has
+    been verified.
+
+    Thousands separators and stray whitespace are accepted, because the model
+    copying "103,014.97" straight off the statement is a formatting slip, not a
+    wrong number, and rejecting the whole attempt for it wastes a round trip.
+    """
+    if raw in (None, ""):
+        return None, None
+    text = str(raw).strip().replace(",", "").replace(" ", "")
+    try:
+        return Decimal(text), None
+    except InvalidOperation:
+        return None, f"{raw!r} is not a number"
+
+
+def _load_agent_rows(payload: list[dict]) -> tuple[list[StatementRow], list[str]]:
+    """Turn the agent's JSON into rows, collecting anything unusable."""
     rows: list[StatementRow] = []
+    problems: list[str] = []
+
     for index, item in enumerate(payload):
+        values: dict[str, Decimal | None] = {}
+        for field in ("credit", "debit", "balance"):
+            value, problem = _amount(item.get(field))
+            values[field] = value
+            if problem:
+                problems.append(f"row {index}: {field} {problem}")
+
+        try:
+            page = int(item.get("page", 1) or 1)
+        except (TypeError, ValueError):
+            page = 1
+            problems.append(f"row {index}: page {item.get('page')!r} is not an integer")
+
         rows.append(
             StatementRow(
                 account_number=str(item.get("account_number", "")),
@@ -112,14 +149,14 @@ def _load_agent_rows(payload: list[dict]) -> list[StatementRow]:
                 value_date=str(item.get("value_date", "")),
                 post_date=str(item.get("post_date", "")),
                 time=str(item.get("time", "")),
-                credit=None if item.get("credit") in (None, "") else Decimal(str(item["credit"])),
-                debit=None if item.get("debit") in (None, "") else Decimal(str(item["debit"])),
-                balance=None if item.get("balance") in (None, "") else Decimal(str(item["balance"])),
+                credit=values["credit"],
+                debit=values["debit"],
+                balance=values["balance"],
                 narrative=str(item.get("narrative", "")),
-                provenance=Provenance(page=int(item.get("page", 1)), x0=0, top=index, x1=0, bottom=0),
+                provenance=Provenance(page=page, x0=0, top=index, x1=0, bottom=0),
             )
         )
-    return rows
+    return rows, problems
 
 
 @function_tool
@@ -142,7 +179,7 @@ async def run_checks() -> str:
 
     # Truth comes from the document, not from the agent's report of it.
     statement = parse_statement(_statement_path)
-    statement.rows = _load_agent_rows(rows)
+    statement.rows, _ = _load_agent_rows(rows)
 
     checks = run_parse_checks(statement)
     serialised = [c.model_dump() for c in checks]
