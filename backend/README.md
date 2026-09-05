@@ -129,6 +129,38 @@ exactly the class of bug this pipeline exists to catch.
 with `openai-agents` and `daytona` uninstalled. That is the mechanical guarantee that the agent is
 judged by exactly the code the CLI runs, rather than by a second implementation that has drifted.
 
+## What resolution can and cannot settle
+
+`python -m app.cli score` compares a run against the human's own answers in the
+`Staging Sheet`. It is a development benchmark and is **not** reachable from the
+agent — an agent that can see the answer key is marking its own homework, and
+that isolation is asserted in `tests/test_score.py` rather than left as a
+convention.
+
+Three different things get lumped together as "matching", and only two of them
+have an answer:
+
+| | Has an oracle? | How it is judged |
+|---|---|---|
+| Reading a name out of a narrative | **yes** — every counterparty string the workbook pulled is still literally in its PDF | `provenance`: the value must be a substring of that row's narrative |
+| Matching it to a list | **yes** — the value is in the list or it is not | `membership`: a `MATCH` names its table and a key present verbatim in it |
+| Choosing *which* list, and classifying the row | **no** | scored as agreement with the human, never reported as accuracy |
+
+The third row is where the dataset's own README warns that "the counterparty
+bridge is not string similarity". A worked example from a real run: the
+narrative writes `NORDVIK INFRA.V CN SC,`. That resolves to
+`Nordvik Infrastructure V CN SCSp` on the legal entity master, which is correct
+and verifiable. The human wrote `NI V CN SCSp`, from the related party master —
+the same company under an abbreviation the supplied data never states. Both are
+real entries; only one is what the journal wanted. No amount of prompting
+closes that gap, because the alias is not in the data. It is a review item, and
+the pipeline treats it as one.
+
+The property that does hold, and the one worth having: **nothing is invented.**
+Every match names a row that exists, every extracted string is in its own
+document, and everything else is `UNRESOLVED` or `CANNOT_VERIFY` with a
+citation.
+
 ## Three check outcomes, not two
 
 | | meaning | who acts |
