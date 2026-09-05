@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .relay.api import router as relay_router
+from .runtime.api import router as runtime_router
+from .runtime.beacon import router as beacon_router
 
 app = FastAPI(title="CrazyMonkey API")
 
@@ -11,7 +13,7 @@ cors_origins = [
     item.strip()
     for item in os.getenv(
         "CRAZYMONKEY_CORS_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173",
+        "http://localhost:4173,http://127.0.0.1:4173,http://localhost:5173,http://127.0.0.1:5173",
     ).split(",")
     if item.strip()
 ]
@@ -20,12 +22,14 @@ if cors_origins:
         CORSMiddleware,
         allow_origins=cors_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
         allow_headers=["Content-Type", "If-None-Match"],
         expose_headers=["Content-Disposition", "ETag", "X-Review-Version", "X-Snapshot-SHA256"],
     )
 
 app.include_router(relay_router)
+app.include_router(runtime_router)
+app.include_router(beacon_router)
 
 
 @app.get("/health")
