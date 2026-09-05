@@ -254,6 +254,37 @@ def _build_pass(raw: dict) -> Pass:
     )
 
 
+def _lint(profile_id: str, passes: list[Pass]) -> None:
+    """Every field a pass is judged on must be explained by that pass's prompt.
+
+    This exists because of a regression that no test could catch. A prompt
+    section was replaced wholesale, taking with it the one line that said where
+    a project code appears in a narrative — and project resolution went from
+    10/10 to 0/7 while every check still reported green, because the checks ask
+    whether an answer is *sound*, not whether the model was told what to look
+    for.
+
+    A prompt is code. The engine already knows which fields it will judge, so
+    it can insist they are mentioned. Cheap, and it turns a silent quality
+    collapse into a refusal to start.
+    """
+    for spec in passes:
+        wanted = {
+            check.options["field"] for check in spec.checks if check.options.get("field")
+        }
+        for group in (check.options.get("fields", []) for check in spec.checks):
+            wanted.update(group)
+
+        missing = sorted(f for f in wanted if f not in spec.prompt)
+        if missing:
+            raise ValueError(
+                f"profile {profile_id!r}, pass {spec.name!r}: the prompt never mentions "
+                f"{', '.join(missing)}, but the verifier judges "
+                f"{'them' if len(missing) > 1 else 'it'}. A field the model is not told "
+                f"about is a field it will get wrong quietly."
+            )
+
+
 def load(profile_id: str) -> Profile:
     raw = _read(profile_id)
     passes = [_build_pass(p) for p in raw.get("passes", [])]
@@ -263,6 +294,8 @@ def load(profile_id: str) -> Profile:
     names = [p.name for p in passes]
     if len(set(names)) != len(names):
         raise ValueError(f"profile {profile_id!r} has duplicate pass names: {names}")
+
+    _lint(profile_id, passes)
 
     return Profile(
         id=raw.get("id", profile_id),
