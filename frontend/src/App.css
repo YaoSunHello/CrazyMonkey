@@ -186,6 +186,31 @@
   font-size: 15px;
 }
 
+.sketch-panel {
+  margin: 32px 0 0;
+  max-width: 480px;
+  padding: 12px 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  box-shadow: 0 14px 30px -24px rgba(27, 28, 32, 0.35);
+  transform: rotate(0.6deg);
+}
+
+.sketch-panel img {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+}
+
+.sketch-panel figcaption {
+  margin-top: 10px;
+  font-family: var(--hand);
+  font-size: 15px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
 /* Product agenda */
 
 .agenda-grid {

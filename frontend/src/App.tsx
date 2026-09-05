@@ -1,4 +1,5 @@
 import ylookupBadge from './assets/ylookup-badge.svg'
+import agentFlowSketch from './assets/agent-flow-selection.png'
 import WorkflowDiagram from './WorkflowDiagram'
 import './App.css'
 
@@ -104,6 +105,11 @@ function App() {
               to its source.
             </p>
             <WorkflowDiagram />
+
+            <figure className="sketch-panel">
+              <img src={agentFlowSketch} alt="Original team whiteboard sketch of the agent flow" />
+              <figcaption>the original sketch</figcaption>
+            </figure>
           </div>
         </section>
 
