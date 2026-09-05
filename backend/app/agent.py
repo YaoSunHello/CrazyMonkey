@@ -363,7 +363,12 @@ async def run_agent(
                     "stage": spec.name,
                     "attempt": result["attempts"],
                     "accepted": result["passed"],
-                    "checks": result["checks"],
+                    # Every check the run has done so far, not just this pass's.
+                    # The arithmetic that settled the rows is part of why the
+                    # output can be trusted, and dropping it from the record
+                    # would leave an audit trail that cannot answer the
+                    # question it exists for.
+                    "checks": all_checks,
                     "rows": rows,
                 },
                 stage="" if last else spec.name,

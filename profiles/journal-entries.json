@@ -257,8 +257,16 @@
         "Whether an investment row is equity or a loan is carried by the narrative \u2014",
         "shares and equity on one side, loan principal and accrued interest on the",
         "other \u2014 but that distinction belongs in the position, not in this label.",
-        "`Review` is an honest answer and routes the row to a person; a made-up label",
-        "is not."
+        "",
+        "**Classification comes from the narrative, not from whether a lookup",
+        "succeeded.** A row whose counterparty is UNRESOLVED is still classifiable: the",
+        "narrative says what kind of movement it is regardless of whether the name is on",
+        "a list. `Review` is for a row you genuinely cannot place \u2014 in this week's data",
+        "that is about three rows in a hundred, not most of them. A commission or a bank",
+        "charge is `Other`; a transfer between the platform's own accounts is `Internal`;",
+        "a loan or purchase to a named entity is `Investment` or `Investment Transfer`.",
+        "Reaching for `Review` because the counterparty did not resolve is the mistake to",
+        "avoid; a made-up label is the other one."
       ],
       "checks": [
         {
@@ -334,11 +342,23 @@
       "nudges": [
         {
           "text": [
-            "Most rows will not resolve, and that is the correct outcome. In the week",
-            "  this data covers, 52 of 100 rows name no counterparty at all and 30 project",
-            "  codes do not resolve. Forcing those to the nearest list entry is the single",
-            "  worst thing you can do here \u2014 an unresolved row goes to a person, a wrong",
-            "  match goes into the accounts. Never use `candidates` to pick a match."
+            "Caution belongs in the **matching**, not in the reading. Two different jobs:",
+            "",
+            "  - `counterparty_raw` and `project_code_raw` are *transcription*. If the",
+            "    narrative names a party or a project, copy it out \u2014 always, whether or not",
+            "    any list contains it. Leaving it null claims the narrative named nobody,",
+            "    which is a different and usually wrong statement, and it robs the reviewer",
+            "    of the one thing they need to decide the row.",
+            "  - The `_match` status is *judgement*, and there you are strict. Forcing an",
+            "    unmatched name to the nearest list entry is the single worst thing you can",
+            "    do here: an UNRESOLVED row goes to a person, a wrong match goes into the",
+            "    accounts. Never use `candidates` to pick a match.",
+            "",
+            "  So a narrative naming `NI V KALVIK TOPCO LTD.` that is in no list gives",
+            "  `counterparty_raw` set and status UNRESOLVED. Only a narrative that names no",
+            "  party at all \u2014 a bank charge, an interest posting \u2014 gives null and",
+            "  CANNOT_VERIFY. In this week's data roughly half the rows name somebody, and",
+            "  about half of those resolve."
           ]
         },
         {
