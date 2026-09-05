@@ -15,6 +15,8 @@ Available inside the sandbox as `kit`:
     import kit
     for line in kit.lines(page=1):
         print(line.text, [w["x0"] for w in line.words])
+        print(line.between(35, 116))        # str  — one column's text
+        print(line.words_between(35, 116))  # list[dict] — the words themselves
     kit.write_result(rows)
 """
 
@@ -47,9 +49,24 @@ class Line:
     def text(self) -> str:
         return " ".join(w["text"] for w in self.words)
 
+    def words_between(self, x0: float, x1: float) -> list[dict]:
+        """The word dicts whose left edge falls in [x0, x1), left to right.
+
+        Use this when you need the words themselves — their `x0`, or to join
+        them your own way. For the plain text of a column, `between` is
+        shorter.
+        """
+        return [w for w in self.words if x0 <= w["x0"] < x1]
+
     def between(self, x0: float, x1: float) -> str:
-        """The words whose left edge falls in [x0, x1), joined."""
-        return " ".join(w["text"] for w in self.words if x0 <= w["x0"] < x1)
+        """The text of one column, **already joined into a string**.
+
+        Returns a `str`, not a list of words — `words_between` is the one that
+        returns the dicts. Writing `" ".join(w["text"] for w in
+        line.between(a, b))` iterates the *characters* of this string and
+        raises `TypeError: string indices must be integers`.
+        """
+        return " ".join(w["text"] for w in self.words_between(x0, x1))
 
     def starts_with(self, prefix: str) -> bool:
         return self.text.startswith(prefix)

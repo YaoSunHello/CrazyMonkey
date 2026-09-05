@@ -20,6 +20,11 @@ samples/statements/
 samples/workbook/
 samples/DATASET_README.md
 
+# Each agent run stages a copy of the document it is about to parse next to the
+# original, so the sandbox has one directory to upload. That lands inside the
+# organisers' committed dataset folder, which is not ours to add files to.
+.agent_data/
+
 # Local working notes for Claude — not part of the deliverable.
 CLAUDE.md
 

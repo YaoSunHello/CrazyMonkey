@@ -1,0 +1,121 @@
+{
+  "id": "journal-entries",
+  "label": "Bank statements to journal entries",
+  "description": "Read a bank statement PDF, work out who each payment was to or from, classify it, and produce journal entries that provably foot. Specified by docs/backend-model-evaluation.md.",
+
+  "inputs": {
+    "documents": {
+      "kind": "pdf",
+      "location": "samples/01-bank-statements-to-journal-entries/statements",
+      "glob": "*.pdf",
+      "describe": "Seven bank statements, one per account, four currencies, six business days"
+    }
+  },
+
+  "passes": [
+    {
+      "name": "extract",
+      "kit": "statement_kit",
+      "max_attempts": 4,
+      "prompt": [
+        "You are parsing a bank statement PDF into transaction rows for a fund administrator.",
+        "",
+        "Write a Python file, `parse.py`. The `kit` module gives you:",
+        "",
+        "    kit.page_count() -> int",
+        "    kit.lines(page)  -> visual lines on that page, top to bottom.",
+        "                        PAGES ARE 1-BASED: iterate range(1, kit.page_count()+1).",
+        "                        Each line has:",
+        "                          line.text                  str  — the whole line",
+        "                          line.words                 list[dict] — each with \"text\" and \"x0\"",
+        "                          line.between(a, b)         str  — the text of that column,",
+        "                                                     ALREADY JOINED. Not a list.",
+        "                          line.words_between(a, b)   list[dict] — the words themselves",
+        "    kit.column_positions() -> dict of the left edge of every column, read from",
+        "                          the statement's own header row:",
+        "                          bank_reference, customer_reference, trn_type,",
+        "                          value_date, credit, debit, balance, time, post_date",
+        "    kit.write_result(rows) -> writes /work/result.json",
+        "",
+        "Each row is a dict with these keys:",
+        "    bank_reference, trn_type, value_date, post_date, time, narrative,",
+        "    credit, debit, balance, account_number, currency, page",
+        "",
+        "Amounts are strings, no thousands separators, sign exactly as printed. Exactly",
+        "one of credit/debit is set; the other is None. Rows in statement order, newest",
+        "first.",
+        "",
+        "## What statements actually look like",
+        "",
+        "- **They span several pages, and the transactions continue across them.** The",
+        "  column header row repeats at the top of every page; so does the \"Statement",
+        "  details\" block. Skip the furniture, keep the transactions, and keep them in",
+        "  page order — a row dropped at a page boundary breaks the chain by exactly",
+        "  the amount of that row.",
+        "- Day boundaries appear *between* transactions as \"Balance as at close <date>\"",
+        "  and \"Balance brought forward <date>\". They are markers, not transactions,",
+        "  and their amount sits in a different column from the transaction balances.",
+        "- The narrative is a continuation line under its transaction, labelled",
+        "  `Narrative`. The bank wraps long names mid-word by inserting a comma, so",
+        "  \"NORDVIK INFRASTR, UCTURE V SCSP\" is one name, not two."
+      ],
+
+      "checks": [
+        {
+          "name": "balance_chain",
+          "describe": "a row's balance minus its amount must equal the NEXT row's balance"
+        },
+        {
+          "name": "closing_balance",
+          "describe": "the first row's balance equals the closing balance printed on page 1"
+        },
+        {
+          "name": "printed_openings",
+          "describe": "every \"Balance brought forward\" marker must reproduce from the movements"
+        },
+        {
+          "name": "row_count",
+          "describe": "one row per transaction. \"Balance as at close\" and \"Balance brought forward\" are day markers, NOT transactions"
+        },
+        {
+          "name": "one_amount_per_row",
+          "describe": "exactly one of credit/debit"
+        },
+        {
+          "name": "reference_provenance",
+          "describe": "every bank_reference appears literally in the PDF text"
+        }
+      ],
+
+      "nudges": [
+        {
+          "text": [
+            "`line.between(a, b)` returns a **string**; `line.words_between(a, b)` returns",
+            "  the word dicts. Writing `\" \".join(w[\"text\"] for w in line.between(a, b))`",
+            "  iterates the characters of a string and raises TypeError — that mistake cost",
+            "  two earlier runs every attempt they had."
+          ]
+        },
+        {
+          "documents": ["EUR_0894", "USD_4373"],
+          "text": [
+            "This statement prints no \"Balance brought forward\" marker at all, so",
+            "  `printed_openings` will come back UNRESOLVED. That is expected and does not",
+            "  block acceptance — do not invent a marker to satisfy it."
+          ]
+        },
+        {
+          "check_failed": "reference_provenance",
+          "text": [
+            "`bank_reference` must appear **literally** in the PDF. Join words with a single",
+            "  space where the document has one and with nothing where it does not. Two",
+            "  failure shapes to avoid: a space between every character, and stripping all",
+            "  spaces so the next column's text runs into the reference."
+          ]
+        }
+      ]
+    }
+  ],
+
+  "output": {}
+}

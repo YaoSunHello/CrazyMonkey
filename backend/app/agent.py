@@ -30,75 +30,11 @@ from pathlib import Path
 
 from app.config import Settings
 from app.llm import stream_completion
+from app.profiles import DEFAULT_PROFILE
 from app.runs import RunDir, new_run_id
 from app.sandbox import DATADIR, WORKDIR, build_executor
 from app.trace import Trace
 from app.verification.checks import run_parse_checks
-
-MAX_ATTEMPTS = 4
-
-TASK = f"""\
-You are parsing a bank statement PDF into transaction rows for a fund administrator.
-
-Write a Python file, `parse.py`, that runs in a sandbox where a module `kit` is
-already available. Import it; do not rewrite it.
-
-    kit.page_count() -> int
-    kit.lines(page)  -> visual lines on that page, top to bottom.
-                        PAGES ARE 1-BASED: iterate range(1, kit.page_count()+1).
-                        Each line has:
-                          line.text            the whole line as a string
-                          line.words           dicts with "text" and "x0"
-                          line.between(a, b)   words whose left edge is in [a, b)
-    kit.column_positions() -> dict of the left edge of every column, read from
-                          the statement's own header row:
-                          bank_reference, customer_reference, trn_type,
-                          value_date, credit, debit, balance, time, post_date
-    kit.write_result(rows) -> writes /work/result.json
-
-Each row is a dict with these keys:
-    bank_reference, trn_type, value_date, post_date, time, narrative,
-    credit, debit, balance, account_number, currency, page
-
-Amounts are strings, no thousands separators, sign exactly as printed. Exactly
-one of credit/debit is set; the other is None. Rows in statement order, newest
-first.
-
-## What the verifier checks
-
-- balance_chain          a row's balance minus its amount must equal the NEXT row's balance
-- closing_balance        the first row's balance equals the closing balance printed on page 1
-- printed_openings       every "Balance brought forward" marker must reproduce from the movements
-- row_count              one row per transaction. "Balance as at close" and
-                         "Balance brought forward" are day markers, NOT transactions
-- one_amount_per_row     exactly one of credit/debit
-- reference_provenance   every bank_reference appears literally in the PDF text
-
-## What statements actually look like
-
-- **They span several pages, and the transactions continue across them.** The
-  column header row repeats at the top of every page; so does the "Statement
-  details" block. Skip the furniture, keep the transactions, and keep them in
-  page order — a row dropped at a page boundary breaks the chain by exactly
-  the amount of that row.
-- Day boundaries appear *between* transactions as "Balance as at close <date>"
-  and "Balance brought forward <date>". They are markers, not transactions,
-  and their amount sits in a different column from the transaction balances.
-- The narrative is a continuation line under its transaction, labelled
-  `Narrative`. The bank wraps long names mid-word by inserting a comma, so
-  "NORDVIK INFRASTR, UCTURE V SCSP" is one name, not two.
-
-## Rules
-
-- Never invent or adjust a number to make the chain close.
-- `bank_reference` must appear **literally** in the PDF. Join words with a
-  single space where the document has one, and with nothing where it does not
-  — inserting a space between every character is a common way to fail this.
-- Print a one-line summary to stdout at the end, e.g. "parsed 16 rows".
-
-Reply with the complete contents of parse.py in a single ```python code block,
-and nothing else.
-"""
 
 
 def extract_code(text: str) -> str:
@@ -115,10 +51,10 @@ def extract_code(text: str) -> str:
     return text.strip()
 
 
-def retry_prompt(failures: list[dict], attempt: int) -> str:
+def retry_prompt(failures: list[dict], attempt: int, of: int) -> str:
     """Fold the verifier's exact objections into the next attempt."""
     lines = [
-        f"Your parse.py was REJECTED by the verifier. Attempt {attempt} of {MAX_ATTEMPTS}.",
+        f"Your parse.py was REJECTED by the verifier. Attempt {attempt} of {of}.",
         "",
         "These checks failed:",
     ]
@@ -144,12 +80,17 @@ async def run_agent(
     allow_local: bool = False,
     quiet: bool = False,
     batch: str = "",
+    profile: str = DEFAULT_PROFILE,
 ) -> dict:
     from app.ingestion.statements import parse_statement
+    from app.profiles import load as load_profile
 
     started_at = time.monotonic()
     truth = parse_statement(statement)
     account = truth.account_short_code
+
+    spec = load_profile(profile).get_pass("extract")
+    max_attempts = spec.max_attempts
 
     run = RunDir(new_run_id(account, batch=batch))
     trace = Trace(quiet=quiet)
@@ -157,7 +98,8 @@ async def run_agent(
         "starting",
         statement=statement.name,
         model=settings.resolved_model,
-        max_attempts=MAX_ATTEMPTS,
+        max_attempts=max_attempts,
+        profile=profile,
         run=run.run_id,
     )
 
@@ -181,17 +123,31 @@ async def run_agent(
     statement_text = "\n\n".join(
         f"--- PAGE {number} ---\n{body}" for number, body in enumerate(truth.page_text, 1)
     )
-    base = f"{TASK}\n\nThe statement text, for reference:\n\n{statement_text}\n"
+    def build(failed: set[str]) -> str:
+        """Compose the prompt for this attempt.
+
+        Rebuilt each time rather than fixed once, because a nudge can be scoped
+        to a check — advice about `reference_provenance` is only worth the
+        model's attention on an attempt where that check actually failed.
+        """
+        task = spec.compose(document=account, failed=failed)
+        return f"{task}\nThe statement text, for reference:\n\n{statement_text}\n"
 
     outcome = {"passed": False, "attempts": 0, "rows": 0, "summary": ""}
     failures: list[dict] = []
 
     try:
-        for attempt in range(1, MAX_ATTEMPTS + 1):
+        for attempt in range(1, max_attempts + 1):
             outcome["attempts"] = attempt
-            trace.state("attempt", n=attempt, of=MAX_ATTEMPTS)
+            trace.state("attempt", n=attempt, of=max_attempts)
 
-            prompt = base if attempt == 1 else f"{base}\n\n{retry_prompt(failures, attempt)}"
+            failed_names = {f["name"] for f in failures}
+            base = build(failed_names)
+            prompt = (
+                base
+                if attempt == 1
+                else f"{base}\n\n{retry_prompt(failures, attempt, max_attempts)}"
+            )
 
             trace.tool("model", f"generating parse.py · attempt {attempt}", status="running")
             started = time.monotonic()
@@ -296,8 +252,8 @@ async def run_agent(
             failures = failed
             trace.state("rejected", attempt=attempt, failed=len(failed))
         else:
-            outcome["summary"] = f"still failing after {MAX_ATTEMPTS} attempts"
-            trace.state("exhausted", attempts=MAX_ATTEMPTS)
+            outcome["summary"] = f"still failing after {max_attempts} attempts"
+            trace.state("exhausted", attempts=max_attempts)
     finally:
         await executor.close()
 
@@ -324,6 +280,8 @@ async def run_agent(
     return {"outcome": outcome, "events": len(trace.events), "trace": trace, "run": run}
 
 
-def main(statement: Path, *, allow_local: bool = False) -> dict:
+def main(statement: Path, *, allow_local: bool = False, profile: str = DEFAULT_PROFILE) -> dict:
     settings = Settings(_env_file=str(Path(__file__).resolve().parents[2] / ".env"))
-    return asyncio.run(run_agent(statement, settings, allow_local=allow_local))
+    return asyncio.run(
+        run_agent(statement, settings, allow_local=allow_local, profile=profile)
+    )

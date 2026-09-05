@@ -76,6 +76,7 @@ async def run_many(
     *,
     limit: int = DEFAULT_PARALLEL,
     allow_local: bool = False,
+    profile: str = "",
 ) -> list[dict]:
     """Run every statement, at most `limit` sandboxes at a time."""
     from app.ingestion.statements import parse_statement
@@ -98,7 +99,12 @@ async def run_many(
             started = time.monotonic()
             try:
                 result = await run_agent(
-                    statement, settings, allow_local=allow_local, quiet=True, batch=batch
+                    statement,
+                    settings,
+                    allow_local=allow_local,
+                    quiet=True,
+                    batch=batch,
+                    **({"profile": profile} if profile else {}),
                 )
             except Exception as exc:  # noqa: BLE001 — one failure must not sink the batch
                 board.set(account, f"error · {type(exc).__name__}: {exc}"[:70])

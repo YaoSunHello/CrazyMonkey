@@ -24,6 +24,7 @@ from pathlib import Path
 
 from app.ingestion.statements import parse_all, parse_statement
 from app.models import Check, Statement
+from app.profiles import DEFAULT_PROFILE
 from app.verification.checks import run_parse_checks
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -182,7 +183,9 @@ def command_agent(args: argparse.Namespace) -> int:
             return 2
 
     if len(pdfs) == 1:
-        result = run_one(pdfs[0], allow_local=args.allow_local_execution)
+        result = run_one(
+            pdfs[0], allow_local=args.allow_local_execution, profile=args.profile
+        )
         outcome = result["outcome"]
         log("")
         log(f"Run {outcome['run_id']} -> {result['run'].path}")
@@ -196,11 +199,37 @@ def command_agent(args: argparse.Namespace) -> int:
             settings,
             limit=args.parallel or DEFAULT_PARALLEL,
             allow_local=args.allow_local_execution,
+            profile=args.profile,
         )
     )
     outcomes = [r["outcome"] for r in results]
     print(json.dumps(outcomes, indent=2))
     return 0 if all(o.get("passed") for o in outcomes) else 1
+
+
+def command_profiles(args: argparse.Namespace) -> int:
+    """List the tracks a run can be started on.
+
+    The same summaries the API serves, so what a person sees here and what a
+    frontend offers cannot drift.
+    """
+    from app.profiles import load_all
+
+    profiles = load_all()
+    if not profiles:
+        log("No profiles found.")
+        return 2
+
+    for profile in profiles:
+        summary = profile.summary()
+        log(f"{summary['id']}")
+        log(f"    {summary['label']}")
+        log(f"    passes: {', '.join(summary['passes']) or '(none)'}")
+        if summary["tables"]:
+            log(f"    tables: {', '.join(summary['tables'])}")
+        log("")
+    print(json.dumps([p.summary() for p in profiles], indent=2))
+    return 0
 
 
 def command_runs(args: argparse.Namespace) -> int:
@@ -318,7 +347,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="run model-written code in a local subprocess (no isolation)",
     )
+    agent_cmd.add_argument(
+        "--profile",
+        default=DEFAULT_PROFILE,
+        metavar="ID",
+        help=f"which track to run (default {DEFAULT_PROFILE}); see `profiles`",
+    )
     agent_cmd.set_defaults(func=command_agent)
+
+    profiles_cmd = subcommands.add_parser(
+        "profiles", help="list the tracks a run can be started on"
+    )
+    profiles_cmd.set_defaults(func=command_profiles)
 
     replay = subcommands.add_parser("replay", help="replay the last recorded agent run")
     replay.add_argument("--speed", type=float, default=1.0, help="playback multiplier")
