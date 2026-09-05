@@ -6,4 +6,4 @@ pypdf
 python-multipart
 pandas
 openpyxl
-
+reportlab

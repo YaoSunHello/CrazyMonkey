@@ -1,0 +1,18 @@
+{
+  "reporting_period": "Q3 2026",
+  "summary": {
+    "checks_completed": 6,
+    "matches": 3,
+    "discrepancies": 2,
+    "cannot_verify": 1,
+    "unsupported": 0
+  },
+  "findings": {
+    "LP01": {"reported": "50000.00", "expected": "50000.00", "difference": "0.00", "status": "MATCH"},
+    "LP02": {"reported": "37500.00", "expected": "37500.00", "difference": "0.00", "status": "MATCH"},
+    "LP03": {"reported": "50000.00", "expected": "37500.00", "difference": "12500.00", "status": "DISCREPANCY"},
+    "LP04": {"reported": "50000.00", "expected": "40000.00", "difference": "10000.00", "status": "DISCREPANCY"},
+    "LP05": {"reported": "50000.00", "expected": "50000.00", "difference": "0.00", "status": "MATCH"},
+    "LP06": {"reported": "37500.00", "expected": null, "difference": null, "status": "CANNOT_VERIFY"}
+  }
+}
