@@ -56,8 +56,10 @@ export type HumanReviewState =
   | "NEEDS_FOLLOW_UP"
   | "TERM_CONFIRMED";
 
+export type DecimalValue = number | string;
+
 export interface MoneyValue {
-  amount: number;
+  amount: DecimalValue;
   currency: string;
 }
 
@@ -103,7 +105,7 @@ export interface FindingVersion {
   version: number;
   createdAt: string;
   reason: string;
-  applicableRate?: number;
+  applicableRate?: DecimalValue;
   expectedValue?: MoneyValue;
 }
 

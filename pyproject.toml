@@ -10,14 +10,18 @@ dependencies = [
     "pydantic",
     "pydantic-settings",
     "pdfplumber",
+    "pypdf",
     "openpyxl",
+    "reportlab",
+    "XlsxWriter==3.2.9",
+    "jsonschema==4.25.1",
     "openai-agents[litellm]",
     "python-dotenv",
     "daytona",
 ]
 
 [dependency-groups]
-dev = ["pytest"]
+dev = ["pytest", "httpx==0.28.1"]
 
 # Not an installable package — this project is run from `backend/`, where the
 # FastAPI app lives as `app.main:app`. uv manages the environment only.

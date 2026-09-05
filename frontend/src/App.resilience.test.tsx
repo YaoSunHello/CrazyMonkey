@@ -44,7 +44,32 @@ class ReadyMockReviewAdapter extends ImmediateMockReviewAdapter {
   }
 }
 
+class EmptyReviewAdapter extends ImmediateMockReviewAdapter {
+  override async getReview(reviewId: string): Promise<ReviewResult> {
+    const review = await super.getReview(reviewId);
+    review.documents = [];
+    review.findings = [];
+    return review;
+  }
+}
+
 describe("CrazyMonkey client-side resilience", () => {
+  it("treats an empty backend review as incomplete and keeps every RELAY action locked", async () => {
+    const user = userEvent.setup();
+    render(<App adapter={new EmptyReviewAdapter()} />);
+
+    await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
+
+    expect(await screen.findByRole("heading", { name: "The backend returned an incomplete review" })).toBeInTheDocument();
+    expect(screen.getByText("Incomplete review result")).toBeInTheDocument();
+    expect(screen.queryByText("Ready for RELAY")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "PDF report" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Excel review" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "JSON audit package" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Prepare email" })).toBeDisabled();
+    expect(screen.getAllByText(/missing source documents and review findings/i)).toHaveLength(2);
+  });
+
   it("rejects unsupported, oversized and duplicate files before another detection request", async () => {
     const adapter = new MockReviewAdapter();
     const detectDocuments = vi.spyOn(adapter, "detectDocuments");

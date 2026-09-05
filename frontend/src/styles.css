@@ -2334,6 +2334,12 @@ h3 {
   background: #f1f6f7;
 }
 
+.version-grid article.current-terms {
+  grid-column: 1 / -1;
+  border-color: #d8c897;
+  background: #fffaf0;
+}
+
 .version-grid small {
   color: #6a7882;
   font-size: 0.63rem;

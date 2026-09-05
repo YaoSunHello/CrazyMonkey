@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ExportFormat, ReviewFinding, ReviewResult } from "../types";
+import { absoluteMoneyValue, compareDecimalValues, isZeroDecimalValue } from "../utils/decimal";
 import { formatMoney, statusPriority } from "../utils/format";
 import {
   ConfidenceBadge,
@@ -34,10 +35,10 @@ function matchesFilter(finding: ReviewFinding, filter: Filter): boolean {
 
 function directionalDifference(finding: ReviewFinding): string {
   if (!finding.difference || !finding.administratorValue || !finding.expectedValue) return "—";
-  if (finding.difference.amount === 0) return formatMoney(finding.difference);
+  if (isZeroDecimalValue(finding.difference.amount)) return formatMoney(finding.difference);
   const direction =
-    finding.administratorValue.amount > finding.expectedValue.amount ? "above" : "below";
-  return `${formatMoney({ ...finding.difference, amount: Math.abs(finding.difference.amount) })} ${direction}`;
+    compareDecimalValues(finding.administratorValue.amount, finding.expectedValue.amount) > 0 ? "above" : "below";
+  return `${formatMoney(absoluteMoneyValue(finding.difference))} ${direction}`;
 }
 
 interface ReviewSummaryProps {
@@ -88,7 +89,12 @@ export function ReviewSummary({
         a.investorId.localeCompare(b.investorId),
     );
   const nextException = pendingExceptions[0];
-  const readyForRelay = pendingExceptions.length === 0;
+  const hasCompleteReviewContent = review.documents.length > 0 && review.findings.length > 0;
+  const missingReviewContent = [
+    review.documents.length === 0 ? "source documents" : undefined,
+    review.findings.length === 0 ? "review findings" : undefined,
+  ].filter((item): item is string => Boolean(item));
+  const readyForRelay = hasCompleteReviewContent && pendingExceptions.length === 0;
 
   return (
     <div className="review-page page-enter">
@@ -131,7 +137,11 @@ export function ReviewSummary({
           <span className="review-version">Snapshot v{review.version} · {review.mode.replaceAll("_", " ").toLowerCase()}</span>
           <span className={`plain-status ${readyForRelay ? "ready" : "pending"}`}>
             <span aria-hidden="true">{readyForRelay ? "✓" : "!"}</span>
-            {readyForRelay ? "Ready for RELAY" : `${pendingExceptions.length} awaiting human review`}
+            {!hasCompleteReviewContent
+              ? "Incomplete review result"
+              : readyForRelay
+                ? "Ready for RELAY"
+                : `${pendingExceptions.length} awaiting human review`}
           </span>
         </div>
       </header>
@@ -165,7 +175,21 @@ export function ReviewSummary({
         </p>
       )}
 
-      {nextException ? (
+      {!hasCompleteReviewContent ? (
+        <section className="next-exception" aria-labelledby="incomplete-result-heading">
+          <div className="next-exception-copy">
+            <span className="next-exception-count" aria-hidden="true">!</span>
+            <div>
+              <p className="eyebrow">Partial result</p>
+              <h2 id="incomplete-result-heading">The backend returned an incomplete review</h2>
+              <p>
+                Missing {missingReviewContent.join(" and ")}. Outputs and email drafts remain locked;
+                retry the review or check the source pack and backend service.
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : nextException ? (
         <section className="next-exception" aria-labelledby="next-exception-heading">
           <div className="next-exception-copy">
             <span className="next-exception-count" aria-hidden="true">{pendingExceptions.length}</span>
@@ -285,7 +309,9 @@ export function ReviewSummary({
         </div>
         <p className="output-note" role="note">
           {!readyForRelay
-            ? `Record a human disposition for ${pendingExceptions.length} remaining ${pendingExceptions.length === 1 ? "exception" : "exceptions"} to unlock RELAY.`
+            ? !hasCompleteReviewContent
+              ? `RELAY remains locked because the review is missing ${missingReviewContent.join(" and ")}.`
+              : `Record a human disposition for ${pendingExceptions.length} remaining ${pendingExceptions.length === 1 ? "exception" : "exceptions"} to unlock RELAY.`
             : !review.outputCapabilities.pdf || !review.outputCapabilities.excel
               ? "Unavailable formats are awaiting RELAY integration in this build."
               : "Outputs use the displayed immutable review snapshot. Email opens as a draft and is not sent."}
