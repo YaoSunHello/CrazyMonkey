@@ -15,6 +15,7 @@ which is a legitimate outcome rather than a broken parse.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 import time
@@ -156,23 +157,82 @@ def command_parse(args: argparse.Namespace) -> int:
 
 
 def command_agent(args: argparse.Namespace) -> int:
-    """Hand the statement to the model and let the verifier referee."""
-    from app.agent import main as run_agent_main
+    """Hand statements to the model and let the verifier referee."""
+    from app.agent import main as run_one
+    from app.batch import DEFAULT_PARALLEL, run_many
+    from app.config import Settings
 
-    matches = [p for p in STATEMENTS.glob("*.pdf") if args.account in p.stem]
-    if not matches:
-        log(f"No statement matches {args.account!r}.")
+    pdfs = sorted(STATEMENTS.glob("*.pdf"))
+    if not args.all:
+        pdfs = [p for p in pdfs if args.account in p.stem]
+        if not pdfs:
+            log(f"No statement matches {args.account!r}.")
+            return 2
+
+    if len(pdfs) == 1:
+        result = run_one(pdfs[0], allow_local=args.allow_local_execution)
+        outcome = result["outcome"]
+        log("")
+        log(f"Run {outcome['run_id']} -> {result['run'].path}")
+        print(json.dumps(outcome, indent=2))
+        return 0 if outcome["passed"] else 1
+
+    settings = Settings(_env_file=str(ROOT / ".env"))
+    results = asyncio.run(
+        run_many(
+            pdfs,
+            settings,
+            limit=args.parallel or DEFAULT_PARALLEL,
+            allow_local=args.allow_local_execution,
+        )
+    )
+    outcomes = [r["outcome"] for r in results]
+    print(json.dumps(outcomes, indent=2))
+    return 0 if all(o.get("passed") for o in outcomes) else 1
+
+
+def command_runs(args: argparse.Namespace) -> int:
+    """List recorded runs, newest first."""
+    from app.runs import list_runs
+
+    records = list_runs()
+    if not records:
+        log("No runs recorded yet.")
+        return 2
+    log(f"{'run':<26} {'account':<12} {'result':<9} {'rows':>5} {'try':>4} {'secs':>6}")
+    for record in records[: args.limit]:
+        verdict = "accepted" if record.accepted else "rejected"
+        log(
+            f"{record.run_id:<26} {record.account:<12} {verdict:<9} "
+            f"{record.rows:>5} {record.attempts:>4} {record.seconds:>6.0f}"
+        )
+    return 0
+
+
+def command_show(args: argparse.Namespace) -> int:
+    """Print the rows and the verdict from a recorded run."""
+    from app.runs import resolve
+
+    record = resolve(args.run)
+    if record is None:
+        log(f"No run matches {args.run!r}. Try `runs`.")
         return 2
 
-    result = run_agent_main(matches[0], allow_local=args.allow_local_execution)
-    OUTPUTS.mkdir(exist_ok=True)
-    trace_path = OUTPUTS / "agent_trace.jsonl"
-    result["trace"].save(trace_path)
-    outcome = result["outcome"]
+    payload = json.loads((record.path / "rows.json").read_text(encoding="utf-8"))
+    log(f"{record.run_id} — {payload['account']} — {payload['source_file']}")
+    log(f"attempt {payload['attempt']} · accepted={payload['accepted']}")
     log("")
-    log(f"Wrote {trace_path.relative_to(ROOT)} ({result['events']} events)")
-    print(json.dumps(outcome, indent=2))
-    return 0 if outcome["passed"] else 1
+    for check in payload["checks"]:
+        log(f"  [{MARK[check['status']]}] {check['name']:22} {check['detail']}")
+    log("")
+    for index, row in enumerate(payload["rows"]):
+        amount = row.get("credit") or row.get("debit") or ""
+        log(
+            f"  {index:>3} {str(row.get('value_date','')):<12} {str(amount):>18}"
+            f"  bal {str(row.get('balance','')):>16}  {row.get('bank_reference','')}"
+        )
+    print(json.dumps(payload, indent=2))
+    return 0
 
 
 def command_replay(args: argparse.Namespace) -> int:
@@ -184,10 +244,17 @@ def command_replay(args: argparse.Namespace) -> int:
     """
     from app.trace import Event, Trace
 
-    path = OUTPUTS / "agent_trace.jsonl"
-    if not path.exists():
-        log(f"No recording at {path}. Run `agent` first.")
+    from app.runs import resolve
+
+    record = resolve(args.run)
+    if record is None:
+        log("No runs recorded yet. Run `agent` first.")
         return 2
+    path = record.trace_path if hasattr(record, "trace_path") else record.path / "trace.jsonl"
+    if not path.exists():
+        log(f"Run {record.run_id} has no trace.jsonl.")
+        return 2
+    log(f"Replaying {record.run_id}")
 
     records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     if not records:
@@ -207,7 +274,7 @@ def command_replay(args: argparse.Namespace) -> int:
         trace._render(Event(**record))
 
     log("")
-    log(f"Replayed {len(records)} events from {path.relative_to(ROOT)}")
+    log(f"Replayed {len(records)} events from {path}")
     return 0
 
 
@@ -229,6 +296,11 @@ def main(argv: list[str] | None = None) -> int:
         "agent", help="let the model write the parser and satisfy the verifier"
     )
     agent_cmd.add_argument("--account", default="GBP_3252")
+    agent_cmd.add_argument("--all", action="store_true", help="every statement")
+    agent_cmd.add_argument(
+        "--parallel", type=int, default=0, metavar="N",
+        help="sandboxes at a time when running many (default 5)",
+    )
     agent_cmd.add_argument(
         "--allow-local-execution",
         action="store_true",
@@ -238,7 +310,16 @@ def main(argv: list[str] | None = None) -> int:
 
     replay = subcommands.add_parser("replay", help="replay the last recorded agent run")
     replay.add_argument("--speed", type=float, default=1.0, help="playback multiplier")
+    replay.add_argument("--run", help="run id or prefix. Defaults to the latest.")
     replay.set_defaults(func=command_replay)
+
+    runs_cmd = subcommands.add_parser("runs", help="list recorded agent runs")
+    runs_cmd.add_argument("--limit", type=int, default=20)
+    runs_cmd.set_defaults(func=command_runs)
+
+    show_cmd = subcommands.add_parser("show", help="print rows and verdict from a run")
+    show_cmd.add_argument("--run", help="run id or prefix. Defaults to the latest.")
+    show_cmd.set_defaults(func=command_show)
 
     show = subcommands.add_parser("parse", help="parse and print the rows")
     show.add_argument("--account", help="e.g. GBP_3252. Omit for all seven.")

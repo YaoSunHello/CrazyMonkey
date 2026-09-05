@@ -11,16 +11,13 @@ the exact failures go into the next attempt's prompt.
 
 A turn-by-turn tool loop was tried first and was the wrong shape here: a
 quantised local model takes ~220s a turn, so twenty turns is over an hour, and
-it emitted malformed JSON for tool arguments часто enough to abort the run
+it emitted malformed JSON for tool arguments often enough to abort the run
 outright. Removing tool calls removes both failure modes.
 
-Two details carried over from agent-arena because they cost real time there:
-
-- **Delete the previous attempt's output before each retry.** Otherwise an
-  attempt that writes nothing leaves the last one's file on disk, you verify
-  stale output, and the fallback never fires.
-- **Route effort by the kind of failure.** A parse that broke on structure
-  needs a different prompt from one that broke on arithmetic.
+One detail carried over from agent-arena because it cost real time there:
+**delete the previous attempt's output before each retry.** Otherwise an
+attempt that writes nothing leaves the last one's file on disk, you verify
+stale output, and the fallback never fires.
 """
 
 from __future__ import annotations
@@ -33,6 +30,7 @@ from pathlib import Path
 
 from app.config import Settings
 from app.llm import stream_completion
+from app.runs import RunDir, new_run_id
 from app.sandbox import DATADIR, WORKDIR, build_executor
 from app.trace import Trace
 from app.verification.checks import run_parse_checks
@@ -126,19 +124,30 @@ async def run_agent(
     *,
     allow_local: bool = False,
     quiet: bool = False,
+    batch: str = "",
 ) -> dict:
     from app.ingestion.statements import parse_statement
 
+    started_at = time.monotonic()
+    truth = parse_statement(statement)
+    account = truth.account_short_code
+
+    run = RunDir(new_run_id(account, batch=batch))
     trace = Trace(quiet=quiet)
     trace.state(
         "starting",
         statement=statement.name,
         model=settings.resolved_model,
         max_attempts=MAX_ATTEMPTS,
+        run=run.run_id,
     )
 
-    data_dir = statement.parent / ".agent_data"
-    data_dir.mkdir(exist_ok=True)
+    # Per account, not per directory. Sharing one staging directory across
+    # concurrent runs would hand each run whichever PDF was written last — and
+    # every run would still come back green, having verified the wrong
+    # document. Wrong output that looks right is worse than an error.
+    data_dir = statement.parent / ".agent_data" / account
+    data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "statement.pdf").write_bytes(statement.read_bytes())
 
     import os
@@ -150,7 +159,6 @@ async def run_agent(
     executor = build_executor(trace, data_dir, allow_local=allow_local)
     await executor.start()
 
-    truth = parse_statement(statement)
     statement_text = "\n\n".join(
         f"--- PAGE {number} ---\n{body}" for number, body in enumerate(truth.page_text, 1)
     )
@@ -185,6 +193,10 @@ async def run_agent(
                 failures = [{"name": "generation", "detail": "model returned no code"}]
                 continue
             trace.code(f"{WORKDIR}/parse.py", source)
+            # Keep every attempt's source. When a run fails, the code that
+            # failed is the first thing worth reading, and digging it out of a
+            # JSONL blob is needless friction.
+            run.write_attempt(attempt, source)
 
             # Stale output is worse than none: without this a run that writes
             # nothing gets verified against the previous attempt's file.
@@ -192,8 +204,12 @@ async def run_agent(
             await executor.put(f"{WORKDIR}/parse.py", source.encode("utf-8"))
 
             trace.tool("run_python", "parse.py", status="running")
-            run = await executor.run_python("parse.py", timeout=180)
-            trace.tool("run_python", f"exit {run.exit_code}", status="ok" if run.ok else "fail")
+            execution = await executor.run_python("parse.py", timeout=180)
+            trace.tool(
+                "run_python",
+                f"exit {execution.exit_code}",
+                status="ok" if execution.ok else "fail",
+            )
 
             try:
                 payload = json.loads((await executor.get(f"{WORKDIR}/result.json")).decode())
@@ -204,7 +220,7 @@ async def run_agent(
                     {
                         "name": "result_json",
                         "detail": "parse.py did not produce a readable /work/result.json",
-                        "evidence": (run.stderr or run.stdout or str(exc))[-800:],
+                        "evidence": (execution.stderr or execution.stdout or str(exc))[-800:],
                     }
                 ]
                 continue
@@ -239,22 +255,15 @@ async def run_agent(
             # Keep the output even when it was rejected: the sandbox is about to
             # be destroyed, and a rejected attempt is the most useful thing to
             # look at when working out why.
-            outputs = Path(__file__).resolve().parents[2] / "outputs"
-            outputs.mkdir(exist_ok=True)
-            written = outputs / f"rows-{checked.account_short_code}.json"
-            written.write_text(
-                json.dumps(
-                    {
-                        "account": checked.account_short_code,
-                        "source_file": statement.name,
-                        "attempt": attempt,
-                        "accepted": not failed,
-                        "checks": serialised,
-                        "rows": rows,
-                    },
-                    indent=2,
-                ),
-                encoding="utf-8",
+            written = run.write_rows(
+                {
+                    "account": account,
+                    "source_file": statement.name,
+                    "attempt": attempt,
+                    "accepted": not failed,
+                    "checks": serialised,
+                    "rows": rows,
+                }
             )
             outcome["output_file"] = str(written)
             trace.tool("output", f"{written.name} · {len(rows)} rows", status="ok")
@@ -273,7 +282,27 @@ async def run_agent(
     finally:
         await executor.close()
 
-    return {"outcome": outcome, "events": len(trace.events), "trace": trace}
+    outcome["account"] = account
+    outcome["run_id"] = run.run_id
+    outcome["seconds"] = round(time.monotonic() - started_at, 1)
+
+    trace.save(run.trace_path)
+    run.write_summary(
+        {
+            "run_id": run.run_id,
+            "account": account,
+            "source_file": statement.name,
+            "model": settings.resolved_model,
+            "attempts": outcome["attempts"],
+            "accepted": outcome["passed"],
+            "rows": outcome["rows"],
+            "seconds": outcome["seconds"],
+            "summary": outcome["summary"],
+        }
+    )
+    run.mark_latest()
+
+    return {"outcome": outcome, "events": len(trace.events), "trace": trace, "run": run}
 
 
 def main(statement: Path, *, allow_local: bool = False) -> dict:
