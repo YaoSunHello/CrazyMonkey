@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, vi } from "vitest";
 import { App } from "./App";
 import { MockReviewAdapter } from "./api/mockReviewAdapter";
+import { makeAdapter, startFixture } from "./test/workspaceFixtures";
 import type { EmailDraft, ExportResult, ReviewProgress } from "./types";
+import type { WorkspaceAdapter } from "./workspaceTypes";
 
 class ImmediateAdapter extends MockReviewAdapter {
   override async getProgress(reviewId: string): Promise<ReviewProgress> {
@@ -47,12 +49,56 @@ describe("Workspace isolation", () => {
     render(<App adapter={new ImmediateAdapter()} />);
     expect(screen.getByText("Development fixture mode")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Review your NAV pack before you sign it." })).toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "Review workspace" })).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Review workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Profile workflows" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Full pack" })).not.toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
     expect(await screen.findByRole("heading", { name: "Review summary" })).toBeInTheDocument();
     expect(screen.getByText("Development fixture mode")).toBeInTheDocument();
+  });
+
+  it("opens Profile workflows from its URL and keeps NAV reachable", async () => {
+    window.history.replaceState({}, "", "/?workspace=profiles");
+    const user = userEvent.setup();
+    render(<App adapter={new ImmediateAdapter()} profileAdapter={makeAdapter()} />);
+
+    expect(await screen.findByRole("heading", { name: "Drop a folder to start a review" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Profile workflows" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Profile API workspace")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Full pack" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "NAV review" }));
+    expect(screen.getByRole("heading", { name: "Review your NAV pack before you sign it." })).toBeInTheDocument();
+    expect(screen.getByText("Development fixture mode")).toBeInTheDocument();
+  });
+
+  it("keeps an accepted Profile job mounted while another workspace is viewed", async () => {
+    window.history.replaceState({}, "", "/?workspace=profiles");
+    const user = userEvent.setup();
+    const startJob = vi.fn<WorkspaceAdapter["startJob"]>().mockResolvedValue(startFixture);
+    const getJob = vi.fn<WorkspaceAdapter["getJob"]>(() => new Promise(() => undefined));
+    render(
+      <App
+        adapter={new ImmediateAdapter()}
+        profileAdapter={makeAdapter({ startJob, getJob })}
+      />,
+    );
+
+    const file = new File(["statement bytes"], "statement.pdf", { type: "application/pdf" });
+    await user.upload(await screen.findByLabelText("Choose files"), file);
+    await user.click(screen.getByRole("checkbox", {
+      name: "I confirm these are the intended source and reference inputs.",
+    }));
+    await user.click(screen.getByRole("button", { name: "Start review" }));
+    expect(await screen.findByRole("heading", { name: "Processing the selected files" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "NAV review" }));
+    expect(screen.getByRole("heading", { name: "Review your NAV pack before you sign it." })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Profile workflows" }));
+
+    expect(screen.getByRole("heading", { name: "Processing the selected files" })).toBeInTheDocument();
+    expect(startJob).toHaveBeenCalledTimes(1);
   });
 
   it("opens Full pack from the URL only when the frontend feature flag is enabled", async () => {

@@ -71,6 +71,10 @@ label[for]:focus-visible {
   outline-offset: 3px;
 }
 
+h1[tabindex="-1"]:focus {
+  outline: none;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
