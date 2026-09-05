@@ -8,7 +8,6 @@
   ![Encode](https://img.shields.io/badge/Encode-Hackathon-2563EB?style=for-the-badge)
   
 
-
 CrazyMonkey is a hackathon product for fund managers and investment teams. It helps transform messy investment documents into clean, model-ready datasets.
 
 The MVP focuses on the part of the research pipeline before IC materials: taking PDFs, statements, NAV packs, portfolio reports, and similar files, then extracting traceable structured data that analysts can validate and export.
