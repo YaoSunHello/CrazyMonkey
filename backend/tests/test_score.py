@@ -104,6 +104,23 @@ def test_disagreements_name_both_sides():
     assert disagreement["human"] == "NI V Kalvik Topco Limited"
 
 
+def test_both_profiles_hold_the_same_documents_back():
+    """Or the two runs are not comparable, and neither number means anything."""
+    from app.profiles import load
+
+    one = load("journal-entries").output.get("holdout")
+    two = load("pipeline-validation").output.get("holdout")
+    assert one and one == two
+
+
+def test_the_holdout_is_a_real_split_not_a_token_one():
+    """A hold-out of one document proves nothing; of all of them, nothing either."""
+    from app.profiles import load
+
+    holdout = load("journal-entries").output["holdout"]
+    assert 2 <= len(holdout) <= 4
+
+
 def test_the_agent_cannot_reach_the_answer_key():
     """Asserted, not trusted. This is what makes every other number evidence."""
     from pathlib import Path

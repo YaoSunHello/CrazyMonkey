@@ -565,6 +565,11 @@
     "requires": [
       "counterparty_match",
       "project_code_match"
+    ],
+    "holdout": [
+      "EUR_0894",
+      "EUR_030041",
+      "USD_4373"
     ]
   }
 }

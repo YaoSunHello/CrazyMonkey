@@ -284,24 +284,46 @@ def command_score(args: argparse.Namespace) -> int:
         log(f"No runs matching {args.batch!r} have rows to score.")
         return 2
 
-    report = score_runs(paths, location)
-    total = report["total"]
+    holdout = (profile.output or {}).get("holdout", [])
+    report = score_runs(paths, location, holdout)
 
-    log(f"{len(paths)} run(s) · {total['joined']} rows joined to the answer key")
-    if total["unjoined"]:
-        log(f"  {total['unjoined']} row(s) could not be joined — not scored")
-    log("")
-    log(f"  counterparty read     agent {total['counterparty']['both_named'] + total['counterparty']['agent_only']:3}"
-        f"   human {total['counterparty']['both_named'] + total['counterparty']['human_only']:3}")
-    for field in ("counterparty_matched", "project_matched"):
-        counts = total[field]
+    def show(label: str, total: dict) -> None:
+        if not total:
+            return
+        log(f"  {label} — {total['joined']} rows")
+        if total["unjoined"]:
+            log(f"    {total['unjoined']} row(s) could not be joined — not scored")
+        read = total["counterparty"]
         log(
-            f"  {field:20}  agree {counts['agree']:3}  differ {counts['differ']:3}  "
-            f"agent only {counts['agent_only']:3}  human only {counts['human_only']:3}"
+            f"    counterparty read     agent {read['both_named'] + read['agent_only']:3}"
+            f"   human {read['both_named'] + read['human_only']:3}"
         )
-    counts = total["classification"]
-    log(f"  {'classification':20}  agree {counts['agree']:3}  differ {counts['differ']:3}   (judgement, not accuracy)")
+        for field in ("counterparty_matched", "project_matched"):
+            counts = total[field]
+            log(
+                f"    {field:20}  agree {counts['agree']:3}  differ {counts['differ']:3}  "
+                f"agent only {counts['agent_only']:3}  human only {counts['human_only']:3}"
+            )
+        counts = total["classification"]
+        log(
+            f"    {'classification':20}  agree {counts['agree']:3}  "
+            f"differ {counts['differ']:3}   (judgement, not accuracy)"
+        )
+        log("")
+
+    log(f"{len(paths)} run(s) scored against the working file")
     log("")
+    if holdout:
+        # Hold-out first and named as the result, because it is the only number
+        # measured on documents no prompt was tuned against. Tune sits beneath
+        # it so the gap between them is visible; a wide gap means we memorised.
+        show(f"HOLD-OUT — the result ({', '.join(holdout)})", report["holdout"])
+        show("tune — looked at while changing prompts", report["tune"])
+    else:
+        log("  no hold-out declared: every number below was tuned against")
+        log("")
+        show("all", report["total"])
+
     print(json.dumps(report, indent=2, default=str))
     return 0
 
