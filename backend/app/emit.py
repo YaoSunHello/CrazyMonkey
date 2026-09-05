@@ -31,9 +31,19 @@ from datetime import datetime, timezone
 
 from app.kit.reference_kit import normalise
 
-# A status that means "resolved, and the resolution stands up". Everything else
-# routes a row to a person, which is the whole point of the three-state design.
-RESOLVED = "MATCH"
+# Statuses a row can carry and still be complete.
+#
+# `MATCH` is obvious. `CANNOT_VERIFY` is the one worth explaining: it means the
+# document named nothing to resolve — a bank charge has no counterparty, and
+# saying so is a finding, not a gap. Blocking on it would conflate "we looked
+# and there is nothing there" with "we did not look", which is the exact
+# distinction the fourth state exists to draw, and it would put 95 of 100 rows
+# in a review queue that a person then stops reading.
+#
+# `UNRESOLVED` does block: a name was pulled out of the document and matched
+# nothing, so somebody has to decide. So does a resolution that is simply
+# absent, because that row was never examined at all.
+SETTLED = {"MATCH", "CANNOT_VERIFY"}
 
 # Why a row is in the review queue, in the vocabulary
 # `business-case-2` §6C sets out. A reason a reviewer can act on beats a
@@ -120,7 +130,7 @@ def _review_reason(row: dict, index: int, context: dict) -> str | None:
         return REASONS["citation"]
     for field in _match_fields(row, context.get("requires")):
         status = normalise(_resolution(row, field).get("status")).upper()
-        if status != RESOLVED:
+        if status not in SETTLED:
             stem = field.rsplit("_", 1)[0]
             return REASONS.get(stem, f"{stem.upper()}_UNRESOLVED")
     if normalise(row.get("classification")).casefold() == "review":
@@ -197,14 +207,18 @@ def derive_review_queue(context: dict) -> list[dict]:
         }
         for field in _match_fields(row, context.get("requires")):
             resolution = _resolution(row, field)
-            if normalise(resolution.get("status")).upper() != RESOLVED:
+            if normalise(resolution.get("status")).upper() not in SETTLED:
                 item[field] = resolution or {"status": "CANNOT_VERIFY"}
         queue.append(item)
 
     # A failing or unresolvable check is a review item too — it is not about one
     # row, so it would otherwise vanish from the only surface a person reads.
     for check in context.get("checks", []):
-        if check.get("status") in ("FAIL", "UNRESOLVED", "CANNOT_VERIFY"):
+        # FAIL and UNRESOLVED only. A CANNOT_VERIFY check is the same finding as
+        # a CANNOT_VERIFY row — the input to decide it was not in this run — and
+        # there is nothing for a reviewer to do about it. It stays in `checks`,
+        # where it is visible, rather than padding the queue they have to work.
+        if check.get("status") in ("FAIL", "UNRESOLVED"):
             queue.append(
                 {
                     "row_id": None,

@@ -178,10 +178,35 @@ def test_a_failing_check_reaches_the_queue_too():
     assert "CHECK_FAIL" in reasons
 
 
-def test_cannot_verify_reaches_the_queue_as_itself():
+def test_a_cannot_verify_check_stays_out_of_the_queue():
+    """There is nothing for a reviewer to do about an input that was not in the
+    run. It stays visible in `checks`; it does not pad the queue they work."""
     checks = [{"name": "printed_openings", "status": "CANNOT_VERIFY", "detail": "no markers"}]
-    reasons = [item["reason"] for item in derive_review_queue(context(rows=[], checks=checks))]
-    assert reasons == ["CHECK_CANNOT_VERIFY"]
+    assert derive_review_queue(context(rows=[], checks=checks)) == []
+
+
+def test_a_row_that_names_nobody_is_settled_not_unresolved():
+    """A bank charge has no counterparty, and saying so is a finding.
+
+    Blocking on CANNOT_VERIFY conflated "we looked and there is nothing there"
+    with "we did not look", and put 95 of 100 rows into a queue a person then
+    stops reading.
+    """
+    charge = {
+        **CLEAN,
+        "counterparty_raw": None,
+        "counterparty_match": {"status": "CANNOT_VERIFY"},
+    }
+    built = build(load("pipeline-validation"), context(rows=[charge]))
+    assert built["export_candidates"][0]["ready_for_export"] is True
+    assert built["blocked_exports"] == []
+
+
+def test_a_name_that_matched_nothing_still_blocks():
+    """The other half of the same distinction — somebody has to decide this one."""
+    built = build(load("pipeline-validation"), context(rows=[UNRESOLVED]))
+    assert built["export_candidates"] == []
+    assert built["blocked_exports"][0]["review_reason"] == "COUNTERPARTY_UNRESOLVED"
 
 
 # --- the summary ---------------------------------------------------------
