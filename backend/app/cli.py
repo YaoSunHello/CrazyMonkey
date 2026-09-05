@@ -155,6 +155,62 @@ def command_parse(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_agent(args: argparse.Namespace) -> int:
+    """Hand the statement to the model and let the verifier referee."""
+    from app.agent import main as run_agent_main
+
+    matches = [p for p in STATEMENTS.glob("*.pdf") if args.account in p.stem]
+    if not matches:
+        log(f"No statement matches {args.account!r}.")
+        return 2
+
+    result = run_agent_main(matches[0], allow_local=args.allow_local_execution)
+    OUTPUTS.mkdir(exist_ok=True)
+    trace_path = OUTPUTS / "agent_trace.jsonl"
+    result["trace"].save(trace_path)
+    outcome = result["outcome"]
+    log("")
+    log(f"Wrote {trace_path.relative_to(ROOT)} ({result['events']} events)")
+    print(json.dumps(outcome, indent=2))
+    return 0 if outcome["passed"] else 1
+
+
+def command_replay(args: argparse.Namespace) -> int:
+    """Replay a recorded run at its original pacing.
+
+    A live run needs the model up and takes minutes. Replaying a real recorded
+    stream is the safe way to demonstrate it — and it is a *real* run, not a
+    fixture, which is the only version worth showing.
+    """
+    from app.trace import Event, Trace
+
+    path = OUTPUTS / "agent_trace.jsonl"
+    if not path.exists():
+        log(f"No recording at {path}. Run `agent` first.")
+        return 2
+
+    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    if not records:
+        log("Recording is empty.")
+        return 2
+
+    trace = Trace()
+    trace.started = time.monotonic()
+    previous = records[0]["at"]
+    for record in records:
+        # Collapse dead time rather than speeding everything up uniformly, so
+        # bursts stay readable and long pauses stop being long.
+        gap = min((record["at"] - previous) / max(args.speed, 0.1), 1.2)
+        if gap > 0:
+            time.sleep(gap)
+        previous = record["at"]
+        trace._render(Event(**record))
+
+    log("")
+    log(f"Replayed {len(records)} events from {path.relative_to(ROOT)}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="app.cli", description=__doc__)
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -168,6 +224,21 @@ def main(argv: list[str] | None = None) -> int:
         help="damage this row's amount on purpose, to show the verifier catching it",
     )
     verify.set_defaults(func=command_verify)
+
+    agent_cmd = subcommands.add_parser(
+        "agent", help="let the model write the parser and satisfy the verifier"
+    )
+    agent_cmd.add_argument("--account", default="GBP_3252")
+    agent_cmd.add_argument(
+        "--allow-local-execution",
+        action="store_true",
+        help="run model-written code in a local subprocess (no isolation)",
+    )
+    agent_cmd.set_defaults(func=command_agent)
+
+    replay = subcommands.add_parser("replay", help="replay the last recorded agent run")
+    replay.add_argument("--speed", type=float, default=1.0, help="playback multiplier")
+    replay.set_defaults(func=command_replay)
 
     show = subcommands.add_parser("parse", help="parse and print the rows")
     show.add_argument("--account", help="e.g. GBP_3252. Omit for all seven.")
