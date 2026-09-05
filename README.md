@@ -40,15 +40,18 @@ The end goal is to answer a defined set of business questions from the uploaded 
 
 The product is deliberately conservative. It should not invent a match, silently fill a missing field, or mark a row as complete when the data does not support that conclusion.
 
-## Agent Pipeline
+## Phase 1 Pipeline (Built)
 
-The data agents work as a staged pipeline:
+What exists today is Phase 1: a loop-engineered pipeline of agents that supervise each other through document ETL, rather than one model doing everything in a single pass.
+
+A user states the intended outcome as a **declarative goal** for the run (which business question this batch answers, which profile/checks apply). From there the pipeline works in a supervised loop against reference master lists — resolving, classifying, and building out the dataset — until every row is either trusted or explicitly held out, then reconciles the result back to the fund manager / end user as the final answer.
 
 ```text
 1. Detect
 -> 2. Extract
--> 3. Resolve
+-> 3. Resolve (looped against master lists, agent-supervised)
 -> 4. Verify and Emit
+-> Reconciled back to the fund manager
 ```
 
 **1. Detect**
@@ -61,11 +64,13 @@ Read rows, values, narratives, dates, balances, entities, and source citations f
 
 **3. Resolve**
 
-Map extracted values against reference data such as legal entities, counterparties, investors, project codes, deals, positions, and chart-of-account tables.
+Loop against reference data — legal entities, counterparties, investors, project codes, deals, positions, chart-of-account tables — classifying and building out each row. One agent proposes, another checks; a row only advances once it clears, and a row that can't be resolved stays visibly unresolved rather than being forced through.
 
 **4. Verify and Emit**
 
 Run deterministic checks, classify output as trusted or unresolved, generate a review queue, and emit a production-grade dataset only where the evidence supports it.
+
+The output of Phase 1 is a single artifact: a **structured, model-ready dataset** that is high-quality, validated against deterministic checks, and fully auditable back to its source documents.
 
 ## What The Output Shows
 
@@ -117,6 +122,17 @@ samples/01-bank-statements-to-journal-entries
 ```
 
 It contains seven bank statement PDFs and a reference workbook. The workflow tests the core product thesis: extract rows, resolve mappings, verify arithmetic, and keep unresolved cases visible.
+
+## Vision: Phase 2 and Beyond
+
+Phase 1 proves the core loop on one document type and three profiles. It is not the full product. The rest of this README before this point describes what is real today; everything below is the roadmap, not a claim about current state.
+
+- **Wider document coverage.** NAV packs, portfolio reports, capital-call notices, and scanned or photographed statements (with an OCR fallback), not just bank statement PDFs.
+- **A connected, interactive review UI.** An upload window, a due-diligence questionnaire that scopes what a run checks, a live view of the agent loop while it runs, and a review screen with edit/accept/reject actions on individual rows — wired to the real backend rather than demo data.
+- **A broader profile library.** One profile per business question a fund manager actually asks — see [`docs/business-case.md`](docs/business-case.md) for the due-diligence questions (mandate fit, track record, fees, legal/governance, operational quality) still to become profiles beyond `mandate-fit`, `journal-entries`, and `pipeline-validation`.
+- **An in-context AI assistant.** A chat surface over a run's structured dataset that answers from the extracted data only, and explicitly says so when a question is out of scope — never fabricates an answer or a citation.
+- **Cross-fund and cross-administrator comparison.** The mapping problem at portfolio scale: reconciling definitional drift (e.g. what "net IRR" means) across multiple GPs at once, not just one fund's statements.
+- **Production hardening.** Auth, persistent run storage, audit-log retention, and cost/latency controls on the agent loop.
 
 ## Why This Matters For Fund Managers
 
