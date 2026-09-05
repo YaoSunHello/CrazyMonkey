@@ -352,37 +352,6 @@
         "the counterparty lookup. Blank out the counterparty span before searching for",
         "the project word if that is easier.",
         "",
-        "## Build the journal lines, and check them yourself",
-        "",
-        "Add `journal_lines` to every row: two lines sharing a `batch`, the cash side",
-        "and the counterparty side, equal and opposite.",
-        "",
-        "    {\"batch\": \"<row id>\", \"amount\": \"301908.70\", \"is_debit\": true,",
-        "     \"transaction_type\": \"Payable - Third Party\"}",
-        "",
-        "`amount` is always positive; direction is carried by `is_debit` and never by",
-        "the transaction type. In this data every cash leg reads `Cash - Disbursed`",
-        "including the credits, so a sign taken from the type name is wrong on a",
-        "quarter of the rows.",
-        "",
-        "**This gives you something to check yourself.** Call",
-        "`kit.batches_balance(rows)` before you write the result. It returns",
-        "`{ok, batches, balanced, problems}`. If `ok` is false, fix the rows — a",
-        "rejected attempt costs a whole generation and this costs nothing.",
-        "",
-        "Then record what you checked with `kit.write_assertions([...])`:",
-        "",
-        "    kit.write_assertions([",
-        "        {\"name\": \"batches_balance\", \"holds\": r[\"ok\"], \"detail\": f\"{r['balanced']}/{r['batches']}\"},",
-        "        {\"name\": \"spans_are_short\", \"holds\": longest <= 8, \"detail\": f\"longest {longest} words\"},",
-        "    ])",
-        "",
-        "Be honest in these. A claim that does not hold fails the attempt and its",
-        "detail reaches your next prompt, which is the fastest way to fix something.",
-        "A claim that does hold changes nothing on its own — it cannot make an attempt",
-        "pass that the real checks rejected — so there is nothing to gain by claiming",
-        "something you have not checked, and real value in saying plainly what is off.",
-        "",
         "## Classification",
         "",
         "`classification` must be exactly one of these eight strings, copied verbatim.",
@@ -521,13 +490,6 @@
             "max_share": 0.2
           },
           "describe": "Review is the label of last resort; it should be rare"
-        },
-        {
-          "name": "double_entry",
-          "options": {
-            "field": "journal_lines"
-          },
-          "describe": "two lines per batch, equal and opposite — the arithmetic you can check yourself"
         }
       ],
       "nudges": [
@@ -595,13 +557,84 @@
             "  between the platform's own accounts is `Internal` whether or not the",
             "  counterparty resolved. Decide from the narrative's verbs."
           ]
-        },
+        }
+      ]
+    },
+    {
+      "name": "journal",
+      "kit": "reference_kit",
+      "judge": "generic",
+      "inherits_rows": true,
+      "max_attempts": 3,
+      "prompt": [
+        "The rows have been extracted, their arithmetic verified, and each one",
+        "resolved against the reference lists. One thing is left: turn each row into",
+        "its journal entry.",
+        "",
+        "Write a Python file, `journal.py`. The `kit` module gives you:",
+        "",
+        "    kit.rows()                    -> the resolved rows",
+        "    kit.table(name)               -> the reference lists, if you need them",
+        "    kit.batches_balance(rows)     -> check your own work before submitting",
+        "    kit.write_assertions([...])   -> record what you checked",
+        "    kit.write_result(rows)        -> writes /work/result.json",
+        "",
+        "Emit every row unchanged, with `journal_lines` added: exactly two lines",
+        "sharing a `batch`, the cash side and the counterparty side.",
+        "",
+        "    \"journal_lines\": [",
+        "      {\"batch\": \"<row id>\", \"amount\": \"301908.70\", \"is_debit\": true,",
+        "       \"transaction_type\": \"Payable - Third Party\"},",
+        "      {\"batch\": \"<row id>\", \"amount\": \"301908.70\", \"is_debit\": false,",
+        "       \"transaction_type\": \"Cash - Disbursed - EUR\"}",
+        "    ]",
+        "",
+        "`amount` is always positive and identical on both lines. **Direction is",
+        "carried by `is_debit` and never by the transaction type.** Every cash leg in",
+        "this data reads `Cash - Disbursed` including the credits, so a sign taken",
+        "from the type name is wrong on a quarter of the rows. The cash leg is the",
+        "credit when the statement row is a debit, and the debit when it is a credit.",
+        "",
+        "## You can check this yourself, so do",
+        "",
+        "Unlike resolving a name, this has an answer you can verify without being",
+        "told. Call `kit.batches_balance(rows)` before writing the result — it",
+        "returns `{ok, batches, balanced, problems}` and runs the same arithmetic the",
+        "verifier runs. If `ok` is false, fix the rows. A rejected attempt costs a",
+        "whole generation; this costs nothing.",
+        "",
+        "Then record it:",
+        "",
+        "    r = kit.batches_balance(rows)",
+        "    kit.write_assertions([",
+        "        {\"name\": \"batches_balance\", \"holds\": r[\"ok\"],",
+        "         \"detail\": f\"{r['balanced']}/{r['batches']} balance\"},",
+        "    ])",
+        "",
+        "Be honest in it. A claim that does not hold fails the attempt and its detail",
+        "reaches your next prompt, which is the fastest way to fix something. A claim",
+        "that does hold cannot make a failing attempt pass, so there is nothing to be",
+        "gained by claiming what you have not checked.",
+        "",
+        "Never adjust an amount to make a batch balance. If it will not balance, the",
+        "line that is wrong is wrong, and saying so is the correct outcome."
+      ],
+      "checks": [
+        {
+          "name": "double_entry",
+          "options": {
+            "field": "journal_lines"
+          },
+          "describe": "two lines per batch, equal and opposite, netting to zero"
+        }
+      ],
+      "nudges": [
         {
           "check_failed": "double_entry",
           "text": [
-            "A batch did not net to zero. Call `kit.batches_balance(rows)` before writing",
-            "  the result and fix what it reports — it is the same arithmetic the verifier",
-            "  runs, so there is no reason to find out afterwards."
+            "A batch did not net to zero. Call `kit.batches_balance(rows)` before you",
+            "  write the result and fix what it reports — it is the same arithmetic the",
+            "  verifier runs, so there is no reason to learn this afterwards."
           ]
         }
       ]
