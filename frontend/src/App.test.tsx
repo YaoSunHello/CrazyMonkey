@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { beforeEach } from "vitest";
 import { App } from "./App";
 import { MockReviewAdapter } from "./api/mockReviewAdapter";
 import type { ReviewProgress, ReviewResult } from "./types";
@@ -26,6 +27,10 @@ class BelowExpectedMockReviewAdapter extends ImmediateMockReviewAdapter {
     return review;
   }
 }
+
+beforeEach(() => {
+  window.history.replaceState({}, "", "/?workspace=nav");
+});
 
 describe("CrazyMonkey review workflow", () => {
   it("renders the synthetic review totals and keeps human review separate from the finding status", async () => {

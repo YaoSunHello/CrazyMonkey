@@ -16,7 +16,7 @@ from `leo2` is not included; only its frontend is preserved behind an
 off-by-default feature flag.
 
 For a standalone UI preview, run `npm ci` and `npm run dev` from `frontend/`, then
-open `http://127.0.0.1:4173`. This defaults to explicitly labelled fixture mode.
+open `http://127.0.0.1:4173/?workspace=nav`. NAV defaults to explicitly labelled fixture mode.
 For the integrated path, use the live-mode commands below; a missing or failed
 backend is shown as **Backend unavailable**.
 
@@ -152,7 +152,7 @@ VITE_API_MODE=live VITE_API_BASE_URL=http://127.0.0.1:8000 \
   npm run dev -- --host 127.0.0.1
 ```
 
-Open `http://127.0.0.1:4173`, select **Load synthetic demo**, and use this
+Open `http://127.0.0.1:4173/?workspace=nav`, select **Load synthetic demo**, and use this
 review path:
 
 1. On the summary, confirm the `6 / 3 / 2 / 1` totals and open the first

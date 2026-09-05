@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { ProfileWorkspace } from "./ProfileWorkspace";
@@ -61,12 +61,15 @@ describe("CrazyMonkey live workspace", () => {
     expect(folderInput).toHaveAttribute("webkitdirectory", "");
     expect(folderInput).toHaveAttribute("directory", "");
     expect(folderInput).toHaveAttribute("tabindex", "-1");
-    expect(screen.getByText("Choose folder", { selector: "button" })).toHaveProperty("tabIndex", 0);
-    expect(screen.getByLabelText("Choose files")).toHaveAttribute("tabindex", "-1");
-    expect(screen.getByText("Choose files", { selector: "button" })).toHaveProperty("tabIndex", 0);
+    expect(folderInput).toHaveAttribute("hidden");
+    expect(screen.getAllByRole("button", { name: "Choose folder" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Choose folder" })).toHaveProperty("tabIndex", 0);
+    expect(screen.getByLabelText("Choose files")).toHaveAttribute("hidden");
+    expect(screen.getAllByRole("button", { name: "Choose files" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Choose files" })).toHaveProperty("tabIndex", 0);
 
     const inputClick = vi.spyOn(folderInput, "click").mockImplementation(() => undefined);
-    await user.click(screen.getByText("Choose folder", { selector: "button" }));
+    await user.click(screen.getByRole("button", { name: "Choose folder" }));
     expect(inputClick).toHaveBeenCalledTimes(1);
     inputClick.mockRestore();
 
@@ -79,6 +82,27 @@ describe("CrazyMonkey live workspace", () => {
     expect(await screen.findByText("client-pack/accounts/statement.pdf")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Case / folder name" })).toHaveValue("client-pack");
     expect(startJob).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a folder-picker fallback when the browser entry API throws", async () => {
+    render(<ProfileWorkspace adapter={makeAdapter()} />);
+    const prompt = await screen.findByText("Drop one folder or multiple files");
+    const dropzone = prompt.closest(".folder-dropzone")!;
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        items: [{
+          kind: "file",
+          webkitGetAsEntry: () => { throw new DOMException("Provider denied access"); },
+        }],
+        files: [],
+      },
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Nothing was added. Use Choose folder to preserve the complete nested inventory.",
+    );
+    expect(screen.getByRole("button", { name: "Choose folder" })).toBeEnabled();
   });
 
   it("keeps Start review disabled when only health is available", async () => {

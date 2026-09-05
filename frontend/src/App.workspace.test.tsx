@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, vi } from "vitest";
 import { App } from "./App";
@@ -41,21 +41,23 @@ afterEach(() => {
 });
 
 describe("Workspace isolation", () => {
-  it("keeps Full pack disabled by default even with a Full pack URL", async () => {
+  it("keeps Full pack disabled and falls back to the Profile landing when its flag is off", async () => {
     window.history.replaceState({}, "", "/?workspace=pack");
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-    const user = userEvent.setup();
-    render(<App adapter={new ImmediateAdapter()} />);
-    expect(screen.getByText("Development fixture mode")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Review your NAV pack before you sign it." })).toBeInTheDocument();
+    render(<App adapter={new ImmediateAdapter()} profileAdapter={makeAdapter()} />);
+    expect(await screen.findByRole("heading", { name: "Drop a folder to start a review" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Review workspace" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Profile workflows" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Full pack" })).not.toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
-    expect(await screen.findByRole("heading", { name: "Review summary" })).toBeInTheDocument();
-    expect(screen.getByText("Development fixture mode")).toBeInTheDocument();
+    expect(document.title).toBe("CrazyMonkey — Profile workflows");
+  });
+
+  it("uses the folder review as the root landing action", async () => {
+    window.history.replaceState({}, "", "/");
+    render(<App adapter={new ImmediateAdapter()} profileAdapter={makeAdapter()} />);
+
+    expect(await screen.findByRole("heading", { name: "Drop a folder to start a review" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Profile workflows" })).toHaveAttribute("aria-pressed", "true");
+    expect(document.title).toBe("CrazyMonkey — Profile workflows");
   });
 
   it("opens Profile workflows from its URL and keeps NAV reachable", async () => {
@@ -71,6 +73,15 @@ describe("Workspace isolation", () => {
     await user.click(screen.getByRole("button", { name: "NAV review" }));
     expect(screen.getByRole("heading", { name: "Review your NAV pack before you sign it." })).toBeInTheDocument();
     expect(screen.getByText("Development fixture mode")).toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get("workspace")).toBe("nav");
+    expect(document.title).toBe("CrazyMonkey — NAV review");
+
+    act(() => {
+      window.history.replaceState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(await screen.findByRole("heading", { name: "Drop a folder to start a review" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Profile workflows" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("keeps an accepted Profile job mounted while another workspace is viewed", async () => {
@@ -101,6 +112,30 @@ describe("Workspace isolation", () => {
     expect(startJob).toHaveBeenCalledTimes(1);
   });
 
+  it("does not steal Profile input focus when a hidden NAV review completes", async () => {
+    window.history.replaceState({}, "", "/?workspace=nav");
+    const user = userEvent.setup();
+    const adapter = new MockReviewAdapter();
+    let resolveProgress!: (progress: ReviewProgress) => void;
+    vi.spyOn(adapter, "getProgress").mockImplementation(() => new Promise((resolve) => {
+      resolveProgress = resolve;
+    }));
+    const getReview = vi.spyOn(adapter, "getReview");
+    render(<App adapter={adapter} profileAdapter={makeAdapter()} />);
+
+    await user.click(screen.getByRole("button", { name: "Load synthetic demo" }));
+    expect(await screen.findByRole("heading", { name: "Reviewing the evidence" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Profile workflows" }));
+    const caseName = await screen.findByRole("textbox", { name: "Case / folder name" });
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Drop a folder to start a review" })).toHaveFocus());
+    await user.click(caseName);
+    expect(caseName).toHaveFocus();
+
+    await act(async () => resolveProgress({ reviewId: "background-nav", state: "COMPLETE", stages: [], messages: [] }));
+    await waitFor(() => expect(getReview).toHaveBeenCalled());
+    expect(caseName).toHaveFocus();
+  });
+
   it("opens Full pack from the URL only when the frontend feature flag is enabled", async () => {
     vi.stubEnv("VITE_ENABLE_PACK_WORKSPACE", "1");
     window.history.replaceState({}, "", "/?workspace=pack");
@@ -114,6 +149,7 @@ describe("Workspace isolation", () => {
 
   it("keeps a late NAV email response out of Full pack and preserves it when returning to NAV", async () => {
     vi.stubEnv("VITE_ENABLE_PACK_WORKSPACE", "1");
+    window.history.replaceState({}, "", "/?workspace=nav");
     serveEmptyPackWorkspace();
     const user = userEvent.setup();
     const adapter = new RelayReadyAdapter();
@@ -136,6 +172,7 @@ describe("Workspace isolation", () => {
 
   it("keeps a late NAV export notification out of Full pack", async () => {
     vi.stubEnv("VITE_ENABLE_PACK_WORKSPACE", "1");
+    window.history.replaceState({}, "", "/?workspace=nav");
     serveEmptyPackWorkspace();
     const user = userEvent.setup();
     const adapter = new RelayReadyAdapter();

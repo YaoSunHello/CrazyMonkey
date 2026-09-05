@@ -37,12 +37,7 @@ type Workspace = "PROFILE" | "NAV" | "PACK";
 
 export function App({ adapter = defaultReviewAdapter, profileAdapter }: AppProps) {
   const packWorkspaceEnabled = import.meta.env.VITE_ENABLE_PACK_WORKSPACE === "1";
-  const [workspace, setWorkspace] = useState<Workspace>(() => {
-    const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
-    if (requestedWorkspace === "profiles" || requestedWorkspace === "profile") return "PROFILE";
-    if (packWorkspaceEnabled && requestedWorkspace === "pack") return "PACK";
-    return "NAV";
-  });
+  const [workspace, setWorkspace] = useState<Workspace>(() => workspaceFromLocation(packWorkspaceEnabled));
   const [profileWorkspaceMounted, setProfileWorkspaceMounted] = useState(workspace === "PROFILE");
   const [screen, setScreen] = useState<Screen>("UPLOAD");
   const [documents, setDocuments] = useState<DetectedUpload[]>([]);
@@ -91,14 +86,45 @@ export function App({ adapter = defaultReviewAdapter, profileAdapter }: AppProps
   }, [adapter.mode, documents.length, missingRoles, unconfirmed.length]);
 
   useEffect(() => {
+    if (workspace === "NAV") return;
     const handle = window.requestAnimationFrame(() => {
       document.querySelector<HTMLElement>(`#main-content [data-workspace-panel="${workspace}"] h1`)?.focus();
     });
     return () => window.cancelAnimationFrame(handle);
+  }, [workspace]);
+
+  useEffect(() => {
+    if (workspace !== "NAV") return;
+    const handle = window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('#main-content [data-workspace-panel="NAV"] h1')?.focus();
+    });
+    return () => window.cancelAnimationFrame(handle);
   }, [screen, workspace]);
+
+  useEffect(() => {
+    document.title = workspace === "PROFILE"
+      ? "CrazyMonkey — Profile workflows"
+      : workspace === "PACK"
+        ? "CrazyMonkey — Full Pack"
+        : "CrazyMonkey — NAV review";
+  }, [workspace]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const nextWorkspace = workspaceFromLocation(packWorkspaceEnabled);
+      if (nextWorkspace === "PROFILE") setProfileWorkspaceMounted(true);
+      setWorkspace(nextWorkspace);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [packWorkspaceEnabled]);
 
   function selectWorkspace(nextWorkspace: Workspace) {
     if (nextWorkspace === "PROFILE") setProfileWorkspaceMounted(true);
+    const url = new URL(window.location.href);
+    if (nextWorkspace === "PROFILE") url.searchParams.delete("workspace");
+    else url.searchParams.set("workspace", nextWorkspace === "NAV" ? "nav" : "pack");
+    window.history.pushState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
     setWorkspace(nextWorkspace);
   }
 
@@ -459,6 +485,14 @@ export function App({ adapter = defaultReviewAdapter, profileAdapter }: AppProps
 
 function messageFrom(error: unknown): string {
   return error instanceof Error ? error.message : "An unexpected error occurred.";
+}
+
+function workspaceFromLocation(packWorkspaceEnabled: boolean): Workspace {
+  const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
+  if (requestedWorkspace === "nav") return "NAV";
+  if (requestedWorkspace === "profiles" || requestedWorkspace === "profile") return "PROFILE";
+  if (packWorkspaceEnabled && requestedWorkspace === "pack") return "PACK";
+  return "PROFILE";
 }
 
 function validateFiles(files: File[], existing: DetectedUpload[]): string | undefined {

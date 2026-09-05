@@ -1,9 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
 import { App } from "./App";
 import { MockReviewAdapter } from "./api/mockReviewAdapter";
 import type { EmailDraft, ReviewProgress, ReviewResult } from "./types";
+
+beforeEach(() => {
+  window.history.replaceState({}, "", "/?workspace=nav");
+});
 
 class ImmediateMockReviewAdapter extends MockReviewAdapter {
   override async getProgress(reviewId: string): Promise<ReviewProgress> {

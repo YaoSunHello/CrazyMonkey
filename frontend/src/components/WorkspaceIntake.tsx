@@ -120,9 +120,9 @@ export function WorkspaceIntake({
     event.preventDefault();
     setDragActive(false);
     if (busy || scanning) return;
-    const snapshot = snapshotDrop(event.dataTransfer);
     setScanning(true);
     try {
+      const snapshot = snapshotDrop(event.dataTransfer);
       const discovered = await resolveDrop(snapshot);
       if (discovered.length === 0) {
         onNotice(
@@ -135,7 +135,8 @@ export function WorkspaceIntake({
       }
       onDiscovered(discovered);
     } catch (error) {
-      onNotice(error instanceof Error ? error.message : "The dropped folder could not be read.", "error");
+      const detail = error instanceof Error ? error.message : "The dropped folder could not be read.";
+      onNotice(`${detail} Nothing was added. Use Choose folder to preserve the complete nested inventory.`, "error");
     } finally {
       setScanning(false);
     }
@@ -247,10 +248,10 @@ export function WorkspaceIntake({
           <div className="picker-actions">
             <input
               ref={folderRef}
-              className="visually-hidden"
               id={folderId}
               type="file"
               aria-label="Choose folder"
+              hidden
               tabIndex={-1}
               multiple
               disabled={busy || scanning}
@@ -267,10 +268,10 @@ export function WorkspaceIntake({
             </button>
             <input
               ref={filesRef}
-              className="visually-hidden"
               id={filesId}
               type="file"
               aria-label="Choose files"
+              hidden
               tabIndex={-1}
               multiple
               disabled={busy || scanning}

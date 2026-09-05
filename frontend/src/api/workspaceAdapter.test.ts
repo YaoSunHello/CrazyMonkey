@@ -4,6 +4,7 @@ import {
   bootstrapFixture,
   capabilitiesFixture,
   completedJobFixture,
+  replayFixture,
   resultFixture,
   startFixture,
 } from "../test/workspaceFixtures";
@@ -243,7 +244,7 @@ describe("HttpWorkspaceAdapter requests", () => {
     let capturedBody: FormData | undefined;
     vi.stubGlobal("fetch", vi.fn<typeof fetch>(async (_input, init) => {
       capturedBody = init?.body as FormData;
-      return Response.json(startFixture, { status: 202 });
+      return Response.json({ ...startFixture, case_name: "Typeless browser file" }, { status: 202 });
     }));
 
     await new HttpWorkspaceAdapter("https://review.test").startJob({
@@ -296,7 +297,7 @@ describe("HttpWorkspaceAdapter requests", () => {
       static latest: FakeUploadRequest | undefined;
       readonly upload = new EventTarget();
       status = 202;
-      responseText = JSON.stringify(startFixture);
+      responseText = JSON.stringify({ ...startFixture, case_name: "Measured upload" });
       open = vi.fn();
       setRequestHeader = vi.fn();
       constructor() {
@@ -323,7 +324,7 @@ describe("HttpWorkspaceAdapter requests", () => {
       onUploadProgress,
     });
 
-    expect(result).toEqual(startFixture);
+    expect(result).toEqual({ ...startFixture, case_name: "Measured upload" });
     const request = FakeUploadRequest.latest;
     expect(request?.open).toHaveBeenCalledWith("POST", "https://review.test/api/ui/v1/jobs");
     expect(request?.setRequestHeader).toHaveBeenCalledWith("Idempotency-Key", "measured-upload-key");
@@ -388,6 +389,58 @@ describe("HttpWorkspaceAdapter requests", () => {
     await expect(adapter.getResult("job-123")).rejects.toThrow("result response is incompatible");
     await expect(adapter.updateFindingReview("job-123", "finding-link-1", "REVIEWED"))
       .rejects.toThrow("human-review response is incompatible");
+  });
+
+  it("rejects a job-start response for a different requested profile or case", async () => {
+    const adapter = new HttpWorkspaceAdapter("https://review.test");
+    const responses = [
+      { ...startFixture, profile_id: "pipeline-validation" },
+      { ...startFixture, case_name: "Another case" },
+    ];
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json(responses.shift())));
+
+    const request = {
+      profileId: "journal-entries",
+      caseName: "September statements",
+      entries: [sourceEntry()],
+      idempotencyKey: "identity-key",
+    };
+    await expect(adapter.startJob(request)).rejects.toThrow("job-start response is incompatible");
+    await expect(adapter.startJob({ ...request, idempotencyKey: "identity-key-2" }))
+      .rejects.toThrow("job-start response is incompatible");
+  });
+
+  it("rejects job, result, review and replay payloads for different requested identities", async () => {
+    const adapter = new HttpWorkspaceAdapter("https://review.test");
+    const responses: unknown[] = [
+      { ...completedJobFixture, job_id: "job-other" },
+      { ...resultFixture, job_id: "job-other" },
+      {
+        job_id: "job-other",
+        finding_id: "finding-link-1",
+        status: "FAIL",
+        review_status: "REVIEWED",
+        updated_at: "now",
+      },
+      {
+        job_id: "job-123",
+        finding_id: "finding-other",
+        status: "FAIL",
+        review_status: "REVIEWED",
+        updated_at: "now",
+      },
+      { ...replayFixture, replay_id: "replay-other" },
+    ];
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json(responses.shift())));
+
+    await expect(adapter.getJob("job-123")).rejects.toThrow("job-status response is incompatible");
+    await expect(adapter.getResult("job-123")).rejects.toThrow("result response is incompatible");
+    await expect(adapter.updateFindingReview("job-123", "finding-link-1", "REVIEWED"))
+      .rejects.toThrow("human-review response is incompatible");
+    await expect(adapter.updateFindingReview("job-123", "finding-link-1", "REVIEWED"))
+      .rejects.toThrow("human-review response is incompatible");
+    await expect(adapter.getReplay("replay-batch-7"))
+      .rejects.toThrow("recorded-run response is incompatible");
   });
 
   it("uses encoded source/artifact paths and terminal-state recognition", () => {

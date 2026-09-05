@@ -125,10 +125,10 @@ It contains seven bank statement PDFs and a reference workbook. The workflow tes
 
 ## Vision: Phase 2 and Beyond
 
-Phase 1 proves the core loop on one document type and three profiles. It is not the full product. The rest of this README before this point describes what is real today; everything below is the roadmap, not a claim about current state.
+Phase 1 proves the core loop on one document type and three profiles. It is not the full product. The bullets below distinguish remaining roadmap work from the connected local V0 documented later in this README.
 
 - **Wider document coverage.** NAV packs, portfolio reports, capital-call notices, and scanned or photographed statements (with an OCR fallback), not just bank statement PDFs.
-- **A connected, interactive review UI.** An upload window, a due-diligence questionnaire that scopes what a run checks, a live view of the agent loop while it runs, and a review screen with edit/accept/reject actions on individual rows — wired to the real backend rather than demo data.
+- **Broader interactive review (roadmap).** The connected V0 now provides folder/file inventory, profile selection, bounded job progress, source-linked findings, separate human-review state, and only backend-supported downloads. A due-diligence questionnaire, broader row-edit/accept/reject workflows, and additional document families remain roadmap work.
 - **A broader profile library.** One profile per business question a fund manager actually asks — see [`docs/business-case.md`](docs/business-case.md) for the due-diligence questions (mandate fit, track record, fees, legal/governance, operational quality) still to become profiles beyond `mandate-fit`, `journal-entries`, and `pipeline-validation`.
 - **An in-context AI assistant.** A chat surface over a run's structured dataset that answers from the extracted data only, and explicitly says so when a question is out of scope — never fabricates an answer or a citation.
 - **Cross-fund and cross-administrator comparison.** The mapping problem at portfolio scale: reconciling definitional drift (e.g. what "net IRR" means) across multiple GPs at once, not just one fund's statements.
@@ -183,12 +183,14 @@ VITE_API_MODE=live VITE_API_BASE_URL=http://127.0.0.1:8000 \
   npm run dev -- --host 127.0.0.1
 ```
 
-Open `http://127.0.0.1:4173`. Use one backend worker for V0 because active
-review state is process-local. Generated review snapshots and exports are
-written under the ignored `outputs/relay/` directory. Real email sending is
-disabled by default; the browser prepares a draft only. In live mode a backend
-failure is shown as `Backend unavailable`; the browser does not substitute
-fixture results.
+Open `http://127.0.0.1:4173` for Profile workflows or
+`http://127.0.0.1:4173/?workspace=nav` for NAV review. Use one backend worker for V0 because active
+review state is process-local. In Profile workflows, accepted jobs, sources,
+review state, and JSON artifacts are also process-local. In NAV review,
+generated snapshots and exports are written under the ignored
+`outputs/relay/` directory; real email sending is disabled by default and the
+browser prepares a draft only. In live mode a backend failure is shown as
+`Backend unavailable`; the browser does not substitute fixture results.
 
 ## Backend CLI
 

@@ -35,6 +35,7 @@ export interface DropSnapshot {
   entries: LegacyEntry[];
   fallbackFiles: File[];
   usedDirectoryEntries: boolean;
+  hasPartialDirectoryEntries: boolean;
 }
 
 const forbiddenDirectoryNames = new Set([
@@ -79,9 +80,11 @@ const ambiguousDirectoryNames = new Set([
 export function snapshotDrop(dataTransfer: DataTransfer): DropSnapshot {
   const entries: LegacyEntry[] = [];
   let entryApiSeen = false;
+  let fileItemCount = 0;
 
   for (const item of Array.from(dataTransfer.items ?? [])) {
     if (item.kind !== "file") continue;
+    fileItemCount += 1;
     const getEntry = (item as DataTransferItem & {
       webkitGetAsEntry?: () => LegacyEntry | null;
     }).webkitGetAsEntry;
@@ -96,10 +99,16 @@ export function snapshotDrop(dataTransfer: DataTransfer): DropSnapshot {
     entries,
     fallbackFiles: Array.from(dataTransfer.files ?? []),
     usedDirectoryEntries: entryApiSeen && entries.length > 0,
+    hasPartialDirectoryEntries: entries.length > 0 && entries.length < fileItemCount,
   };
 }
 
 export async function resolveDrop(snapshot: DropSnapshot): Promise<DiscoveredFile[]> {
+  if (snapshot.hasPartialDirectoryEntries) {
+    throw new Error(
+      "This browser exposed only part of the dropped folder.",
+    );
+  }
   if (snapshot.usedDirectoryEntries) {
     const nested = await Promise.all(snapshot.entries.map((entry) => traverseEntry(entry, [])));
     return nested.flat();
@@ -155,7 +164,7 @@ export function buildInventory(
   limits: BridgeCapabilities["limits"] | undefined,
   existing: InventoryEntry[] = [],
 ): InventoryEntry[] {
-  const seenPaths = new Set(existing.map((entry) => entry.relativePath));
+  const seenPaths = new Set(existing.map((entry) => canonicalPathIdentity(entry.relativePath)));
   return discovered.map((item) => {
     const relativePath = normalizeBrowserPath(item.relativePath);
     const filename = relativePath.split("/").pop() || item.file?.name || "Unreadable item";
@@ -171,12 +180,13 @@ export function buildInventory(
       selected: false,
     };
 
-    const unsafePathReason = pathSafetyReason(relativePath, limits?.max_path_depth);
+    const unsafePathReason = pathSafetyReason(relativePath, filename, limits?.max_path_depth);
     if (unsafePathReason) return { ...base, status: "EXCLUDED", reason: unsafePathReason };
-    if (seenPaths.has(relativePath)) {
+    const pathIdentity = canonicalPathIdentity(relativePath);
+    if (seenPaths.has(pathIdentity)) {
       return { ...base, status: "EXCLUDED", reason: "This exact relative path is already in the inventory." };
     }
-    seenPaths.add(relativePath);
+    seenPaths.add(pathIdentity);
 
     const parts = relativePath.split("/");
     const excludedReason = automaticExclusionReason(parts, filename);
@@ -337,9 +347,14 @@ function containsControlCharacter(value: string): boolean {
   });
 }
 
-function pathSafetyReason(path: string, maxDepth?: number): string | undefined {
-  if (!path || path.startsWith("/") || path.includes("\\") || /^[A-Za-z]:\//.test(path)) {
+function pathSafetyReason(path: string, filename: string, maxDepth?: number): string | undefined {
+  if (!path || path.startsWith("/") || path.includes("\\") || /^[A-Za-z]:/.test(path)) {
     return "Absolute, empty, or non-POSIX paths are excluded.";
+  }
+  if (Array.from(path).length > 1024) return "Relative path exceeds the backend limit of 1024 characters.";
+  if (Array.from(filename).length > 255) return "Filename exceeds the backend limit of 255 characters.";
+  if (path !== path.trim() || filename !== filename.trim()) {
+    return "Paths and filenames with surrounding whitespace are excluded.";
   }
   const parts = path.split("/");
   if (parts.some((part) => !part || part === "." || part === ".." || containsControlCharacter(part))) {
@@ -349,6 +364,10 @@ function pathSafetyReason(path: string, maxDepth?: number): string | undefined {
     return `Path depth exceeds the backend limit of ${maxDepth}.`;
   }
   return undefined;
+}
+
+function canonicalPathIdentity(path: string): string {
+  return path.normalize("NFC").toLowerCase();
 }
 
 function automaticExclusionReason(parts: string[], filename: string): string | undefined {

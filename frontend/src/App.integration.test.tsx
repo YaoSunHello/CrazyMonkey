@@ -1,11 +1,15 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, vi } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { App } from "./App";
 import { HttpReviewAdapter } from "./api/httpReviewAdapter";
 import { MockReviewAdapter } from "./api/mockReviewAdapter";
 import { syntheticReviewFixture } from "./data/syntheticReview";
 import type { HumanReviewUpdate, ReviewProgress, ReviewResult } from "./types";
+
+beforeEach(() => {
+  window.history.replaceState({}, "", "/?workspace=nav");
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();

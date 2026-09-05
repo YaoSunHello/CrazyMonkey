@@ -163,7 +163,7 @@ export class HttpWorkspaceAdapter implements WorkspaceAdapter {
         headers: { "Idempotency-Key": request.idempotencyKey },
         body: form,
       });
-    return requireStartJob(payload);
+    return requireStartJob(payload, request.profileId, request.caseName);
   }
 
   private postJobWithUploadProgress(
@@ -210,12 +210,12 @@ export class HttpWorkspaceAdapter implements WorkspaceAdapter {
 
   async getJob(jobId: string): Promise<JobStatus> {
     const payload = await this.fetchJson<unknown>(`/api/ui/v1/jobs/${encodeURIComponent(jobId)}`);
-    return requireJobStatus(payload);
+    return requireJobStatus(payload, jobId);
   }
 
   async getResult(jobId: string): Promise<JobResult> {
     const payload = await this.fetchJson<unknown>(`/api/ui/v1/jobs/${encodeURIComponent(jobId)}/result`);
-    return requireJobResult(payload);
+    return requireJobResult(payload, jobId);
   }
 
   async updateFindingReview(
@@ -231,12 +231,12 @@ export class HttpWorkspaceAdapter implements WorkspaceAdapter {
         body: JSON.stringify({ review_status: reviewStatus }),
       },
     );
-    return requireReviewResponse(payload);
+    return requireReviewResponse(payload, jobId, findingId);
   }
 
   async getReplay(replayId: string): Promise<RecordedReplay> {
     const payload = await this.fetchJson<unknown>(`/api/ui/v1/replays/${encodeURIComponent(replayId)}`);
-    return requireReplay(payload);
+    return requireReplay(payload, replayId);
   }
 
   sourceUrl(jobId: string, sourceId: string): string {
@@ -317,11 +317,17 @@ function requireReplayList(value: unknown): ReplayList {
   return value as unknown as ReplayList;
 }
 
-function requireStartJob(value: unknown): StartJobResponse {
+function requireStartJob(
+  value: unknown,
+  expectedProfileId: string,
+  expectedCaseName: string,
+): StartJobResponse {
   if (!isRecord(value)
     || !isText(value.job_id)
     || !isText(value.profile_id)
     || !isText(value.case_name)
+    || value.profile_id !== expectedProfileId
+    || value.case_name !== expectedCaseName
     || value.execution_label !== "LOCAL_DETERMINISTIC"
     || !isProcessingState(value.processing_state)
     || typeof value.idempotency_reused !== "boolean"
@@ -331,9 +337,10 @@ function requireStartJob(value: unknown): StartJobResponse {
   return value as unknown as StartJobResponse;
 }
 
-function requireJobStatus(value: unknown): JobStatus {
+function requireJobStatus(value: unknown, expectedJobId: string): JobStatus {
   if (!isRecord(value)
     || !isText(value.job_id)
+    || value.job_id !== expectedJobId
     || !isProcessingState(value.processing_state)
     || !Array.isArray(value.documents)
     || !value.documents.every(isJobDocument)
@@ -346,9 +353,10 @@ function requireJobStatus(value: unknown): JobStatus {
   return value as unknown as JobStatus;
 }
 
-function requireJobResult(value: unknown): JobResult {
+function requireJobResult(value: unknown, expectedJobId: string): JobResult {
   if (!isRecord(value)
     || !isText(value.job_id)
+    || value.job_id !== expectedJobId
     || !isText(value.profile_id)
     || !isText(value.case_name)
     || value.execution_label !== "LOCAL_DETERMINISTIC"
@@ -374,10 +382,16 @@ function requireJobResult(value: unknown): JobResult {
   return value as unknown as JobResult;
 }
 
-function requireReviewResponse(value: unknown): FindingReviewResponse {
+function requireReviewResponse(
+  value: unknown,
+  expectedJobId: string,
+  expectedFindingId: string,
+): FindingReviewResponse {
   if (!isRecord(value)
     || !isText(value.job_id)
     || !isText(value.finding_id)
+    || value.job_id !== expectedJobId
+    || value.finding_id !== expectedFindingId
     || !isOutcome(value.status)
     || !isReviewStatus(value.review_status)
     || !isText(value.updated_at)) {
@@ -386,9 +400,10 @@ function requireReviewResponse(value: unknown): FindingReviewResponse {
   return value as unknown as FindingReviewResponse;
 }
 
-function requireReplay(value: unknown): RecordedReplay {
+function requireReplay(value: unknown, expectedReplayId: string): RecordedReplay {
   if (!isReplaySummary(value)
     || !isRecord(value)
+    || value.replay_id !== expectedReplayId
     || !Array.isArray(value.accounts)
     || !value.accounts.every(isReplayAccount)
     || !isRecord(value.timing)

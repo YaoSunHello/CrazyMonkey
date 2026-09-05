@@ -1,13 +1,13 @@
 # CrazyMonkey frontend
 
 The frontend keeps the workflows on current `main` and adds the profile-driven
-folder review as a separate workspace. It does not replace BEACON/NAV or reuse
-its API contract.
+folder review as the brief-required landing workspace. It does not replace
+BEACON/NAV or reuse its API contract.
 
 | Workspace | How to open it | Backend contract |
 | --- | --- | --- |
-| **NAV review** | Default at `/` | Active BEACON, runtime, and RELAY routes under `/api/v1`, `/api/cases`, `/api/runs`, and `/api/relay` |
-| **Profile workflows** | Select it in the workspace navigation or open `/?workspace=profiles` | Deterministic UI bridge under `/api/ui/v1`, plus `/health` and `/api/profiles` |
+| **Profile workflows** | Default at `/`; `/?workspace=profiles` remains a supported alias | Deterministic UI bridge under `/api/ui/v1`, plus `/health` and `/api/profiles` |
+| **NAV review** | Select it in the workspace navigation or open `/?workspace=nav` | Active BEACON, runtime, and RELAY routes under `/api/v1`, `/api/cases`, `/api/runs`, and `/api/relay` |
 | **Full Pack** | Set `VITE_ENABLE_PACK_WORKSPACE=1`, then select it or open `/?workspace=pack` | Historical `/api/pack` dependency; that backend is not included, so this workspace is off by default |
 
 The Profile workflows adapter is always live: it validates backend health,
@@ -38,8 +38,8 @@ VITE_API_MODE=live VITE_API_BASE_URL=/ \
   npm run dev -- --host 127.0.0.1
 ```
 
-Open <http://127.0.0.1:4173/> for NAV review or
-<http://127.0.0.1:4173/?workspace=profiles> for Profile workflows.
+Open <http://127.0.0.1:4173/> for Profile workflows or
+<http://127.0.0.1:4173/?workspace=nav> for NAV review.
 
 Direct cross-origin development is optional:
 

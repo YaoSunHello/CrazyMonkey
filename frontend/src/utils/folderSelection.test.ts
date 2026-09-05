@@ -3,7 +3,9 @@ import {
   buildInventory,
   drainDirectory,
   filesToDiscovered,
+  resolveDrop,
   selectionIssues,
+  snapshotDrop,
   traverseEntry,
   type LegacyEntry,
 } from "./folderSelection";
@@ -49,6 +51,30 @@ function directoryEntry(name: string, batches: LegacyEntry[][]): LegacyEntry {
 }
 
 describe("folder traversal", () => {
+  it("rejects a partial directory-entry snapshot instead of silently omitting fallback-only files", async () => {
+    const exposedEntry = fileEntry("visible.pdf");
+    const visibleFile = pdf("visible.pdf");
+    const hiddenFile = pdf("hidden.pdf");
+    const dataTransfer = {
+      items: [
+        { kind: "file", webkitGetAsEntry: () => exposedEntry },
+        { kind: "file", webkitGetAsEntry: () => null },
+      ],
+      files: [visibleFile, hiddenFile],
+    } as unknown as DataTransfer;
+
+    const snapshot = snapshotDrop(dataTransfer);
+
+    expect(snapshot).toMatchObject({
+      usedDirectoryEntries: true,
+      hasPartialDirectoryEntries: true,
+      fallbackFiles: [visibleFile, hiddenFile],
+    });
+    await expect(resolveDrop(snapshot)).rejects.toThrow(
+      "This browser exposed only part of the dropped folder.",
+    );
+  });
+
   it("drains every directory-reader batch instead of stopping at the first 100 entries", async () => {
     const files = Array.from({ length: 137 }, (_, index) => fileEntry(`statement-${index}.pdf`));
     const readEntries = vi.fn<(success: (entries: LegacyEntry[]) => void) => void>();
@@ -99,6 +125,20 @@ describe("folder traversal", () => {
       { file: pdf("statement.pdf"), relativePath: "pack/account-b/statement.pdf" },
     ], profile, limits, first);
     expect(later[0].status).toBe("EXCLUDED");
+  });
+
+  it("uses NFC and common case-insensitive path identity when detecting duplicates", () => {
+    const entries = buildInventory([
+      { file: pdf("Évidence.pdf"), relativePath: "Pack/Évidence.pdf" },
+      { file: pdf("ÉVIDENCE.PDF"), relativePath: "pack/ÉVIDENCE.PDF" },
+    ], profile, limits);
+
+    expect(entries[0]).toMatchObject({ status: "SUPPORTED", selected: true });
+    expect(entries[1]).toMatchObject({
+      status: "EXCLUDED",
+      selected: false,
+      reason: "This exact relative path is already in the inventory.",
+    });
   });
 });
 
@@ -175,6 +215,21 @@ describe("inventory policy", () => {
       selected: false,
       reason: "Absolute, empty, or non-POSIX paths are excluded.",
     });
+  });
+
+  it.each([
+    ["C:statement.pdf", "Absolute, empty, or non-POSIX paths are excluded."],
+    [`pack/${"a".repeat(252)}.pdf`, "Filename exceeds the backend limit of 255 characters."],
+    [`${"folder/".repeat(150)}statement.pdf`, "Relative path exceeds the backend limit of 1024 characters."],
+    [" pack/statement.pdf", "Paths and filenames with surrounding whitespace are excluded."],
+    ["pack/statement.pdf ", "Paths and filenames with surrounding whitespace are excluded."],
+  ])("rejects browser path %s before the backend would reject its manifest", (relativePath, reason) => {
+    const filename = relativePath.split("/").at(-1) || "statement.pdf";
+    const [entry] = buildInventory([
+      { file: pdf(filename), relativePath },
+    ], profile, limits);
+
+    expect(entry).toMatchObject({ status: "EXCLUDED", selected: false, reason });
   });
 
   it("reports unreadable, empty, unsupported, oversized and over-depth entries without truncation", () => {

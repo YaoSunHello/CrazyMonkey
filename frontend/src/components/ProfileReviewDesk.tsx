@@ -62,7 +62,11 @@ export function ProfileReviewDesk({
   const [filter, setFilter] = useState<ReviewFilter>("ALL");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<ReviewSort>("DOCUMENT");
-  const [selectedId, setSelectedId] = useState(findings.find((finding) => finding.status !== "PASS")?.id ?? findings[0]?.id);
+  const initialFinding = findings.find((finding) => finding.status !== "PASS") ?? findings[0];
+  const [selectedId, setSelectedId] = useState<string | undefined>(initialFinding?.id);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | undefined>(
+    initialFinding?.sourceId ?? result.documents[0]?.source_id,
+  );
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -80,10 +84,9 @@ export function ProfileReviewDesk({
     });
   }, [filter, findings, query, sort]);
 
-  const effectiveSelectedId = selectedId && findings.some((finding) => finding.id === selectedId)
-    ? selectedId
-    : findings[0]?.id;
-  const selected = findings.find((finding) => finding.id === effectiveSelectedId);
+  const selected = selectedId ? findings.find((finding) => finding.id === selectedId) : undefined;
+  const selectedDocument = result.documents.find((document) => document.source_id === selectedDocumentId)
+    ?? result.documents[0];
   const failed = findings.filter((finding) => finding.status === "FAIL").length;
   const unresolved = findings.filter((finding) => finding.status === "UNRESOLVED").length;
   const needsReview = findings.filter((finding) => finding.status !== "PASS" && finding.reviewStatus !== "REVIEWED").length;
@@ -126,10 +129,14 @@ export function ProfileReviewDesk({
             {result.documents.map((document) => {
               const documentFindings = findings.filter((finding) => finding.sourceId === document.source_id);
               return (
-                <li key={document.source_id} className={selected?.sourceId === document.source_id ? "is-current" : ""}>
+                <li key={document.source_id} className={selectedDocument?.source_id === document.source_id ? "is-current" : ""}>
                   <button
                     type="button"
-                    onClick={() => setSelectedId(documentFindings.find((finding) => finding.status !== "PASS")?.id ?? documentFindings[0]?.id)}
+                    aria-pressed={selectedDocument?.source_id === document.source_id}
+                    onClick={() => {
+                      setSelectedDocumentId(document.source_id);
+                      setSelectedId(documentFindings.find((finding) => finding.status !== "PASS")?.id ?? documentFindings[0]?.id);
+                    }}
                   >
                     <span className={`document-state state-${document.processing_state.toLowerCase()}`} aria-hidden="true" />
                     <span>
@@ -153,16 +160,16 @@ export function ProfileReviewDesk({
           </div>
         </aside>
 
-        <main className="check-workspace" aria-labelledby="check-table-heading">
+        <section className="check-workspace" aria-labelledby="check-table-heading">
           <div className="check-toolbar">
             <div>
               <p className="step-label">Transactions and checks</p>
               <h2 id="check-table-heading">Show the arithmetic</h2>
             </div>
             <div className="filter-tabs" role="group" aria-label="Filter checks">
-              <button type="button" className={filter === "ALL" ? "is-active" : ""} onClick={() => setFilter("ALL")}>All</button>
-              <button type="button" className={filter === "FAILED" ? "is-active" : ""} onClick={() => setFilter("FAILED")}>Failed checks</button>
-              <button type="button" className={filter === "HUMAN" ? "is-active" : ""} onClick={() => setFilter("HUMAN")}>Needs human review</button>
+              <button type="button" aria-pressed={filter === "ALL"} className={filter === "ALL" ? "is-active" : ""} onClick={() => setFilter("ALL")}>All</button>
+              <button type="button" aria-pressed={filter === "FAILED"} className={filter === "FAILED" ? "is-active" : ""} onClick={() => setFilter("FAILED")}>Failed checks</button>
+              <button type="button" aria-pressed={filter === "HUMAN"} className={filter === "HUMAN" ? "is-active" : ""} onClick={() => setFilter("HUMAN")}>Needs human review</button>
             </div>
           </div>
 
@@ -198,11 +205,17 @@ export function ProfileReviewDesk({
                 {visible.map((finding) => (
                   <tr
                     key={finding.id}
-                    className={`${effectiveSelectedId === finding.id ? "is-selected" : ""} row-${finding.status.toLowerCase()}`}
-                    onClick={() => setSelectedId(finding.id)}
+                    className={`${selected?.id === finding.id ? "is-selected" : ""} row-${finding.status.toLowerCase()}`}
+                    onClick={() => {
+                      setSelectedDocumentId(finding.sourceId);
+                      setSelectedId(finding.id);
+                    }}
                   >
                     <th scope="row">
-                      <button type="button" onClick={() => setSelectedId(finding.id)}>
+                      <button type="button" onClick={() => {
+                        setSelectedDocumentId(finding.sourceId);
+                        setSelectedId(finding.id);
+                      }}>
                         <strong>{finding.account} · {finding.rowLabel}</strong>
                         <small>{finding.narrative || finding.title}</small>
                       </button>
@@ -222,9 +235,13 @@ export function ProfileReviewDesk({
               </tbody>
             </table>
           </div>
-        </main>
+        </section>
 
-        <aside className={`evidence-panel ${selected ? "is-open" : ""}`} aria-labelledby="evidence-heading">
+        <aside
+          className={`evidence-panel ${selected || selectedDocument ? "is-open" : ""}`}
+          aria-labelledby={selected || selectedDocument ? "evidence-heading" : undefined}
+          aria-label={!selected && !selectedDocument ? "Evidence details" : undefined}
+        >
           {selected ? (
             <>
               <div className="panel-heading">
@@ -305,6 +322,30 @@ export function ProfileReviewDesk({
                   </div>
                 </section>
               )}
+            </>
+          ) : selectedDocument ? (
+            <>
+              <div className="panel-heading">
+                <div>
+                  <p className="step-label">Selected document</p>
+                  <h2 id="evidence-heading">{selectedDocument.statement?.account_short_code || selectedDocument.filename}</h2>
+                </div>
+                <span className={`processing-badge state-${selectedDocument.processing_state.toLowerCase()}`}>
+                  {selectedDocument.processing_state}
+                </span>
+              </div>
+              <dl className="finding-meta">
+                <div><dt>Source</dt><dd>{selectedDocument.relative_path}</dd></div>
+                <div><dt>Processing</dt><dd>{selectedDocument.processing_state}</dd></div>
+                <div><dt>Check outcome</dt><dd>{selectedDocument.computational_outcome ?? "NOT AVAILABLE"}</dd></div>
+              </dl>
+              <section className="evidence-copy">
+                <h3>{selectedDocument.error ? "Document processing failed" : "No checks returned"}</h3>
+                {selectedDocument.error
+                  ? <p className="inline-error" role="alert">{selectedDocument.error}</p>
+                  : <p>This document has no transaction or document checks to inspect.</p>}
+                <p>Select another document or check to inspect its arithmetic and source evidence.</p>
+              </section>
             </>
           ) : <p>Select a transaction or check to inspect its arithmetic and evidence.</p>}
         </aside>

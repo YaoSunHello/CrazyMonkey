@@ -114,11 +114,50 @@ describe("ProfileReviewDesk", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Failed checks" }));
+    expect(screen.getByRole("button", { name: "Failed checks" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "false");
     const table = screen.getByRole("table", { name: "" });
     expect(within(table).getByText("OP-01 · link link-1")).toBeInTheDocument();
     expect(within(table).queryByText("OP-01 · date_sequence")).not.toBeInTheDocument();
     const evidence = screen.getByRole("heading", { name: "Running-balance link" }).closest("aside")!;
     expect(within(evidence).getByText("FAIL", { selector: "dd" })).toBeInTheDocument();
     expect(within(evidence).getByText("UNREVIEWED")).toBeInTheDocument();
+  });
+
+  it("keeps a failed document with no findings selected instead of showing evidence from another document", async () => {
+    const user = userEvent.setup();
+    const failedDocument = {
+      ...resultFixture.documents[0],
+      source_id: "source-broken",
+      client_file_id: "client-broken",
+      relative_path: "statements/broken.pdf",
+      filename: "broken.pdf",
+      processing_state: "FAILED" as const,
+      computational_outcome: null,
+      error: "PDFSyntaxError: cross-reference table could not be read",
+      statement: undefined,
+      rows: [],
+      transaction_links: [],
+      checks: [],
+    };
+    render(
+      <ProfileReviewDesk
+        result={{ ...resultFixture, processing_state: "PARTIAL", documents: [resultFixture.documents[0], failedDocument] }}
+        profileLabel="Journal entry validation"
+        connection={bootstrapFixture.connection}
+        capabilities={capabilitiesFixture}
+        onReview={vi.fn()}
+        onBack={vi.fn()}
+        sourceUrl={() => "/source"}
+        artifactUrl={() => "/artifact"}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /broken\.pdf/ }));
+
+    const evidence = screen.getByRole("heading", { name: "broken.pdf" }).closest("aside")!;
+    expect(within(evidence).getByRole("heading", { name: "Document processing failed" })).toBeInTheDocument();
+    expect(within(evidence).getByRole("alert")).toHaveTextContent("PDFSyntaxError: cross-reference table could not be read");
+    expect(within(evidence).queryByRole("heading", { name: "Running-balance link" })).not.toBeInTheDocument();
   });
 });
