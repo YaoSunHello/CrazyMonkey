@@ -26,6 +26,8 @@ must not. The agent is judged by code it cannot reach or influence.
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 from app.kit.reference_kit import Table, normalise
 from app.models import Check
 
@@ -337,6 +339,72 @@ def check_agreement(rows: list[dict], scope: str, options: dict) -> Check:
     )
 
 
+def check_double_entry(rows: list[dict], scope: str, options: dict) -> Check:
+    """Every batch of derived lines must net to zero.
+
+    This is the piece resolution has been missing. Extraction converges on the
+    first attempt *because* it can check itself — the balance chain tells the
+    agent whether its parse is right before it submits. Resolution has had no
+    such oracle and could only be graded afterwards, by us.
+
+    Double entry supplies one. It is arithmetic, so the agent can run it in the
+    sandbox and know; and it is a property of any derived accounting output
+    rather than anything about banks — dataset 02's loader has the same shape,
+    597 batches balancing exactly.
+
+    `FAIL`, not `UNRESOLVED`. A batch that does not balance is wrong, not
+    undecided, and both specifications name a non-footing entry reaching export
+    as a hard failure.
+    """
+    field = options.get("field", "journal_lines")
+    tolerance = Decimal(str(options.get("tolerance", "0.01")))
+
+    batches: dict[str, list[dict]] = {}
+    for index, row in enumerate(rows):
+        for line in row.get(field) or []:
+            batches.setdefault(str(line.get("batch", index)), []).append(line)
+
+    if not batches:
+        return Check(
+            name="double_entry",
+            scope=scope,
+            status="CANNOT_VERIFY",
+            detail=f"no row carries {field}",
+        )
+
+    problems = []
+    for batch, lines in sorted(batches.items()):
+        total = Decimal(0)
+        unusable = False
+        for line in lines:
+            try:
+                amount = Decimal(str(line.get("amount", "0")).replace(",", ""))
+            except (InvalidOperation, ValueError):
+                problems.append(f"batch {batch}: {line.get('amount')!r} is not a number")
+                unusable = True
+                break
+            # `is_debit` carries the direction; the transaction type does not.
+            # In the supplied data every cash leg reads "Disbursed" including
+            # the 23 credits, so inferring a sign from the type name would be
+            # wrong on a quarter of the rows.
+            total += amount if line.get("is_debit") else -amount
+        if unusable:
+            continue
+        if len(lines) < 2:
+            problems.append(f"batch {batch}: only {len(lines)} line — a batch needs both sides")
+        elif abs(total) > tolerance:
+            problems.append(f"batch {batch}: nets to {total}, not zero")
+
+    held = len(batches) - len(problems)
+    return Check(
+        name="double_entry",
+        scope=scope,
+        status="PASS" if not problems else "FAIL",
+        detail=f"{held}/{len(batches)} batches balance",
+        evidence=_cap(problems),
+    )
+
+
 def check_completeness(rows: list[dict], scope: str, options: dict) -> Check:
     """Every row carries a status for every field that needs one.
 
@@ -402,6 +470,7 @@ REGISTRY = {
     "proposals": check_proposal_wellformed,
     "label_rate": check_label_rate,
     "agreement": check_agreement,
+    "double_entry": check_double_entry,
 }
 
 
@@ -417,6 +486,8 @@ def name_for(name: str, options: dict) -> str:
         return "resolution_completeness"
     if name == "agreement":
         return "sample_agreement"
+    if name == "double_entry":
+        return "double_entry"
     field = options.get("field")
     if name == "label_rate":
         return f"{field}_{normalise(options.get('label', '')).casefold()}_rate"

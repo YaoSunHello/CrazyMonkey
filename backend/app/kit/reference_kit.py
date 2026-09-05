@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 TABLES = os.environ.get("KIT_TABLES", "/data/tables.json")
 ROWS = os.environ.get("KIT_ROWS", "/data/rows.json")
 OUT = os.environ.get("KIT_OUT", "/work/result.json")
+ASSERTIONS = os.environ.get("KIT_ASSERTIONS", "/work/assertions.json")
 
 
 def normalise(value: object) -> str:
@@ -343,6 +344,73 @@ def rows() -> list[dict]:
     with open(ROWS, encoding="utf-8") as handle:
         payload = json.load(handle)
     return payload["rows"] if isinstance(payload, dict) else payload
+
+
+def batches_balance(rows: list[dict], field: str = "journal_lines") -> dict:
+    """Check your own double entry before you submit. Every batch nets to zero.
+
+    This is the oracle the resolution step has been missing. The extraction step
+    converges on its first attempt because the balance chain lets it *know*
+    whether its parse is right; resolution has only ever been graded afterwards.
+    Build the two journal lines and this tells you, here, whether they hold.
+
+    Returns `{"ok", "batches", "balanced", "problems"}`. Run it, and if `ok` is
+    false, fix the rows before writing the result — a rejected attempt costs a
+    whole generation, and this costs nothing.
+
+    Direction comes from `is_debit`, never from the transaction type: in this
+    data every cash leg reads "Disbursed" including the credits, so a sign
+    inferred from the type name is wrong on a quarter of the rows.
+    """
+    from decimal import Decimal, InvalidOperation
+
+    batches: dict[str, list[dict]] = {}
+    for index, row in enumerate(rows):
+        for line in row.get(field) or []:
+            batches.setdefault(str(line.get("batch", index)), []).append(line)
+
+    problems = []
+    for batch, lines in sorted(batches.items()):
+        total = Decimal(0)
+        for line in lines:
+            try:
+                amount = Decimal(str(line.get("amount", "0")).replace(",", ""))
+            except (InvalidOperation, ValueError):
+                problems.append(f"batch {batch}: {line.get('amount')!r} is not a number")
+                break
+            total += amount if line.get("is_debit") else -amount
+        else:
+            if len(lines) < 2:
+                problems.append(f"batch {batch}: only {len(lines)} line")
+            elif abs(total) > Decimal("0.01"):
+                problems.append(f"batch {batch}: nets to {total}")
+
+    return {
+        "ok": not problems,
+        "batches": len(batches),
+        "balanced": len(batches) - len(problems),
+        "problems": problems,
+    }
+
+
+def write_assertions(claims: list[dict]) -> str:
+    """Record what you checked about your own output, and what you found.
+
+    Each claim is `{"name", "holds", "detail"}`. A claim that does not hold
+    fails the attempt and its detail reaches the next prompt, so this is worth
+    using on anything you are unsure of rather than hoping.
+
+    Two things to be clear about. These are **your** claims, recorded as such —
+    they are not the verifier, they are read as your report of what you looked
+    at. And they can only ever add a failure: nothing you assert can make an
+    attempt pass that the real checks rejected. So there is no advantage in
+    claiming something holds when you have not checked it, and real value in
+    saying plainly that something does not.
+    """
+    with open(ASSERTIONS, "w", encoding="utf-8") as handle:
+        json.dump(claims, handle, indent=2)
+    failing = [c for c in claims if not c.get("holds")]
+    return f"recorded {len(claims)} assertions, {len(failing)} not holding"
 
 
 def write_result(enriched: list[dict]) -> str:

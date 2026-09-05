@@ -51,6 +51,56 @@ def extract_code(text: str) -> str:
     return text.strip()
 
 
+async def _agent_assertions(executor, trace) -> list[dict]:
+    """What the agent says it checked about its own output.
+
+    These are the agent's claims, recorded as claims. They prove nothing on
+    their own — it could report `holds: true` without looking — so they are
+    never a substitute for the verifier, and they are labelled `self-reported`
+    wherever they appear.
+
+    Their value is twofold, and both are real. Asking for them makes the agent
+    look at its own output before submitting, which it has never had to do; and
+    a claim that does *not* hold names the problem far more precisely than a
+    check written in advance ever could, because the agent knows what it was
+    unsure of.
+
+    **They can only add failures.** A claim that does not hold fails the
+    attempt; no claim can rescue one the real checks rejected. That asymmetry is
+    what keeps them safe, and it is asserted in the tests.
+    """
+    try:
+        raw = await executor.get(f"{WORKDIR}/assertions.json")
+        claims = json.loads(raw.decode())
+    except Exception:  # noqa: BLE001 — no assertions is the normal case
+        return []
+    if not isinstance(claims, list):
+        return []
+
+    out = []
+    for claim in claims:
+        if not isinstance(claim, dict) or not claim.get("name"):
+            continue
+        holds = bool(claim.get("holds"))
+        out.append(
+            {
+                "name": f"self:{claim['name']}",
+                "scope": "agent",
+                "status": "PASS" if holds else "FAIL",
+                "detail": f"self-reported — {str(claim.get('detail', ''))[:120]}",
+                "evidence": "" if holds else str(claim.get("detail", ""))[:400],
+            }
+        )
+    if out:
+        broken = sum(1 for c in out if c["status"] == "FAIL")
+        trace.tool(
+            "assertions",
+            f"{len(out)} self-reported · {broken} not holding",
+            status="ok" if not broken else "fail",
+        )
+    return out
+
+
 def _attach_samples(primary: list[dict], extra: list[list[dict]]) -> list[dict]:
     """Carry the other samples' readings on each row, under `_samples`.
 
@@ -211,6 +261,7 @@ async def _run_pass(
         # Stale output is worse than none: without this a run that writes
         # nothing gets verified against the previous attempt's file.
         await executor.remove(f"{WORKDIR}/result.json")
+        await executor.remove(f"{WORKDIR}/assertions.json")
         await executor.put(f"{WORKDIR}/{script}", source.encode("utf-8"))
 
         trace.tool("run_python", script, status="running")
@@ -236,6 +287,7 @@ async def _run_pass(
             continue
 
         serialised = judge(rows)
+        serialised += await _agent_assertions(executor, trace)
         failed = [c for c in serialised if c["status"] == "FAIL"]
         trace.verdict(serialised, passed=not failed)
 
