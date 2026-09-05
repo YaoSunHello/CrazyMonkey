@@ -71,3 +71,46 @@ def test_end_thought_records_the_total_and_clears():
 def test_end_thought_is_silent_when_nothing_was_thought():
     """A model that answers without reasoning should not leave a stray event."""
     assert Trace(quiet=True).end_thought() is None
+
+
+def test_reasoning_is_recorded_as_a_stream_not_one_lump():
+    """A replay must stream the reasoning the way the live run did.
+
+    The deltas exist because the terminal paints its own window in place; if
+    only the summary were recorded, a replay would dump one block of text where
+    the live run streamed.
+    """
+    trace = Trace(quiet=True)
+    text = "reasoning about the balance chain. " * 60
+    for start in range(0, len(text), 7):        # arbitrary chunking, as a stream arrives
+        trace.thought(text[start : start + 7])
+    summary = trace.end_thought()
+
+    deltas = [e for e in trace.events if e.kind == "think" and e.meta.get("delta")]
+    assert len(deltas) > 1, "reasoning was not streamed"
+    assert summary is not None and not summary.meta.get("delta")
+    assert summary.meta["chars"] == len(text)
+
+
+def test_deltas_reassemble_into_the_original_reasoning():
+    trace = Trace(quiet=True)
+    text = "the header row gives the column positions. " * 40
+    trace.thought(text)
+    trace.end_thought()
+
+    deltas = [e for e in trace.events if e.kind == "think" and e.meta.get("delta")]
+    assert "".join(e.body for e in deltas) == text
+
+
+def test_delta_count_stays_bounded_for_a_huge_reasoning_pass():
+    """One run produced 120,000 characters. That must not become 120,000 events."""
+    from app.trace import THOUGHT_DELTA_CHARS
+
+    trace = Trace(quiet=True)
+    for _ in range(2000):
+        trace.thought("x" * 60)          # 120,000 characters
+    trace.end_thought()
+
+    deltas = [e for e in trace.events if e.kind == "think" and e.meta.get("delta")]
+    assert len(deltas) <= (120_000 // THOUGHT_DELTA_CHARS) + 2
+    assert len(deltas) < 600

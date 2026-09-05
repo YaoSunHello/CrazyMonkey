@@ -25,6 +25,9 @@ from typing import Any, Callable, Literal
 
 # How many lines of live reasoning to keep on screen.
 THOUGHT_ROWS = 4
+# Characters of reasoning per recorded delta event. Small enough that a
+# replay streams, large enough that 120k characters is tens of events.
+THOUGHT_DELTA_CHARS = 250
 
 EventKind = Literal["think", "tool", "code", "stdout", "stderr", "verdict", "state", "result"]
 Status = Literal["running", "ok", "fail", "skip"]
@@ -88,15 +91,27 @@ class Trace:
         self._thought_chars = 0
         self._thought_rows = 0
         self._thought_reported = 0
+        self._thought_pending = ""
 
     def subscribe(self, callback: Callable[[Event], None]) -> None:
         """Register a sink — an SSE queue, a log file. Must not block."""
         self._subscribers.append(callback)
 
     def emit(self, event: Event) -> Event:
-        self.events.append(event)
+        """Record an event and draw it."""
+        self.record(event)
         if not self.quiet:
             self._render(event)
+        return event
+
+    def record(self, event: Event) -> Event:
+        """Record an event without drawing it.
+
+        Used by the reasoning stream, which paints itself in place: the events
+        still have to reach the recording and any subscriber, or a replay would
+        show one lump of text where the live run streamed.
+        """
+        self.events.append(event)
         for callback in self._subscribers:
             callback(event)
         return event
@@ -122,6 +137,16 @@ class Trace:
         """
         self._thought_buffer += chunk
         self._thought_chars += len(chunk)
+        self._thought_pending += chunk
+
+        # Record the stream, throttled. Without this a replay shows one lump of
+        # text where the live run streamed. Throttling keeps a long reasoning
+        # pass to tens of events rather than thousands of one-token ones.
+        if len(self._thought_pending) >= THOUGHT_DELTA_CHARS:
+            self.record(
+                Event(kind="think", body=self._thought_pending, meta={"delta": True})
+            )
+            self._thought_pending = ""
 
         if not _COLOUR:
             # One line per 2k characters, so a log file stays readable.
@@ -144,9 +169,12 @@ class Trace:
         if not self._thought_chars:
             return None
         self._redraw([])
+        if self._thought_pending:
+            self.record(Event(kind="think", body=self._thought_pending, meta={"delta": True}))
         total = self._thought_chars
         tail = self._thought_buffer[-1200:]
         self._thought_buffer, self._thought_chars, self._thought_reported = "", 0, 0
+        self._thought_pending = ""
         return self.emit(
             Event(
                 kind="think",
