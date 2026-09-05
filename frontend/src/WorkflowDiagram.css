@@ -1,0 +1,107 @@
+.board {
+  position: relative;
+  margin-top: 48px;
+  padding: 40px 28px 20px 56px;
+  background:
+    repeating-linear-gradient(
+      var(--bg) 0px,
+      var(--bg) 31px,
+      #dfe6f2 32px
+    ),
+    var(--bg);
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px -28px rgba(27, 28, 32, 0.35);
+  transform: rotate(-0.4deg);
+  overflow-x: auto;
+}
+
+.board__margin {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 34px;
+  width: 1px;
+  background: rgba(212, 84, 84, 0.35);
+}
+
+.board__svg {
+  min-width: 980px;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.labels text {
+  font-family: var(--hand);
+  fill: var(--ink);
+}
+
+.labels .title {
+  font-size: 23px;
+  text-anchor: middle;
+}
+
+.labels .title--accent {
+  fill: var(--accent-strong);
+}
+
+.labels .sub {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  text-anchor: middle;
+  fill: var(--text-muted);
+}
+
+.labels .tag {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  text-anchor: middle;
+  fill: var(--text-muted);
+}
+
+.labels .tag--sub {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.labels .number {
+  font-family: var(--hand);
+  font-size: 17px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.labels .annotation {
+  font-family: var(--hand);
+  font-size: 16px;
+  fill: var(--accent-strong);
+  text-anchor: middle;
+}
+
+.labels .annotation__arrow {
+  fill: none;
+  stroke: var(--accent-strong);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.board__stamp {
+  margin-top: 4px;
+  font-family: var(--hand);
+  font-size: 15px;
+  color: var(--text-faint);
+  transform: rotate(-0.4deg);
+}
+
+@media (max-width: 720px) {
+  .board {
+    padding: 32px 16px 16px 40px;
+  }
+
+  .board__margin {
+    left: 22px;
+  }
+}

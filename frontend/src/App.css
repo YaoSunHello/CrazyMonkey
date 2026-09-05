@@ -1,0 +1,260 @@
+.shell {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Header */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--hand);
+  font-size: 24px;
+}
+
+.wordmark__mark {
+  font-size: 22px;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.site-nav a:hover {
+  color: var(--text);
+}
+
+/* Hero */
+
+.hero {
+  padding: 88px 0 64px;
+  text-align: center;
+}
+
+.hero__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.kicker {
+  font-family: var(--hand);
+  font-size: 18px;
+  color: var(--accent-strong);
+  margin-bottom: 12px;
+}
+
+.hero h1 {
+  font-size: 48px;
+  line-height: 1.15;
+  max-width: 760px;
+}
+
+.hero__lede {
+  margin-top: 24px;
+  max-width: 620px;
+  font-size: 17px;
+  color: var(--text-muted);
+}
+
+.hero__cta {
+  display: flex;
+  gap: 12px;
+  margin-top: 36px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 22px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn--primary:hover {
+  transform: translateY(-1px);
+  background: var(--accent-strong);
+}
+
+.btn--ghost {
+  border: 1px solid var(--surface-border);
+  color: var(--text);
+}
+
+.btn--ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 44px;
+}
+
+.badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+}
+
+.badge--accent {
+  border-color: rgba(217, 119, 87, 0.35);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.badge--teal {
+  border-color: rgba(15, 118, 110, 0.3);
+  color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.badge--blue {
+  border-color: rgba(37, 84, 214, 0.3);
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+/* Sections */
+
+.section {
+  padding: 80px 0;
+}
+
+.section--alt {
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--surface-border);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.section__kicker {
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+}
+
+.section__title {
+  font-size: 30px;
+  margin-top: 10px;
+  max-width: 620px;
+}
+
+.section__lede {
+  margin-top: 14px;
+  max-width: 560px;
+  font-size: 15px;
+}
+
+/* Product agenda */
+
+.agenda-grid {
+  margin-top: 48px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.agenda-card {
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  background: var(--bg);
+}
+
+.agenda-card h3 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.agenda-card p {
+  font-size: 14px;
+}
+
+/* Footer */
+
+.site-footer {
+  border-top: 1px solid var(--surface-border);
+  padding: 32px 0;
+}
+
+.site-footer__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.site-footer a {
+  color: var(--text-muted);
+}
+
+.site-footer a:hover {
+  color: var(--text);
+}
+
+.sponsor {
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .hero {
+    padding: 64px 0 48px;
+  }
+
+  .hero h1 {
+    font-size: 34px;
+  }
+
+  .site-nav {
+    gap: 16px;
+  }
+
+  .agenda-grid {
+    grid-template-columns: 1fr;
+  }
+}
