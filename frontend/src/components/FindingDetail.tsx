@@ -19,6 +19,7 @@ interface FindingDetailProps {
   onCorrectTerm: (correction: TermCorrection) => Promise<void>;
   onUploadDocument: (file: File) => Promise<void>;
   canUploadDocument: boolean;
+  canCorrectTerm: boolean;
 }
 
 export function FindingDetail({
@@ -30,6 +31,7 @@ export function FindingDetail({
   onCorrectTerm,
   onUploadDocument,
   canUploadDocument,
+  canCorrectTerm,
 }: FindingDetailProps) {
   const [reviewerName, setReviewerName] = useState("");
   const [note, setNote] = useState("");
@@ -64,8 +66,8 @@ export function FindingDetail({
           : "Human review state saved.",
       );
       setNote("");
-    } catch {
-      setLocalError("The review action could not be saved. Check the notification for details.");
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : "The review action could not be saved. Check the notification for details.");
     }
   }
 
@@ -87,8 +89,8 @@ export function FindingDetail({
       });
       setFeedback("Note added to the audit trail.");
       setNote("");
-    } catch {
-      setLocalError("The note could not be saved. Check the notification for details.");
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : "The note could not be saved. Check the notification for details.");
     }
   }
 
@@ -277,7 +279,7 @@ export function FindingDetail({
               <button
                 className="button button-secondary"
                 type="button"
-                disabled={saving || !finding.calculation}
+                disabled={saving || !finding.calculation || !canCorrectTerm}
                 onClick={() => {
                   if (!reviewerName.trim()) {
                     setLocalError("Enter a reviewer display name before correcting a term.");
@@ -289,6 +291,9 @@ export function FindingDetail({
                 Correct term
               </button>
             </div>
+            {!canCorrectTerm && (
+              <p className="action-help">Term correction is unavailable for this review. Upload source evidence and rerun.</p>
+            )}
           </div>
 
           {finding.notes.length > 0 && (

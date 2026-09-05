@@ -6,6 +6,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("HttpReviewAdapter", () => {
+  it("prepares an unsent email draft for the explicitly requested review version", async () => {
+    const draft = { id: "run-qa-v7-draft", status: "DRAFT", recipient: "", subject: "Version 7", body: "Review draft", attachments: [] };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(draft));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await new HttpReviewAdapter("https://review.example").prepareEmail("run-qa", 7)).toEqual(draft);
+    expect(fetchMock).toHaveBeenCalledWith("https://review.example/api/v1/reviews/run-qa/email/prepare?version=7", { method: "POST" });
+  });
+
+  it("downloads the explicitly requested immutable review version and preserves the server filename", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response("version-seven-file", {
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": 'attachment; filename="review-v7.xlsx"',
+      },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await new HttpReviewAdapter("https://review.example").requestExport("run-qa", "excel", 7);
+
+    expect(fetchMock).toHaveBeenCalledWith("https://review.example/api/runs/run-qa/versions/7/exports/excel");
+    expect(result.available).toBe(true);
+    expect(result.filename).toBe("review-v7.xlsx");
+    expect(await result.blob?.text()).toBe("version-seven-file");
+  });
+
   it("maps reordered detection results to files using clientFileId", async () => {
     const files = [
       new File(["first"], "Administrator_NAV.xlsx"),

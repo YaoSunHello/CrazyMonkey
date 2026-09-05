@@ -180,27 +180,17 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
   async function updateHumanReview(update: HumanReviewUpdate) {
     if (!review || !selectedFinding) return;
     setSaving(true);
+    let actionSaved = false;
     try {
-      const updated = await adapter.updateHumanReview(review.id, selectedFinding.id, update);
-      setReview((current) =>
-        current
-          ? {
-              ...current,
-              findings: current.findings.map((finding) =>
-                finding.id === updated.id
-                  ? {
-                      ...finding,
-                      humanReviewState: updated.humanReviewState,
-                      notes: updated.notes,
-                    }
-                  : finding,
-              ),
-            }
-          : current,
-      );
+      await adapter.updateHumanReview(review.id, selectedFinding.id, update);
+      actionSaved = true;
+      setReview(await adapter.getReview(review.id));
     } catch (error) {
-      setNotice({ tone: "error", message: `Review state was not saved. ${messageFrom(error)}` });
-      throw error;
+      const message = actionSaved
+        ? `Review action was saved, but the updated review could not be loaded. ${messageFrom(error)}`
+        : `Review state was not saved. ${messageFrom(error)}`;
+      setNotice({ tone: "error", message });
+      throw new Error(message, { cause: error });
     } finally {
       setSaving(false);
     }
@@ -255,7 +245,7 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
     if (!review) return;
     setExportBusy(format);
     try {
-      const result = await adapter.requestExport(review.id, format);
+      const result = await adapter.requestExport(review.id, format, review.version);
       if (!result.available || !result.blob || !result.filename) {
         setNotice({ tone: "info", message: result.message ?? `${format.toUpperCase()} output is unavailable.` });
         return;
@@ -273,7 +263,7 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
     if (!review) return;
     setBusy(true);
     try {
-      setEmailDraft(await adapter.prepareEmail(review.id));
+      setEmailDraft(await adapter.prepareEmail(review.id, review.version));
     } catch (error) {
       setNotice({ tone: "error", message: `The draft could not be prepared. ${messageFrom(error)}` });
     } finally {
@@ -367,6 +357,7 @@ export function App({ adapter = defaultReviewAdapter }: AppProps) {
             onCorrectTerm={correctTerm}
             onUploadDocument={uploadMissingDocument}
             canUploadDocument={adapter.mode === "live"}
+            canCorrectTerm={review?.outputCapabilities.termCorrection !== false}
           />
         )}
       </main>

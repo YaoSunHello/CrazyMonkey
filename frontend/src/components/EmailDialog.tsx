@@ -64,7 +64,7 @@ export function EmailDialog({ draft, canSend, sending, onClose, onSend }: EmailD
       ) : (
         <div className="integration-notice" role="note">
           <strong>Sending is unavailable</strong>
-          <p>The Relay send endpoint is not connected. This draft has not been sent.</p>
+          <p>Sending is disabled for this review. This draft has not been sent.</p>
         </div>
       )}
     </Modal>

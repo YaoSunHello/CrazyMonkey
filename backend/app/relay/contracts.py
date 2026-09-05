@@ -51,17 +51,23 @@ def adapt_review_snapshot(payload: Mapping[str, Any], route_run_id: str | None =
 
     raw = dict(payload)
     reject_private_reasoning(raw)
-    if _looks_like_atlas_snapshot(raw):
-        normalized = _adapt_atlas_snapshot(raw)
-    elif _looks_like_beacon_review(raw):
-        normalized = _adapt_beacon_review(raw)
-    else:
-        schema_version = raw.get("schema_version")
-        if schema_version != "relay-output-snapshot-v1":
-            raise SnapshotContractError(
-                "unsupported snapshot schema_version; add an explicit adapter before exporting"
-            )
-        normalized = _adapt_canonical_snapshot(raw)
+    try:
+        if _looks_like_atlas_snapshot(raw):
+            normalized = _adapt_atlas_snapshot(raw)
+        elif _looks_like_beacon_review(raw):
+            normalized = _adapt_beacon_review(raw)
+        else:
+            schema_version = raw.get("schema_version")
+            if schema_version != "relay-output-snapshot-v1":
+                raise SnapshotContractError(
+                    "unsupported snapshot schema_version; add an explicit adapter before exporting"
+                )
+            normalized = _adapt_canonical_snapshot(raw)
+    except SnapshotContractError:
+        raise
+    except (KeyError, TypeError, ValueError, OverflowError) as exc:
+        # Only normalize adapter input errors; storage/export failures stay server errors.
+        raise SnapshotContractError(f"malformed review snapshot: {exc}") from exc
 
     if route_run_id is not None:
         payload_run_id = normalized.get("run_id")
@@ -498,10 +504,17 @@ def _adapt_canonical_snapshot(raw: dict[str, Any]) -> dict[str, Any]:
 
 def _adapt_beacon_review(raw: Mapping[str, Any]) -> dict[str, Any]:
     source = str(raw.get("source", ""))
+    source_notice = raw.get("sourceNotice")
     if source == "DEVELOPMENT_FIXTURE":
         mode = "SYNTHETIC_DEMO"
     elif raw.get("mode"):
         mode = str(raw["mode"]).upper().replace(" ", "_")
+        if mode in {"LIVE_OFFLINE", "LIVE_MODEL"}:
+            upstream_notice = f"Upstream Beacon mode: {mode}."
+            source_notice = (
+                f"{source_notice} {upstream_notice}" if source_notice else upstream_notice
+            )
+            mode = "LIVE"
     else:
         raise SnapshotContractError(
             "Beacon/Atlas review payload must include explicit mode; source=ATLAS is not proof of live data"
@@ -714,7 +727,7 @@ def _adapt_beacon_review(raw: Mapping[str, Any]) -> dict[str, Any]:
         "mode": mode,
         "timestamp": timestamp,
         "source": source or None,
-        "source_notice": raw.get("sourceNotice"),
+        "source_notice": source_notice,
         "source_documents": documents,
         "coverage": {
             "scope": "Management-fee checks only",

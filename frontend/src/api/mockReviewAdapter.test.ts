@@ -1,5 +1,32 @@
 import { MockReviewAdapter } from "./mockReviewAdapter";
 
+describe("MockReviewAdapter exports", () => {
+  it("refuses to prepare a draft for an unavailable fixture version", async () => {
+    const adapter = new MockReviewAdapter();
+    const { reviewId } = await adapter.startSyntheticReview();
+    const review = await adapter.getReview(reviewId);
+
+    expect(await adapter.prepareEmail(reviewId, review.version)).toEqual(expect.objectContaining({ status: "DRAFT" }));
+    await expect(adapter.prepareEmail(reviewId, review.version + 1)).rejects.toThrow(
+      "The requested development fixture version is unavailable.",
+    );
+  });
+
+  it("refuses a different fixture version instead of exporting the currently stored snapshot", async () => {
+    const adapter = new MockReviewAdapter();
+    const { reviewId } = await adapter.startSyntheticReview();
+    const review = await adapter.getReview(reviewId);
+
+    expect(await adapter.requestExport(reviewId, "json", review.version)).toEqual(expect.objectContaining({
+      available: true,
+      filename: expect.stringContaining("development-fixture.json"),
+    }));
+    await expect(adapter.requestExport(reviewId, "json", review.version + 1)).rejects.toThrow(
+      "The requested development fixture version is unavailable.",
+    );
+  });
+});
+
 describe("MockReviewAdapter corrections", () => {
   it("creates a new version and recomputes all dependent finding state", async () => {
     const adapter = new MockReviewAdapter();

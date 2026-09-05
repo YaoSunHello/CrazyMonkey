@@ -154,11 +154,13 @@ def prepare_email_draft(run_id: str, request: VersionRequest) -> dict[str, Any]:
 
 
 @router.post("/v1/reviews/{run_id}/email/prepare")
-def prepare_beacon_compatible_email_draft(run_id: str) -> dict[str, Any]:
-    """Return Beacon's display-only draft shape without inventing a recipient."""
+def prepare_beacon_compatible_email_draft(
+    run_id: str, version: int | None = Query(default=None, ge=1),
+) -> dict[str, Any]:
+    """Prepare the displayed review version; omitted version retains legacy behavior."""
 
     try:
-        frozen = service.snapshot_store.get(run_id)
+        frozen = service.snapshot_store.get(run_id, version)
         bundle = service.generate_all(frozen)
     except Exception as exc:
         _raise_http(exc)

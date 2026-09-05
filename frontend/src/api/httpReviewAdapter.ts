@@ -110,9 +110,9 @@ export class HttpReviewAdapter implements ReviewAdapter {
     );
   }
 
-  async requestExport(reviewId: string, format: ExportFormat): Promise<ExportResult> {
+  async requestExport(reviewId: string, format: ExportFormat, version: number): Promise<ExportResult> {
     const response = await fetch(
-      `${this.baseUrl}/api/v1/reviews/${encodeURIComponent(reviewId)}/exports/${format}`,
+      `${this.baseUrl}/api/runs/${encodeURIComponent(reviewId)}/versions/${version}/exports/${format}`,
     );
     if (response.status === 404 || response.status === 501) {
       return { available: false, message: `${format.toUpperCase()} output is not available.` };
@@ -123,9 +123,9 @@ export class HttpReviewAdapter implements ReviewAdapter {
     return { available: true, filename, blob: await response.blob() };
   }
 
-  async prepareEmail(reviewId: string): Promise<EmailDraft> {
+  async prepareEmail(reviewId: string, version: number): Promise<EmailDraft> {
     return this.fetchJson<EmailDraft>(
-      `/api/v1/reviews/${encodeURIComponent(reviewId)}/email/prepare`,
+      `/api/v1/reviews/${encodeURIComponent(reviewId)}/email/prepare?version=${version}`,
       { method: "POST" },
     );
   }

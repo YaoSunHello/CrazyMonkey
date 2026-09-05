@@ -464,7 +464,7 @@ def _exception_block(finding, calculation, evidence, decision, styles):  # type:
         expression = calculation.expression or "Formula description not supplied"
         content.append(
             Paragraph(
-                f"<b>Calculation:</b> {escape(expression)} = "
+                f"<b>Calculation:</b> {escape(expression)}<br/><b>Expected fee:</b> "
                 f"{escape(money_text(calculation.expected_value, calculation.currency))}",
                 styles["exception"],
             )

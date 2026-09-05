@@ -1,12 +1,12 @@
-"""Reproduce the implemented ingestion demo and expose missing V0 stages.
+"""Reproduce ingestion QA; downstream product stages are not exercised.
 
 Run from the repository root:
     PYTHONPATH=backend python backend/tests/run_qa_demo.py --output outputs/qa
 
 The output directory must be new. Generated JSON is QA evidence, not a product
 review or an email-ready delivery package. No model or email credentials needed.
-Exit status is 1 while the complete V0 pipeline is unavailable, even if all
-implemented ingestion steps pass.
+Exit status is 1 because this ingestion-only runner does not test the full flow,
+even when ingestion passes and other components are present in the checkout.
 """
 
 from __future__ import annotations
@@ -19,13 +19,24 @@ from time import perf_counter
 from app.atlas.fixtures import generate_synthetic_pack
 from app.atlas.ingestion import normalize_file
 from app.atlas.models import NormalizedDocument
-from test_qa_unseen import generate_unseen_cases
+if __package__:
+    from .test_qa_unseen import generate_unseen_cases
+else:
+    from test_qa_unseen import generate_unseen_cases
 
 
-MISSING_STAGES = [
+CHECKOUT_ROOT = Path(__file__).resolve().parents[2]
+UNEXERCISED_STAGES = (
     "primary_agent", "red_team", "deterministic_verifier", "bounded_repair",
-    "output_router", "output_generation", "email_package",
-]
+    "frontend_review", "output_router", "output_generation", "email_package",
+    "email_delivery",
+)
+INVENTORY_PATHS = (
+    "backend/app/atlas/ingestion.py",
+    "backend/app/relay",
+    "backend/app/runtime",
+    "frontend/src",
+)
 
 
 def run(output_dir: Path) -> dict:
@@ -57,14 +68,27 @@ def run(output_dir: Path) -> dict:
             "case_id": pack["case_id"], "documents": documents,
             "duration_seconds": round(perf_counter() - pack_started, 6),
             "last_completed_stage": "source_normalization",
-            "financial_result": "NOT_EXECUTABLE: verifier absent",
+            "financial_result": "NOT_TESTED",
         })
     report = {
-        "synthetic": True, "qa_ingestion_status": "PASS",
-        "full_demo_status": "FAIL", "full_demo_duration_seconds": None,
-        "reason": "The committed V0 ends at source normalization; downstream stages are absent.",
-        "missing_stages": MISSING_STAGES,
+        "synthetic": True, "scope": "INGESTION_ONLY", "qa_ingestion_status": "PASS",
+        "full_demo_status": "NOT_TESTED", "full_demo_duration_seconds": None,
+        "reason": "This runner exercises fixture generation, source normalization and JSON round-trip only.",
+        "downstream_stages": {stage: "NOT_TESTED" for stage in UNEXERCISED_STAGES},
+        "checkout_path_inventory": {
+            "scope": "PATH_PRESENCE_ONLY",
+            "paths": {
+                relative_path: "PRESENT" if (CHECKOUT_ROOT / relative_path).exists() else "ABSENT"
+                for relative_path in INVENTORY_PATHS
+            },
+            "notice": (
+                "Presence does not establish ownership, Git tracking, integration or execution. "
+                "An absent listed path does not exclude an implementation elsewhere."
+            ),
+        },
         "generation_and_ingestion_seconds": round(perf_counter() - started, 6),
+        "case_count": len(results),
+        "source_file_count": sum(len(case["documents"]) for case in results),
         "cases": results,
         "product_output_files": [], "email_package": None,
         "lp03_runtime_verdict": None,

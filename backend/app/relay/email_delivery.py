@@ -202,12 +202,13 @@ class EmailDeliveryService:
 
     @classmethod
     def from_environment(cls, audit_log: Path) -> "EmailDeliveryService":
-        settings = SMTPSettings.from_environment()
         send_enabled = os.getenv("CRAZYMONKEY_ENABLE_EMAIL_SEND", "").lower() in {
             "1",
             "true",
             "yes",
         }
+        # Disabled delivery must not make review/export startup depend on SMTP.
+        settings = SMTPSettings.from_environment() if send_enabled else None
         secret_value = os.getenv("CRAZYMONKEY_CONFIRMATION_SECRET", "")
         return cls(
             transport=SMTPTransport(settings) if settings and send_enabled else None,
@@ -323,8 +324,8 @@ class EmailDeliveryService:
                 raise ConfirmationError("confirmation token does not match the previewed draft")
             if not self.configured:
                 raise EmailDeliveryDisabledError(
-                    "real email is disabled until CRAZYMONKEY_ENABLE_EMAIL_SEND=true, SMTP_*, "
-                    "and CRAZYMONKEY_CONFIRMATION_SECRET are configured"
+                    "real email is disabled until CRAZYMONKEY_ENABLE_EMAIL_SEND=true "
+                    "and SMTP settings are configured"
                 )
 
             if file_sha256(context.draft_path) != context.draft_sha256:

@@ -137,6 +137,7 @@ export interface OutputCapabilities {
   json: boolean;
   emailPrepare: boolean;
   emailSend: boolean;
+  termCorrection?: boolean;
 }
 
 export interface ReviewResult {
@@ -206,7 +207,7 @@ export interface ReviewAdapter {
     correction: TermCorrection,
   ): Promise<ReviewFinding>;
   uploadSupportingDocument(reviewId: string, file: File, role: DocumentRole): Promise<ReviewStart>;
-  requestExport(reviewId: string, format: ExportFormat): Promise<ExportResult>;
-  prepareEmail(reviewId: string): Promise<EmailDraft>;
+  requestExport(reviewId: string, format: ExportFormat, version: number): Promise<ExportResult>;
+  prepareEmail(reviewId: string, version: number): Promise<EmailDraft>;
   sendEmail(reviewId: string, draftId: string): Promise<{ sent: boolean; message: string }>;
 }

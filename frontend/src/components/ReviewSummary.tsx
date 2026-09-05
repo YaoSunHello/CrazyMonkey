@@ -13,6 +13,12 @@ const filters: { value: Filter; label: string }[] = [
   { value: "REVIEWED", label: "Reviewed" },
 ];
 
+const sourceModeLabels: Record<ReviewResult["mode"], string> = {
+  SYNTHETIC_DEMO: "Synthetic source review",
+  LIVE_OFFLINE: "Offline source review",
+  LIVE_MODEL: "Model-assisted source review",
+};
+
 function matchesFilter(finding: ReviewFinding, filter: Filter): boolean {
   if (filter === "NEEDS_REVIEW") return finding.status !== "MATCH";
   if (filter === "MATCHES") return finding.status === "MATCH";
@@ -65,10 +71,13 @@ export function ReviewSummary({
 
   return (
     <div className="review-page page-enter">
-      {review.source === "DEVELOPMENT_FIXTURE" && (
+      {(review.source === "DEVELOPMENT_FIXTURE" || review.sourceNotice) && (
         <div className="fixture-banner" role="note">
           <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M10 3 18 17H2L10 3Zm0 5v3.5m0 2.5v.1" /></svg>
-          <div><strong>Development fixture</strong><span>{review.sourceNotice}</span></div>
+          <div>
+            <strong>{review.source === "DEVELOPMENT_FIXTURE" ? "Development fixture" : sourceModeLabels[review.mode]}</strong>
+            <span>{review.sourceNotice}</span>
+          </div>
         </div>
       )}
 

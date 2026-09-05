@@ -225,8 +225,11 @@ export class MockReviewAdapter implements ReviewAdapter {
     return { reviewId };
   }
 
-  async requestExport(reviewId: string, format: ExportFormat): Promise<ExportResult> {
+  async requestExport(reviewId: string, format: ExportFormat, version: number): Promise<ExportResult> {
     const review = this.requireReview(reviewId);
+    if (version !== review.version) {
+      throw new Error("The requested development fixture version is unavailable.");
+    }
     if (format !== "json") {
       return {
         available: false,
@@ -241,8 +244,11 @@ export class MockReviewAdapter implements ReviewAdapter {
     };
   }
 
-  async prepareEmail(reviewId: string): Promise<EmailDraft> {
+  async prepareEmail(reviewId: string, version: number): Promise<EmailDraft> {
     const review = this.requireReview(reviewId);
+    if (version !== review.version) {
+      throw new Error("The requested development fixture version is unavailable.");
+    }
     const discrepancies = review.findings.filter((finding) => finding.status === "DISCREPANCY").length;
     const cannotVerify = review.findings.filter((finding) => finding.status === "CANNOT_VERIFY").length;
     return {

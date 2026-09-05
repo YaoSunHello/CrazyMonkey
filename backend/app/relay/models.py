@@ -217,6 +217,8 @@ class OutputSnapshotView(RelayModel):
         known_documents = set(document_ids)
         known_evidence = set(evidence_ids)
         known_calculations = set(calculation_ids)
+        findings_by_id = {finding.finding_id: finding for finding in self.findings}
+        calculations_by_id = {calculation.calculation_id: calculation for calculation in self.calculations}
         unresolved_findings = {
             issue.finding_id for issue in self.unresolved_issues if issue.finding_id is not None
         }
@@ -232,6 +234,12 @@ class OutputSnapshotView(RelayModel):
                     f"finding {finding.finding_id!r} references unknown calculation "
                     f"{finding.calculation_id!r}"
                 )
+            if finding.calculation_id:
+                calculation = calculations_by_id[finding.calculation_id]
+                if calculation.finding_id != finding.finding_id:
+                    raise ValueError(
+                        f"finding {finding.finding_id!r} references a calculation linked to another finding"
+                    )
             if finding.computational_status == FindingStatus.CANNOT_VERIFY:
                 if finding.expected_value is not None or finding.difference is not None:
                     raise ValueError("CANNOT_VERIFY findings cannot contain expected/difference values")
@@ -251,6 +259,22 @@ class OutputSnapshotView(RelayModel):
             if calculation.finding_id not in known_findings:
                 raise ValueError(
                     f"calculation {calculation.calculation_id!r} references unknown finding"
+                )
+            finding = findings_by_id[calculation.finding_id]
+            if calculation.investor_id != finding.investor_id:
+                raise ValueError(
+                    f"calculation {calculation.calculation_id!r} investor does not match its finding"
+                )
+            if finding.calculation_id != calculation.calculation_id:
+                raise ValueError(
+                    f"calculation {calculation.calculation_id!r} is not referenced by its linked finding"
+                )
+        for term in self.investor_terms:
+            missing_evidence = set(term.evidence_ids) - known_evidence
+            if missing_evidence:
+                raise ValueError(
+                    f"investor term {term.investor_id!r} references unknown evidence: "
+                    f"{sorted(missing_evidence)}"
                 )
         for collection_name, records in (
             ("challenger concern", self.challenger_concerns),

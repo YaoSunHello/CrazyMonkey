@@ -74,3 +74,8 @@ outputs/
 - Hour 12-18: Review UI and export workflow.
 - Hour 18-24: Polish demo, README, slides, and submission.
 
+## Current QA and demo instructions
+
+See [current integration QA](docs/CURRENT_INTEGRATION_QA.md) for verified test and
+local demo commands, current integration gaps, and merge-readiness evidence.
+See [BEACON](frontend/BEACON.md) for the frontend component guide.
