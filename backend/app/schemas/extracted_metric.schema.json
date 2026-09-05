@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExtractedMetric",
+  "type": "object",
+  "required": [
+    "entity_name",
+    "period_end_date",
+    "metric_name",
+    "metric_value",
+    "source_document"
+  ],
+  "properties": {
+    "entity_name": { "type": "string" },
+    "period_end_date": { "type": "string", "format": "date" },
+    "metric_name": { "type": "string" },
+    "metric_value": { "type": "number" },
+    "currency": { "type": ["string", "null"] },
+    "unit": { "type": ["string", "null"] },
+    "source_document": { "type": "string" },
+    "source_page": { "type": ["integer", "null"] },
+    "source_snippet": { "type": ["string", "null"] },
+    "confidence_score": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}
+
