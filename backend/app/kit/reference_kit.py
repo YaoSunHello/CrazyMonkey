@@ -33,6 +33,36 @@ import os
 import unicodedata
 from dataclasses import dataclass, field
 
+# What the agent may use, and therefore what the engine advertises in the prompt.
+#
+# Declared here rather than written out in a profile, because a prompt that
+# describes an API by hand drifts from it. Two such drifts cost real rounds:
+# `write_assertions` was asked for without its shape, so a run passed a dict of
+# counts instead of a list of claims and the call silently did nothing; and
+# `candidates` was advertised with a parameter name it does not have, so every
+# account paid a round to discover the TypeError. The signature is a fact about
+# this code, so this code states it.
+#
+# `weigh` and `resemblance` are deliberately absent: they exist to rank
+# `candidates` and are not something to call directly.
+__all__ = [
+    "rows",
+    "tables",
+    "table",
+    "lookup",
+    "candidates",
+    "narrative_span",
+    "variants",
+    "trim_to",
+    "normalise",
+    "fold",
+    "compact",
+    "batches_balance",
+    "questions",
+    "write_result",
+    "write_assertions",
+]
+
 TABLES = os.environ.get("KIT_TABLES", "/data/tables.json")
 ROWS = os.environ.get("KIT_ROWS", "/data/rows.json")
 OUT = os.environ.get("KIT_OUT", "/work/result.json")

@@ -25,6 +25,7 @@ than special-cased.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -285,6 +286,62 @@ class Pass:
             "risks everything on one more try can end with nothing to show at all."
         )
 
+    def toolkit_brief(self) -> str:
+        """The tools this pass has, taken from the code that defines them.
+
+        Written by hand, this section drifted twice in one night and cost real
+        work each time. `write_assertions` was asked for without its shape, so a
+        run passed a dict of counts where a list of claims was wanted and the
+        call silently did nothing — while it was the only thing left driving a
+        retry on resolution quality. `candidates` was advertised with a
+        parameter name it does not have, so the first script to call it raised a
+        TypeError and the round was spent discovering that.
+
+        Neither was a typo so much as a consequence: a prompt that describes an
+        API in prose will fall out of step with it, and the agent pays. An audit
+        found the same lists were also incomplete — `normalise` was advertised
+        to neither pass, though it exists precisely because twelve of fourteen
+        generated scripts hand-rolled it and five got it subtly wrong; and the
+        journal pass, which is told it may go back and re-resolve a row, was
+        shown none of the resolution tools.
+
+        So the signature comes from the signature. The kit declares `__all__`,
+        which is its own business rather than a profile's, and this renders it.
+        What stays in the profile is the judgement — which tool to prefer, which
+        order to try pools in, what not to hand-roll — because that is about the
+        task rather than about the code.
+        """
+        import importlib
+        import inspect
+
+        try:
+            module = importlib.import_module(f"app.kit.{self.kit}")
+        except ImportError:
+            return ""
+
+        lines = []
+        for name in getattr(module, "__all__", []):
+            function = getattr(module, name, None)
+            if not inspect.isfunction(function):
+                continue
+            signature = str(inspect.signature(function))
+            # Types are noise here; the agent needs the shape and the meaning.
+            signature = re.sub(r":\s*'[^']*'", "", signature)
+            signature = re.sub(r"\s*->.*$", "", signature).strip()
+            summary = (inspect.getdoc(function) or "").split("\n")[0]
+            lines.append(f"    kit.{name}{signature}")
+            if summary:
+                lines.append(f"        {summary}")
+
+        if not lines:
+            return ""
+        return (
+            "## The tools you have\n\n"
+            "Imported as `kit`. These signatures are read from the module itself, so\n"
+            "they are exactly right — do not guess at an argument, and do not rewrite\n"
+            "one of these by hand.\n\n" + "\n".join(lines)
+        )
+
     def reference_brief(self) -> str:
         """Which mounted table is for what, taken from the checks themselves.
 
@@ -342,7 +399,7 @@ class Pass:
     def compose(self, *, document: str = "", failed: set[str] | None = None) -> str:
         """The full prompt: the engine's rules, the task, the data, the checks, the notes."""
         failed = failed or set()
-        parts = [CORE, self.budget(), self.prompt]
+        parts = [CORE, self.budget(), self.toolkit_brief(), self.prompt]
 
         brief = self.reference_brief()
         if brief:

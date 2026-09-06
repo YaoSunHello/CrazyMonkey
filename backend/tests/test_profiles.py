@@ -351,3 +351,48 @@ def test_a_profile_cannot_reach_the_verifier():
     source = open(checks.__file__, encoding="utf-8").read()
     assert "profiles" not in source
     assert "import app.agent" not in source
+
+
+# --- the tool list comes from the code -----------------------------------
+
+
+def test_no_prompt_mentions_a_tool_that_does_not_exist():
+    """Two documentation drifts cost real work, so this closes the class.
+
+    `write_assertions` was asked for without its shape, so a run passed a dict
+    of counts where a list of claims was wanted and the call silently did
+    nothing — while it was the only thing left driving a retry on resolution
+    quality. `candidates` was advertised with a parameter it does not have, and
+    the first script to call it raised a TypeError.
+
+    Neither was really a typo. A prompt that describes an API in prose falls out
+    of step with it, and the agent pays the round.
+    """
+    import importlib
+    import re
+
+    for name in available():
+        for spec in load(name).passes:
+            module = importlib.import_module(f"app.kit.{spec.kit}")
+            mentioned = set(re.findall(r"kit\.([a-z_]+)", spec.compose()))
+            absent = sorted(n for n in mentioned if not hasattr(module, n))
+            assert not absent, f"{name}/{spec.name} names missing tools: {absent}"
+
+
+def test_every_pass_is_shown_its_toolkit():
+    """Derived from the kit's own `__all__`, so it cannot drift or go stale."""
+    for name in available():
+        for spec in load(name).passes:
+            brief = spec.toolkit_brief()
+            assert "## The tools you have" in brief, f"{name}/{spec.name} has no toolkit"
+            assert "kit.write_result" in brief
+
+
+def test_the_signatures_shown_are_the_real_ones():
+    """The specific regression: an advertised argument the function lacks."""
+    from app.kit.reference_kit import candidates
+
+    brief = load(DEFAULT_PROFILE).get_pass("resolve").toolkit_brief()
+    assert "kit.candidates(value, pools, limit" in brief
+    assert "pools, n)" not in brief
+    assert "limit" in str(__import__("inspect").signature(candidates))

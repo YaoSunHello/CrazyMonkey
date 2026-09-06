@@ -34,6 +34,10 @@ OUT = os.environ.get("KIT_OUT", "/work/result.json")
 # Words sharing a baseline within this many points are one visual line. A
 # transaction's bank reference sits a fraction of a point off the rest of its
 # row, so a tolerance of zero splits single transactions in two.
+# What the agent may use. See the note in `reference_kit` — the engine renders
+# this list into the prompt, so the signatures cannot drift from the code.
+__all__ = ["page_count", "lines", "all_lines", "text", "column_positions", "write_result"]
+
 LINE_TOLERANCE = 1.5
 
 
