@@ -99,7 +99,7 @@ Reply with the script in a single ```python code block.
 
 
 async def _explore(
-    spec, *, executor, trace, settings: Settings, base: str, rounds: int
+    spec, *, executor, trace, settings: Settings, base: str, rounds: int, run=None
 ) -> str:
     """Let the agent look at the data before it writes the real script.
 
@@ -125,6 +125,8 @@ async def _explore(
 
         reply = await stream_completion(settings, prompt, on_thought=trace.thought)
         trace.end_thought()
+        if run is not None:
+            run.write_dialog(f"{spec.name}-explore-{turn}", prompt, reply)
         source = extract_code(reply)
         if not source:
             break
@@ -399,6 +401,8 @@ async def _run_pass(
     # The script this pass last produced, carried into the next attempt so the
     # agent edits its own work instead of starting over. See `retry_prompt`.
     previous = ""
+    # What exploration found, held for the whole pass rather than one attempt.
+    learned = ""
 
     for attempt in range(1, spec.max_attempts + 1):
         outcome["attempts"] = attempt
@@ -406,18 +410,30 @@ async def _run_pass(
 
         base = build_prompt({f["name"] for f in failures})
 
-        # Only on the first attempt. A retry already carries the verifier's
-        # exact objections, which is better information than anything a fresh
-        # look would produce, and paying for another round would be waste.
+        # Explored once, then **kept**. The rounds are spent only on the first
+        # attempt, because a retry carries the verifier's exact objections and
+        # paying for a fresh look would be waste — but what those rounds found
+        # belongs to every attempt after them.
+        #
+        # It did not used to. `base` is rebuilt each time round this loop, and
+        # the transcript was appended to that local, so a single rejection threw
+        # away everything the agent had learned by looking at the data. Traced
+        # on one account: exploration identified the fault line correctly before
+        # a single line of the real script was written, and six generations then
+        # rediscovered and re-lost it, one of them excluding a table by a name
+        # that does not exist. Nobody investigates a problem and then deletes
+        # their notes because their first fix was rejected.
         if spec.explore and attempt == 1:
-            base += await _explore(
+            learned = await _explore(
                 spec,
                 executor=executor,
                 trace=trace,
                 settings=settings,
                 base=base,
                 rounds=spec.explore,
+                run=run,
             )
+        base += learned
 
         prompt = (
             base
@@ -434,6 +450,7 @@ async def _run_pass(
         # place, so the wait shows what it is doing rather than a spinner.
         reply = await stream_completion(settings, prompt, on_thought=trace.thought)
         trace.end_thought()
+        run.write_dialog(f"{stage}-attempt-{attempt}", prompt, reply)
         source = extract_code(reply)
         trace.tool(
             "model",

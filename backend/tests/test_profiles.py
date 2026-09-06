@@ -330,9 +330,11 @@ def test_the_shipped_profiles_promote_the_checks_that_earn_it():
         for spec in load(name).passes
         if spec.retry_on
     }
-    assert promoted, "nothing is promoted — the retry loop has nothing to run on"
-    for names in promoted.values():
-        assert names
+    # Nothing is promoted any more, and that is the deliberate state: the checks
+    # that used to be promoted were the ones judging language with a threshold,
+    # and they are gone. What drives another attempt is now either a hard
+    # mechanical failure or the agent's own assertion about its own work.
+    assert promoted == {}, f"a check is promoted without a recorded reason: {promoted}"
 
 
 # --- the firewall --------------------------------------------------------

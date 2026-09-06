@@ -65,6 +65,31 @@ class RunDir:
         target.write_text(source, encoding="utf-8")
         return target
 
+    def write_dialog(self, label: str, prompt: str, reply: str) -> Path:
+        """Everything that was actually said, exactly as it was said.
+
+        The run kept the code the model wrote and threw away the conversation
+        that produced it, which made every diagnosis an act of reconstruction.
+        Working out why a run went wrong meant inferring the instruction from
+        the output — and three separate investigations had to rebuild the prompt
+        by calling `compose()` themselves, which cannot show a retry prompt at
+        all: not the failures fed back, not the previous script, not what
+        exploration found.
+
+        That is the wrong way round. When the model does something odd it is
+        usually following what it was told, and you cannot see that without the
+        telling. So both halves go to disk, per attempt, unedited.
+
+        Pure observability — nothing reads these during a run. They exist so
+        that a person, or an agent asked to investigate, can read the exchange
+        rather than guess at it.
+        """
+        target = self.path / f"{label}.md"
+        target.write_text(
+            f"# prompt\n\n{prompt}\n\n# reply\n\n{reply}\n", encoding="utf-8"
+        )
+        return target
+
     def write_rows(self, payload: dict, stage: str = "") -> Path:
         name = "rows.json" if not stage else f"rows-{stage}.json"
         target = self.path / name

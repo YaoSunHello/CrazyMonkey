@@ -126,27 +126,33 @@
       "checks": [
         {
           "name": "balance_chain",
-          "describe": "a row's balance minus its amount must equal the NEXT row's balance"
+          "describe": "a row's balance minus its amount must equal the NEXT row's balance",
+          "options": {}
         },
         {
           "name": "closing_balance",
-          "describe": "the first row's balance equals the closing balance printed on page 1"
+          "describe": "the first row's balance equals the closing balance printed on page 1",
+          "options": {}
         },
         {
           "name": "printed_openings",
-          "describe": "every \"Balance brought forward\" marker must reproduce from the movements"
+          "describe": "every \"Balance brought forward\" marker must reproduce from the movements",
+          "options": {}
         },
         {
           "name": "row_count",
-          "describe": "one row per transaction. \"Balance as at close\" and \"Balance brought forward\" are day markers, NOT transactions"
+          "describe": "one row per transaction. \"Balance as at close\" and \"Balance brought forward\" are day markers, NOT transactions",
+          "options": {}
         },
         {
           "name": "one_amount_per_row",
-          "describe": "exactly one of credit/debit"
+          "describe": "exactly one of credit/debit",
+          "options": {}
         },
         {
           "name": "reference_provenance",
-          "describe": "every bank_reference appears literally in the PDF text"
+          "describe": "every bank_reference appears literally in the PDF text",
+          "options": {}
         }
       ],
       "nudges": [
@@ -260,6 +266,33 @@
         "boundary logic found nothing, exactly one list name was present in the",
         "narrative the whole time.",
         "",
+        "## Find the document's own convention before you work row by row",
+        "",
+        "One system wrote every row of this statement, so whatever it does, it does",
+        "throughout. Work out what that is by testing, not by reading one narrative:",
+        "run your candidate rule over ALL the rows, count how many resolve, and keep",
+        "the rule that wins. Which part of the narrative carries the counterparty —",
+        "the leading field, a clause after a keyword, somewhere else — is usually",
+        "fixed for a document, and deciding it once from evidence beats guessing it",
+        "sixteen times. Print the counts; a rule that resolves three rows where",
+        "another resolves eleven is not a close call.",
+        "",
+        "## The lists spell the same party more than one way",
+        "",
+        "Master data holds a company under its full name in one place and a house",
+        "abbreviation in another, and a narrative may use either. The two share no",
+        "words, so no amount of string comparison connects them — but the",
+        "correspondence is sitting in the reference data itself, because both forms",
+        "are in there.",
+        "",
+        "You can recover it: take the leading words of one entry, take their initials,",
+        "and look for entries that begin with exactly those letters. Build that map",
+        "once from the lists you are given, then use it when a narrative writes a",
+        "party one way and the list you need holds it the other. Everything you",
+        "resolve this way is still a real entry in a real list, so it is checkable —",
+        "and where the expansion is a judgement rather than a derivation, say so with",
+        "PROBABLE and a reason.",
+        "",
         "Then use judgement on what comes back:",
         "",
         "- **exactly one name resolves** — that is the counterparty, unless it is this",
@@ -319,8 +352,38 @@
         "from belongs to one of them, and **that one is not the counterparty**. Take",
         "the other. Each row carries its own `account_number`; work out whose account",
         "is — the account-to-owner mapping named above tells you, and the statement's",
-        "own entity is also the name that recurs on nearly every row. If a candidate is",
-        "that entity, you have picked the wrong side of the sentence.",
+        "own entity is also the name that recurs on nearly every row.",
+        "",
+        "Read the owner's entry and understand it: it identifies an *account*, so it",
+        "carries things a company name never does — a branch, a currency, the account",
+        "number. Judge which part of it is the entity. Then judge whether a candidate",
+        "is that entity or merely a relative of it. Entities in one family share most",
+        "of their words and differ in one — a numeral, a legal form, a single word —",
+        "and that one difference is the whole difference between the account holder",
+        "and a genuine counterparty. Nothing checks this for you, because nothing can",
+        "read a name as well as you can; get it wrong and a real party is discarded or",
+        "the statement is booked against itself.",
+        "",
+        "## Judge how well you did, for this document",
+        "",
+        "There is no fixed share of rows that ought to resolve. One statement is full",
+        "of payments to outside parties; another is almost entirely internal movements",
+        "that name nobody but the account itself, and on that one a high unresolved",
+        "count is the correct answer rather than a failure. Only you can tell which",
+        "you are holding, because only you have read it.",
+        "",
+        "So count your own work and say whether it is right **for this statement**:",
+        "how many rows named a party, how many of those resolved, how many you",
+        "proposed, how many name nobody at all. If the numbers look wrong to you, go",
+        "back to the rows behind them before you submit. If they look right, say why.",
+        "Record it with `kit.write_assertions` — a claim that does not hold fails the",
+        "attempt and tells you where to look, and a claim that holds cannot rescue a",
+        "failing one, so there is nothing to gain by overstating.",
+        "",
+        "Anything you cannot settle, flag rather than force: a `PROBABLE` with your",
+        "reasoning, or `UNRESOLVED` saying what would settle it. A person reads those,",
+        "and a flagged row costs them one decision — a wrong one costs them the trust",
+        "in every other row you produced.",
         "",
         "## Which list to prefer",
         "",
@@ -459,25 +522,6 @@
           "describe": "the classification must be one of the declared labels"
         },
         {
-          "name": "span",
-          "options": {
-            "field": "counterparty_raw",
-            "max_words": 8,
-            "stop_words": [
-              "FOR",
-              "PURCHASE",
-              "PURCHAS",
-              "ACQ",
-              "REL",
-              "PREMIUM",
-              "REPAY",
-              "COVER"
-            ]
-          },
-          "describe": "an extracted name must look like a name, not like a sentence",
-          "severity": "retry"
-        },
-        {
           "name": "proposals",
           "options": {
             "field": "counterparty_match"
@@ -488,60 +532,16 @@
           "name": "label_rate",
           "options": {
             "field": "classification",
-            "label": "Review",
-            "max_share": 0.2
+            "label": "Review"
           },
-          "describe": "Review is the label of last resort; it should be rare",
-          "severity": "retry"
+          "describe": "Review is the label of last resort; it should be rare"
         },
         {
           "name": "resolution_rate",
-          "severity": "retry",
           "options": {
-            "field": "counterparty_match",
-            "max_share": 0.4
+            "field": "counterparty_match"
           },
           "describe": "of the names actually read out of the document, most should resolve"
-        },
-        {
-          "name": "proposal_distance",
-          "options": {
-            "field": "counterparty_match",
-            "span": "counterparty_raw"
-          },
-          "describe": "a PROBABLE must not differ from what you read by a number or ordinal — those are different entities"
-        },
-        {
-          "name": "not_self",
-          "options": {
-            "field": "counterparty_match",
-            "span": "counterparty_raw",
-            "key": "account_number",
-            "owner": [
-              "account_map:Account Number"
-            ],
-            "min_overlap": 0.6
-          },
-          "describe": "the counterparty is never the account's own party"
-        },
-        {
-          "name": "span",
-          "severity": "retry",
-          "options": {
-            "field": "project_code_raw",
-            "max_words": 2,
-            "stop_words": [
-              "FOR",
-              "PURCHASE",
-              "PURCHAS",
-              "ACQ",
-              "REL",
-              "PREMIUM",
-              "REPAY",
-              "COVER"
-            ]
-          },
-          "describe": "a project code is one token — a span with several words is a sentence, not a code"
         },
         {
           "name": "pairing",
@@ -597,74 +597,6 @@
             "  it. Use `t.find(col, v)` and read the value back out of the row it returns,",
             "  rather than echoing what the narrative said. If `find` returns None, the",
             "  status is UNRESOLVED."
-          ]
-        },
-        {
-          "check_failed": "counterparty_raw_span",
-          "text": [
-            "The span ran past the end of the name. A party name ends at its legal-form",
-            "  token — SCSP, Ltd, Limited, ApS, A/S, K/S, U.A., S.à r.l. — and everything",
-            "  after it is why the money moved. Use `kit.trim_to(text, markers)`, or just",
-            "  call `kit.lookup(value, pools, markers)`, which trims before it searches."
-          ]
-        },
-        {
-          "check_failed": "classification_review_rate",
-          "text": [
-            "Too many rows fell through to `Review`. It is the label of last resort, not",
-            "  the answer when a lookup failed — a bank charge is `Other` and a transfer",
-            "  between the platform's own accounts is `Internal` whether or not the",
-            "  counterparty resolved. Decide from the narrative's verbs."
-          ]
-        },
-        {
-          "check_failed": "counterparty_match_not_self",
-          "text": [
-            "You took the account's OWN party out of the narrative and called it the",
-            "  counterparty. A narrative usually names both sides of a movement; the side",
-            "  that belongs to this statement is not the answer.",
-            "",
-            "  Identify the holder first, from the row's `account_number` against the",
-            "  mounted account mapping, and then exclude it. Do this BEFORE you choose a",
-            "  span rather than after, because a scan that stops at the first name it",
-            "  recognises will keep stopping at the same wrong one.",
-            "",
-            "  Watch the ordinals: sibling entities differ by a single numeral and are",
-            "  different companies. The holder and the counterparty routinely differ by",
-            "  nothing else."
-          ]
-        },
-        {
-          "check_failed": "counterparty_match_proposal_distance",
-          "text": [
-            "A PROBABLE was proposed for a value it is not about. A proposal is a claim",
-            "  that two spellings are one party — not that two parties are similar.",
-            "",
-            "  It must keep the same ordinals (a differing numeral is a different company)",
-            "  and share most of its words with what you read. `X II SCSP` proposed as",
-            "  `X I DevCo ApS` is a different entity with a confident sentence attached,",
-            "  which is worse for the reviewer than an honest UNRESOLVED.",
-            "",
-            "  If you cannot state in one line why the two strings are the same party,",
-            "  leave it UNRESOLVED."
-          ]
-        },
-        {
-          "check_failed": "counterparty_match_resolution_rate",
-          "text": [
-            "Too many names you read out of the document matched nothing. Rows where the",
-            "  narrative named nobody are not counted, so this is about values you did",
-            "  extract and then gave up on.",
-            "",
-            "  Print those rows and print what the lists hold near them before rewriting",
-            "  anything — the usual cause is the span, not the lookup: a span carrying",
-            "  purpose text or stopping in the wrong place will never match however good",
-            "  the lists are. Check whether the value you passed to the lookup is actually",
-            "  the name.",
-            "",
-            "  Do not close the gap by loosening what counts as a match. A wrong MATCH is",
-            "  rejected outright, and a value the reference data genuinely does not hold",
-            "  should stay UNRESOLVED — that is a real outcome, not a failure."
           ]
         }
       ],

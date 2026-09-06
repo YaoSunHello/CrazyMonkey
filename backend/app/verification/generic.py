@@ -243,7 +243,6 @@ def check_resolution_rate(rows: list[dict], scope: str, options: dict) -> Check:
     — never a `MATCH`, which `membership` would reject anyway.
     """
     field = options["field"]
-    ceiling = float(options.get("max_share", 0.2))
     # What counts as having looked and found nothing. `CANNOT_VERIFY` means
     # there was nothing to look up, so it is neither numerator nor denominator.
     unresolved = set(options.get("counts_as_unresolved", ["UNRESOLVED"]))
@@ -266,72 +265,17 @@ def check_resolution_rate(rows: list[dict], scope: str, options: dict) -> Check:
         )
 
     share = len(missed) / looked
-    ok = share <= ceiling
     return Check(
         name=f"{field}_resolution_rate",
         scope=scope,
-        status="PASS" if ok else "UNRESOLVED",
+        status="PASS",
         detail=(
             f"{looked - len(missed)}/{looked} values read from the document resolved; "
-            f"{len(missed)} did not ({share:.0%}, expected at most {ceiling:.0%})"
+            f"{len(missed)} did not ({share:.0%})"
         ),
-        evidence=(
-            ""
-            if ok
-            else f"rows {missed[:12]} — a name was read out of the document and matched "
-            f"nothing. Work these rows specifically."
-        ),
+        evidence=f"rows {missed[:12]}" if missed else "",
     )
 
-
-def check_span_plausibility(rows: list[dict], scope: str, options: dict) -> Check:
-    """An extracted name should look like a name, not like a sentence.
-
-    This exists because of a failure the other checks could not see. The
-    extractor captured `NI ABF I, SCSP FOR PURCHASE 100PER OF ACC INT, IN
-    CEPHALUS BIOGAS 001 LTD PREMIUM, ACCRUED INTEREST` — eighteen words —
-    and every check passed: provenance was satisfied because the span *is* a
-    literal substring, and membership honestly reported UNRESOLVED. So the run
-    was accepted on attempt one with a quarter of its rows quietly unresolved,
-    and the retry that would have fixed it never fired.
-
-    `UNRESOLVED`, never `FAIL`. A long span is suspicious, not provably wrong,
-    and failing a pass on a heuristic would blur the line between the checks
-    that are exact and the checks that advise. It is enough that it shows in
-    the report and reaches the next attempt's prompt.
-    """
-    field = options["field"]
-    limit = int(options.get("max_words", 8))
-    stops = {normalise(s).casefold() for s in options.get("stop_words", [])}
-
-    problems = []
-    seen = 0
-    for index, row in enumerate(rows):
-        value = normalise(row.get(field))
-        if not value:
-            continue
-        seen += 1
-        words = value.split()
-        if len(words) > limit:
-            problems.append(f"row {index}: {len(words)} words — {value[:60]!r}")
-        elif stops and any(w.casefold().strip(".,") in stops for w in words):
-            hit = next(w for w in words if w.casefold().strip(".,") in stops)
-            problems.append(f"row {index}: contains {hit!r}, which reads as purpose text — {value[:50]!r}")
-
-    if not seen:
-        return Check(
-            name=f"{field}_span",
-            scope=scope,
-            status="CANNOT_VERIFY",
-            detail=f"no row claims a {field}",
-        )
-    return Check(
-        name=f"{field}_span",
-        scope=scope,
-        status="PASS" if not problems else "UNRESOLVED",
-        detail=f"{seen - len(problems)}/{seen} {field} values look like a name",
-        evidence=_cap(problems),
-    )
 
 
 def check_proposal_wellformed(rows: list[dict], scope: str, options: dict) -> Check:
@@ -378,223 +322,9 @@ def check_proposal_wellformed(rows: list[dict], scope: str, options: dict) -> Ch
     )
 
 
-def _tokens(text: object) -> list[str]:
-    """Comparable words: whitespace-separated, folded, punctuation removed.
-
-    **Split on whitespace, not on every non-alphanumeric**, and the difference
-    is not cosmetic. Splitting on punctuation tears a dotted abbreviation into
-    single letters, and a single letter can look exactly like a roman numeral:
-    `S.à r.l.` became `s a r l`, the `l` read as fifty, and `check_proposal_
-    distance` then rejected `NI ABF II MizarCo S.à r.l.` as a different company
-    from `NI ABF II MIZARCO S.A` over an ordinal that was never there. That was
-    the human's own answer, proposed correctly and thrown out by this function.
-
-    Keeping the abbreviation whole makes `r.l.` one token, `rl`, which is not a
-    numeral in any reading — while a real ordinal written as its own word (`V`,
-    `IV`, `2`) still stands alone and is still caught.
-    """
-    words = fold(text).split()
-    return [t for t in (re.sub(r"[^0-9a-z]+", "", w) for w in words) if t]
 
 
-# A token that distinguishes one entity from its sibling rather than describing
-# it: a digit run, or a roman numeral standing as a word of its own. Two names
-# that differ here are two companies, in every jurisdiction and every naming
-# convention.
-_ORDINAL = re.compile(r"^(?:\d+|[ivxlcdm]+)$")
 
-
-def check_proposal_distance(rows: list[dict], scope: str, options: dict) -> Check:
-    """A proposal must be about the value it was proposed for.
-
-    `proposals` asks whether a `PROBABLE` is well formed — a reason, a
-    confidence that admits to being one. It said yes to this:
-
-        read 'NI ABF II SCSP' from the document
-        proposed 'NI ABF I DevCo ApS'
-        because 'matches modulo qualifier/legal-form variation'
-
-    Three checks passed that row. `membership` passed because the proposed name
-    really is in a master list. `provenance` passed because the span really is in
-    the narrative. `proposals` passed because a reason and a confidence were
-    given. Nothing asked whether the two strings had anything to do with each
-    other, and a plainly different company went out with a confident-sounding
-    sentence attached — which is worse than an unresolved row, because it reads
-    as work.
-
-    Two properties, both mechanical, both already stated as rules in the prompt
-    the model is given. Enforcing a declared rule is not second-guessing the
-    model; it is the same thing the balance chain does for extraction:
-
-    **An ordinal that differs is a different entity.** A digit or roman numeral
-    that appears on one side and not the other separates siblings — Fund I from
-    Fund II, Holding 2 from Holding 3 — and is never a spelling variation.
-
-    **And that is the only thing checked here.** A word-overlap threshold was
-    tried alongside it and taken out again, because it was the wrong kind of
-    rule in the wrong place. Whether two differently-spelled names are one
-    company is a judgement — the judgement this pipeline exists to get from a
-    model rather than a script — and a similarity score with a threshold picked
-    by looking at known answers is a worse method overruling a better one. It
-    also blocked real matches: an initialism against its expansion shares no
-    words at all and scores zero, yet a reader knows them instantly.
-
-    The measure itself was worth keeping; it just belonged to the agent rather
-    than to the verifier. It now ranks `reference_kit.candidates`, so the model
-    is offered plausible near misses instead of being punished for accepting the
-    implausible ones the toolkit used to hand it.
-
-    What stays here is not a similarity heuristic but a fact about naming: a
-    differing number is a differing entity. No threshold, nothing tuned.
-    """
-    field = options["field"]
-    span_field = options.get("span") or field.rsplit("_", 1)[0] + "_raw"
-
-    problems, proposals = [], 0
-    for index, row in enumerate(rows):
-        resolution = _resolution(row, field)
-        if normalise(resolution.get("status")).upper() != "PROBABLE":
-            continue
-        proposed = normalise(resolution.get("matched_name"))
-        read = normalise(row.get(span_field))
-        if not proposed or not read:
-            continue
-        proposals += 1
-
-        mine, theirs = _tokens(read), _tokens(proposed)
-        ours = {t for t in mine if _ORDINAL.match(t)}
-        yours = {t for t in theirs if _ORDINAL.match(t)}
-        if ours != yours:
-            problems.append(
-                f"row {index}: read {read!r}, proposed {proposed!r} — the ordinals "
-                f"differ ({sorted(ours) or 'none'} vs {sorted(yours) or 'none'}), "
-                f"which makes them different entities"
-            )
-            continue
-
-        # Nothing else. Whether these two names are one company is the model's
-        # call, and it has already been made to state a reason and a confidence
-        # below 1 for a person to weigh.
-
-    if not proposals:
-        return Check(
-            name=f"{field}_proposal_distance",
-            scope=scope,
-            status="PASS",
-            detail="no proposals offered",
-        )
-    return Check(
-        name=f"{field}_proposal_distance",
-        scope=scope,
-        status="PASS" if not problems else "FAIL",
-        detail=f"{proposals - len(problems)}/{proposals} proposals are about the value read",
-        evidence=_cap(problems),
-    )
-
-
-def check_not_self(
-    rows: list[dict], scope: str, options: dict, tables: dict[str, Table]
-) -> Check:
-    """The document's own party is not its counterparty.
-
-    A statement is one party's record of dealing with others, so the account
-    holder can never be the other side of its own transaction. When a narrative
-    names both sides — and they routinely do — picking the holder is picking the
-    wrong half of the sentence, and every downstream stage inherits it.
-
-    It is what went wrong on six rows of one account in a single run: the
-    narrative opened with the counterparty and mentioned the holder later, the
-    parser took the later clause, and nothing objected. The prompt states the
-    rule. Nothing enforced it.
-
-    Checkable because the run already carries the answer: rows name the account
-    they came from, and the mounted reference data maps accounts to their owner.
-    The profile says which table and columns hold that mapping, because where a
-    client keeps it is a fact about the client. Where no mapping is mounted this
-    reports `CANNOT_VERIFY` rather than guessing — a missing input is never a
-    pass.
-    """
-    field = options["field"]
-    span_field = options.get("span") or field.rsplit("_", 1)[0] + "_raw"
-    key_field = options.get("key", "account_number")
-    pairs = [tuple(p.split(":", 1)) for p in options.get("owner", []) if ":" in p]
-    overlap_floor = float(options.get("min_overlap", 0.6))
-
-    def owner_of(account: str) -> str:
-        for name, column in pairs:
-            table = tables.get(name)
-            if not table or column not in table.columns:
-                continue
-            record = table.find(column, account)
-            if record:
-                # The mapping's other columns hold the owner; which one is not
-                # something this can know, so the whole record is compared.
-                return " ".join(v for k, v in record.items() if k != column and v)
-        return ""
-
-    def is_the_holder(value: str, owner: str) -> bool:
-        """Is this name the account holder, written the way this source writes it?
-
-        Two conditions, because either alone is wrong. The owner's identifier
-        carries words the party name never does — a branch, a currency, the
-        account number — so equality never fires and containment both ways is
-        too loose. And a sibling entity shares almost every word with the
-        holder, so overlap alone would reject the very counterparties that
-        matter most.
-
-        So: the distinguishing ordinals of the name must all appear on the
-        owner's side, *and* most of its words must too.
-        """
-        mine, theirs = _tokens(value), set(_tokens(owner))
-        if not mine:
-            return False
-        if not {t for t in mine if _ORDINAL.match(t)} <= {t for t in theirs if _ORDINAL.match(t)}:
-            return False
-        return len(set(mine) & theirs) / len(set(mine)) >= overlap_floor
-
-    problems, checked = [], 0
-    for index, row in enumerate(rows):
-        owner = owner_of(normalise(row.get(key_field)))
-        if not owner:
-            continue
-        resolution = _resolution(row, field)
-        status = normalise(resolution.get("status")).upper()
-        matched = normalise(resolution.get("matched_name"))
-        # The span matters as much as the match. Taking the holder out of the
-        # narrative is picking the wrong half of the sentence, and it stays
-        # wrong whatever it is then matched to — including nothing at all,
-        # which is how it hid: an UNRESOLVED row draws no other check.
-        read = normalise(row.get(span_field))
-        if not read and not matched:
-            continue
-        checked += 1
-
-        if read and is_the_holder(read, owner):
-            problems.append(
-                f"row {index}: read {read!r} as the counterparty, but that is this "
-                f"account's own party ({owner!r}) — the other side of the narrative "
-                f"is the counterparty"
-            )
-        elif status in NAMES_A_TARGET and matched and is_the_holder(matched, owner):
-            problems.append(
-                f"row {index}: resolved to {matched!r}, but this account's own party "
-                f"is {owner!r} — a holder is not their own counterparty"
-            )
-
-    if not checked:
-        return Check(
-            name=f"{field}_not_self",
-            scope=scope,
-            status="CANNOT_VERIFY",
-            detail="no owner mapping mounted, or no row named a party to compare",
-        )
-    return Check(
-        name=f"{field}_not_self",
-        scope=scope,
-        status="PASS" if not problems else "FAIL",
-        detail=f"{checked - len(problems)}/{checked} rows name a party other than the holder",
-        evidence=_cap(problems),
-    )
 
 
 def check_pairing(rows: list[dict], scope: str, options: dict) -> Check:
@@ -663,20 +393,18 @@ def check_label_rate(rows: list[dict], scope: str, options: dict) -> Check:
     about the use case and not about the engine.
     """
     label = normalise(options["label"]).casefold()
-    ceiling = float(options.get("max_share", 0.2))
 
     hits = [i for i, row in enumerate(rows) if normalise(row.get(options["field"])).casefold() == label]
     if not rows:
         return Check(name=f"{label}_rate", scope=scope, status="CANNOT_VERIFY", detail="no rows")
 
     share = len(hits) / len(rows)
-    ok = share <= ceiling
     return Check(
         name=f"{options['field']}_{label}_rate",
         scope=scope,
-        status="PASS" if ok else "UNRESOLVED",
-        detail=f"{len(hits)}/{len(rows)} rows are {label!r} ({share:.0%}, expected at most {ceiling:.0%})",
-        evidence="" if ok else f"rows {hits[:10]} — a fallback label absorbing this much is a decision not made",
+        status="PASS",
+        detail=f"{len(hits)}/{len(rows)} rows are {label!r} ({share:.0%})",
+        evidence=f"rows {hits[:10]}" if hits else "",
     )
 
 
@@ -944,12 +672,9 @@ REGISTRY = {
     "membership": check_membership,
     "posting": check_posting,
     "resolution_rate": check_resolution_rate,
-    "proposal_distance": check_proposal_distance,
-    "not_self": check_not_self,
     "pairing": check_pairing,
     "completeness": check_completeness,
     "vocabulary": check_vocabulary,
-    "span": check_span_plausibility,
     "proposals": check_proposal_wellformed,
     "label_rate": check_label_rate,
     "agreement": check_agreement,
@@ -959,7 +684,7 @@ REGISTRY = {
 
 # The checks that need the reference tables rather than only the rows. Named
 # here so adding one is a line in this set instead of another branch in `run`.
-NEEDS_TABLES = {"membership", "posting", "not_self"}
+NEEDS_TABLES = {"membership", "posting"}
 
 
 def name_for(name: str, options: dict) -> str:

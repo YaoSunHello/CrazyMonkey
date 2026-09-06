@@ -263,6 +263,53 @@ def _words(text: object) -> set[str]:
     return {w for w in (compact(part) for part in normalise(text).split()) if w}
 
 
+def weigh(pools: list, source: dict[str, Table] | None = None):
+    """How much each word identifies, learned from the reference data itself.
+
+    Two names sharing three words look alike until you notice which three. In
+    one mounted set `ni` is in 1855 of 2726 names and `scsp` in hundreds, while
+    `azurite` is in one — so a comparison that counts words equally is mostly
+    measuring how common a naming convention is. That single mistake caused two
+    separate failures: near-miss suggestions that offered a different fund, and
+    a "this is the account holder" test that fired on a real counterparty
+    because it shared the fund-family prefix with the account label.
+
+    Inverse document frequency over whatever this run mounts, so it adapts to a
+    different client's conventions instead of assuming these. Returns a function
+    from word to weight; unknown words score as if they appeared once, which is
+    the right default for something the reference data has never seen.
+    """
+    known = _load() if source is None else source
+    frequency: dict[str, int] = {}
+    total = 0
+    for name, column in pools:
+        table = known.get(name)
+        if table is None or column not in table.columns:
+            continue
+        for entry in table.values(column):
+            total += 1
+            for word in _words(entry):
+                frequency[word] = frequency.get(word, 0) + 1
+
+    ceiling = math.log(total + 1) if total else 1.0
+    return lambda word: math.log((total + 1) / (frequency.get(word, 0) + 1)) if total else 1.0, ceiling
+
+
+def resemblance(left: object, right: object, weight) -> float:
+    """How much of what identifies `left` is also in `right`.
+
+    Deliberately one-directional, because the two callers ask different
+    questions: whether a name *is* another one, and whether a proposal has
+    quietly added an entity. Take the minimum of both directions for the
+    symmetric question.
+    """
+    mine, theirs = _words(left), _words(right)
+    if not mine:
+        return 0.0
+    total = sum(weight(w) for w in mine) or 1.0
+    return sum(weight(w) for w in mine & theirs) / total
+
+
 def candidates(
     value: object,
     pools: list,
@@ -298,43 +345,24 @@ def candidates(
     here is a suggestion for a `PROBABLE` with a reason, never a `MATCH`.
     """
     known = _load() if source is None else source
+    weight, _ = weigh(pools, known)
 
-    frequency: dict[str, int] = {}
-    entries: list[tuple[str, str, str, set[str]]] = []
+    mine = _words(value)
+    if not mine:
+        return []
+
+    scored = []
     for name, column in pools:
         table = known.get(name)
         if table is None or column not in table.columns:
             continue
         for entry in table.values(column):
-            words = _words(entry)
-            entries.append((entry, name, column, words))
-            for word in words:
-                frequency[word] = frequency.get(word, 0) + 1
-
-    if not entries:
-        return []
-    total = len(entries)
-    weigh = lambda w: math.log((total + 1) / (frequency.get(w, 0) + 1))  # noqa: E731
-
-    mine = _words(value)
-    if not mine:
-        return []
-    my_weight = sum(weigh(w) for w in mine) or 1.0
-
-    scored = []
-    for entry, name, column, words in entries:
-        shared = sum(weigh(w) for w in mine & words)
-        if not shared:
-            continue
-        their_weight = sum(weigh(w) for w in words) or 1.0
-        scored.append(
-            {
-                "matched_name": entry,
-                "table": name,
-                "column": column,
-                "score": round(min(shared / my_weight, shared / their_weight), 3),
-            }
-        )
+            score = min(resemblance(value, entry, weight), resemblance(entry, value, weight))
+            if score:
+                scored.append(
+                    {"matched_name": entry, "table": name, "column": column,
+                     "score": round(score, 3)}
+                )
     scored.sort(key=lambda c: -c["score"])
     return scored[:limit]
 
