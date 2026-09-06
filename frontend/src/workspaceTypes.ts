@@ -207,10 +207,13 @@ export interface ResultRow {
   index: number;
   bank_reference?: string;
   narrative?: string;
+  account_number?: string;
+  currency?: string;
   value_date?: string;
   post_date?: string;
   credit?: string | null;
   debit?: string | null;
+  signed_movement?: string | null;
   balance?: string | null;
   citation: SourceCitation;
 }
@@ -286,6 +289,14 @@ export interface ResultArtifact {
   url: string;
 }
 
+export interface TransactionCsvExport {
+  url: string;
+  filename: string;
+  content_type: "text/csv; charset=utf-8";
+  row_count: number;
+  sha256: string;
+}
+
 export interface JobResult {
   job_id: string;
   profile_id: string;
@@ -310,6 +321,7 @@ export interface JobResult {
   findings: ResultFinding[];
   profile_projection: { status: "AVAILABLE" | "OMITTED"; reason?: string; data?: unknown };
   artifacts: ResultArtifact[];
+  exports?: { transactions_csv?: TransactionCsvExport };
   error?: string;
 }
 
@@ -336,4 +348,6 @@ export interface WorkspaceAdapter {
   getReplay(replayId: string): Promise<RecordedReplay>;
   sourceUrl(jobId: string, sourceId: string): string;
   artifactUrl(jobId: string, artifactId: string): string;
+  transactionCsvUrl(jobId: string): string;
+  fetchTransactionCsv(jobId: string, expectedSha256: string, signal?: AbortSignal): Promise<string>;
 }

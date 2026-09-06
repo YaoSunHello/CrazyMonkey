@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { HttpWorkspaceAdapter } from "./workspaceAdapter";
+import { parseTransactionCsv, statementMovements } from "../utils/statementCsv";
 
 const processEnvironment = (globalThis as typeof globalThis & {
   process?: { env?: Record<string, string | undefined> };
@@ -24,7 +25,7 @@ describe.skipIf(!contractBaseUrl)("live UI bridge contract", () => {
     expect(bootstrap.replays.every((replay) => replay.kind === "RECORDED_REPLAY")).toBe(true);
   });
 
-  it.skipIf(!contractSampleUrl)("uploads exact sample bytes, waits for the real job, and retrieves its source and JSON artifact", { timeout: 30_000 }, async () => {
+  it.skipIf(!contractSampleUrl)("uploads exact sample bytes, waits for the real job, and retrieves its source, JSON and CSV exports", { timeout: 30_000 }, async () => {
     const sampleResponse = await fetch(contractSampleUrl!);
     expect(sampleResponse.ok).toBe(true);
     const original = new Uint8Array(await sampleResponse.arrayBuffer());
@@ -77,5 +78,21 @@ describe.skipIf(!contractBaseUrl)("live UI bridge contract", () => {
       artifact_kind: "RESULT_JSON",
       result: { job_id: result.job_id },
     });
+
+    const csvExport = result.exports?.transactions_csv;
+    expect(csvExport).toBeDefined();
+    const csvText = await adapter.fetchTransactionCsv(result.job_id, csvExport!.sha256);
+    const csvRows = parseTransactionCsv(csvText, result, csvExport!.row_count);
+    expect(csvRows).toHaveLength(document!.rows.length);
+    expect(csvRows.every((row) => row.sourceId === document!.source_id)).toBe(true);
+    expect(statementMovements(csvRows, document!).rows.map((row) => row.sourceIndex)).toEqual(
+      [...document!.rows].reverse().map((row) => row.index),
+    );
+    const download = await fetch(adapter.transactionCsvUrl(result.job_id));
+    const downloadedBytes = await download.arrayBuffer();
+    expect(new TextDecoder().decode(downloadedBytes)).toBe(csvText);
+    const digest = await crypto.subtle.digest("SHA-256", downloadedBytes);
+    expect(Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")).toBe(csvExport!.sha256);
+    expect(csvText).toContain("\r\n");
   });
 });

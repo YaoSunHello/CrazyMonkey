@@ -347,6 +347,8 @@ export function makeAdapter(overrides: Partial<WorkspaceAdapter> = {}): Workspac
     getReplay: async () => replayFixture,
     sourceUrl: (jobId, sourceId) => `/api/ui/v1/jobs/${jobId}/sources/${sourceId}`,
     artifactUrl: (jobId, artifactId) => `/api/ui/v1/jobs/${jobId}/artifacts/${artifactId}`,
+    transactionCsvUrl: (jobId) => `/api/ui/v1/jobs/${jobId}/transactions.csv`,
+    fetchTransactionCsv: async () => { throw new Error("No CSV fixture was configured for this test."); },
     ...overrides,
   };
 }

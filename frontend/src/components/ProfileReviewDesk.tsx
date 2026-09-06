@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { FinancialMovementChart } from "./FinancialMovementChart";
 import type {
   BackendConnection,
   BridgeCapabilities,
@@ -8,6 +9,7 @@ import type {
   JobStatus,
   ResultDocument,
   SourceCitation,
+  WorkspaceAdapter,
 } from "../workspaceTypes";
 
 type ReviewFilter = "ALL" | "FAILED" | "HUMAN";
@@ -47,6 +49,8 @@ interface ProfileReviewDeskProps {
   onBack(): void;
   sourceUrl(sourceId: string): string;
   artifactUrl(artifactId: string): string;
+  fetchTransactionCsv?: WorkspaceAdapter["fetchTransactionCsv"];
+  transactionCsvUrl?: string;
 }
 
 export function ProfileReviewDesk({
@@ -60,7 +64,10 @@ export function ProfileReviewDesk({
   onBack,
   sourceUrl,
   artifactUrl,
+  fetchTransactionCsv,
+  transactionCsvUrl,
 }: ProfileReviewDeskProps) {
+  const evidencePanelRef = useRef<HTMLElement>(null);
   const findings = useMemo(() => flattenFindings(result.documents), [result.documents]);
   const [filter, setFilter] = useState<ReviewFilter>("ALL");
   const [query, setQuery] = useState("");
@@ -122,6 +129,24 @@ export function ProfileReviewDesk({
         <span>{result.agent_resolution.reason}</span>
         <span>Resolution status: <b>{result.agent_resolution.status.replace("_", " ")}</b></span>
       </div>
+
+      {result.exports?.transactions_csv && fetchTransactionCsv && transactionCsvUrl && (
+        <FinancialMovementChart
+          result={result}
+          document={selectedDocument}
+          fetchCsv={fetchTransactionCsv}
+          downloadUrl={transactionCsvUrl}
+          onSelectFinding={(findingId) => {
+            const finding = findings.find((item) => item.id === findingId);
+            if (!finding) return;
+            setSelectedDocumentId(finding.sourceId);
+            setSelectedId(findingId);
+            setFilter("ALL");
+            setQuery("");
+            requestAnimationFrame(() => evidencePanelRef.current?.focus());
+          }}
+        />
+      )}
 
       <div className="review-desk">
         <aside className="document-rail" aria-labelledby="document-rail-heading">
@@ -242,6 +267,8 @@ export function ProfileReviewDesk({
         </section>
 
         <aside
+          ref={evidencePanelRef}
+          tabIndex={-1}
           className={`evidence-panel ${selected || selectedDocument ? "is-open" : ""}`}
           aria-labelledby={selected || selectedDocument ? "evidence-heading" : undefined}
           aria-label={!selected && !selectedDocument ? "Evidence details" : undefined}

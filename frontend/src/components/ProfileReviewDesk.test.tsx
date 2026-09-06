@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { ProfileReviewDesk } from "./ProfileReviewDesk";
+import { resultWithCsvFixture, transactionCsvFixture } from "../test/transactionCsvFixtures";
 import {
   bootstrapFixture,
   capabilitiesFixture,
@@ -9,6 +10,28 @@ import {
 } from "../test/workspaceFixtures";
 
 describe("ProfileReviewDesk", () => {
+  it("keeps evidence available after CSV failure and connects chart findings back to the existing desk", async () => {
+    const user = userEvent.setup();
+    const fetchCsv = vi.fn().mockRejectedValueOnce(new Error("CSV connection interrupted")).mockResolvedValue(transactionCsvFixture());
+    render(<ProfileReviewDesk result={resultWithCsvFixture} profileLabel="Bank statement validation"
+      connection={bootstrapFixture.connection} onReview={vi.fn()} onBack={vi.fn()}
+      sourceUrl={(id) => `/sources/${id}`} artifactUrl={(id) => `/artifacts/${id}`}
+      fetchTransactionCsv={fetchCsv} transactionCsvUrl="/api/ui/v1/jobs/job-123/transactions.csv" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("CSV connection interrupted");
+    expect(screen.getByRole("link", { name: "Open original PDF" })).toHaveAttribute("href", "/sources/source-1");
+    expect(screen.getByRole("heading", { name: "Backend-supplied calculation" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Retry CSV connection" }));
+    await screen.findByRole("img", { name: /Recorded balance and signed movements/ });
+    await user.type(screen.getByRole("searchbox", { name: "Search transactions and checks" }), "no matching finding");
+    expect(screen.getByText("No checks match this view.")).toBeInTheDocument();
+    await user.click(screen.getByText(/View exact transaction values/));
+    await user.click(screen.getByRole("button", { name: "Inspect FAIL · row 1" }));
+    expect(screen.getByRole("searchbox", { name: "Search transactions and checks" })).toHaveValue("");
+    expect(screen.queryByText("No checks match this view.")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Backend-supplied calculation" })).toBeInTheDocument();
+    expect(fetchCsv).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps the original PDF and statement metadata available for an unresolved check without a page citation", () => {
     const sha256 = "1234567890abcdef".repeat(4);
     const atlasId = "atlas-document-1234567890abcdef";

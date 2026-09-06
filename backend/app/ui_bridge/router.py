@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
+from app.ui_bridge.csv_export import CSV_CONTENT_TYPE, build_transactions_csv
 from app.ui_bridge.schemas import ReviewPatch
 from app.ui_bridge.service import (
     EXECUTION_LABEL,
@@ -72,6 +73,32 @@ def get_result(job_id: str) -> dict:
                 },
             )
         return job.result
+
+
+@router.get("/jobs/{job_id}/transactions.csv")
+def get_transactions_csv(job_id: str):
+    job = _job_or_404(job_id)
+    with job.lock:
+        if job.result is None:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "RESULT_NOT_READY", "message": "transaction rows are available only after processing completes"},
+            )
+        export = build_transactions_csv(job.result)
+        if not export.row_count:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "NO_TRANSACTION_ROWS", "message": "no source document produced transaction rows"},
+            )
+        descriptor = export.descriptor()
+        return Response(
+            content=export.content,
+            media_type=CSV_CONTENT_TYPE,
+            headers={
+                "Content-Disposition": f'attachment; filename="{export.filename}"',
+                "ETag": f'"{descriptor["sha256"]}"',
+            },
+        )
 
 
 @router.get("/jobs/{job_id}/sources/{source_id}")

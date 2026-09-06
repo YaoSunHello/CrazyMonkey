@@ -27,6 +27,7 @@ from app.ingestion.statements import (
 )
 from app.profiles import PROFILES, available, load, load_all
 from app.reference.tables import from_workbook
+from app.ui_bridge.csv_export import build_transactions_csv
 from app.ui_bridge.schemas import (
     MAX_BATCH_BYTES,
     MAX_EVENTS,
@@ -495,6 +496,9 @@ def _source_result(job: Job, item: StoredInput, profile) -> tuple[dict[str, Any]
             "credit": _decimal(row.credit),
             "debit": _decimal(row.debit),
             "balance": _decimal(row.balance),
+            "signed_movement": (
+                _decimal(row.amount) if row.credit is not None or row.debit is not None else None
+            ),
             "citation": _citation(item, row.provenance),
             "narrative_citation": (
                 _citation(item, row.narrative_provenance) if row.narrative_provenance else None
@@ -809,6 +813,8 @@ def process_job(job: Job) -> None:
                 }
             ],
         }
+        csv_export = build_transactions_csv(result)
+        result["exports"] = {"transactions_csv": csv_export.descriptor()} if csv_export.row_count else {}
         with job.lock:
             job.processing_state = final_state
             job.completed_at = now()
@@ -847,6 +853,7 @@ def process_job(job: Job) -> None:
                 "findings": [],
                 "profile_projection": {"status": "OMITTED", "reason": "Job processing failed."},
                 "artifacts": [],
+                "exports": {},
                 "error": f"{type(exc).__name__}: {exc}",
             }
             job.add_event("JOB_FAILED", f"Job processing failed: {type(exc).__name__}")

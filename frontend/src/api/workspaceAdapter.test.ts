@@ -9,6 +9,7 @@ import {
   startFixture,
 } from "../test/workspaceFixtures";
 import type { InventoryEntry } from "../workspaceTypes";
+import { resultWithCsvFixture, transactionCsvFixture } from "../test/transactionCsvFixtures";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -118,6 +119,61 @@ describe("HttpWorkspaceAdapter bootstrap", () => {
 });
 
 describe("HttpWorkspaceAdapter requests", () => {
+  it("accepts an additive job-bound CSV descriptor without changing JSON artifacts", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json(resultWithCsvFixture)));
+    const result = await new HttpWorkspaceAdapter().getResult("job-123");
+    expect(result.exports?.transactions_csv?.row_count).toBe(2);
+    expect(result.artifacts[0].kind).toBe("RESULT_JSON");
+  });
+
+  it.each([
+    { url: "https://untrusted.example/transactions.csv" },
+    { url: "/api/ui/v1/jobs/another-job/transactions.csv" },
+    { row_count: -1 }, { row_count: 1.5 }, { sha256: "invalid" }, { content_type: "text/html" },
+  ])("rejects an incompatible transaction export descriptor: %j", async (override) => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json({ ...resultWithCsvFixture,
+      exports: { transactions_csv: { ...resultWithCsvFixture.exports!.transactions_csv!, ...override } },
+    })));
+    await expect(new HttpWorkspaceAdapter().getResult("job-123")).rejects.toThrow("incompatible");
+  });
+
+  it("fetches CSV text from the encoded fixed endpoint and preserves its contents", async () => {
+    const csv = transactionCsvFixture();
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(csv));
+    const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const adapter = new HttpWorkspaceAdapter("https://review.test/");
+    const controller = new AbortController();
+    expect(adapter.transactionCsvUrl("job /#")).toBe("https://review.test/api/ui/v1/jobs/job%20%2F%23/transactions.csv");
+    expect(await adapter.fetchTransactionCsv("job /#", sha256, controller.signal)).toBe(csv);
+    expect(fetchMock).toHaveBeenCalledWith(adapter.transactionCsvUrl("job /#"), { signal: controller.signal });
+  });
+
+  it("rejects CSV bytes that do not match the result descriptor checksum", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => new Response("changed", {
+      headers: { "Content-Type": "text/csv; charset=utf-8" },
+    })));
+    await expect(new HttpWorkspaceAdapter().fetchTransactionCsv("job-123", "0".repeat(64)))
+      .rejects.toThrow("failed its integrity check");
+  });
+
+  it("reports an unavailable backend instead of substituting chart data", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => { throw new TypeError("offline"); }));
+    await expect(new HttpWorkspaceAdapter().fetchTransactionCsv("job-123", "0".repeat(64)))
+      .rejects.toThrow("Backend unavailable");
+  });
+
+  it("preserves CSV HTTP failures and rejects non-CSV responses", async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ detail: { code: "JOB_NOT_FOUND", message: "No such job" } }, { status: 404 }))
+      .mockResolvedValueOnce(new Response("<html>proxy page</html>", { headers: { "Content-Type": "text/html" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const adapter = new HttpWorkspaceAdapter();
+    await expect(adapter.fetchTransactionCsv("job-123", "0".repeat(64))).rejects.toMatchObject({ status: 404, code: "JOB_NOT_FOUND" });
+    await expect(adapter.fetchTransactionCsv("job-123", "0".repeat(64))).rejects.toThrow("did not return CSV");
+  });
+
   function sourceEntry(): InventoryEntry {
     const file = new File(["source bytes"], "statement.pdf", { type: "application/pdf" });
     return {

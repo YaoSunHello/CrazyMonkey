@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isTerminalJob, parseRememberedJob, WorkspaceRequestError, workspaceAdapter as defaultWorkspaceAdapter } from "./api/workspaceAdapter";
 import { JobProgress } from "./components/JobProgress";
 import { ProfileReviewDesk } from "./components/ProfileReviewDesk";
@@ -62,6 +62,8 @@ export function ProfileWorkspace({ adapter = defaultWorkspaceAdapter, active = t
   const [notice, setNotice] = useState<{ tone: "success" | "info" | "error"; message: string }>();
   const submissionRef = useRef<{ signature: string; key: string } | undefined>(undefined);
   const submissionInFlight = useRef(false);
+  const fetchTransactionCsv = useCallback((jobId: string, expectedSha256: string, signal?: AbortSignal) =>
+    adapter.fetchTransactionCsv(jobId, expectedSha256, signal), [adapter]);
 
   const capabilities = bootstrap.capabilities;
   const capabilityProfile = capabilities?.profiles.find((profile) => profile.profile_id === profileId);
@@ -386,6 +388,8 @@ export function ProfileWorkspace({ adapter = defaultWorkspaceAdapter, active = t
             onBack={newReview}
             sourceUrl={(sourceId) => adapter.sourceUrl(result.job_id, sourceId)}
             artifactUrl={(artifactId) => adapter.artifactUrl(result.job_id, artifactId)}
+            fetchTransactionCsv={fetchTransactionCsv}
+            transactionCsvUrl={adapter.transactionCsvUrl(result.job_id)}
           />
         )}
 

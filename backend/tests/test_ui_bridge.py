@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import io
 import json
 import time
 import uuid
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -17,6 +19,7 @@ from reportlab.pdfgen.canvas import Canvas
 
 from app.main import app
 from app.profiles import available, load
+from app.ui_bridge.csv_export import CSV_COLUMNS, build_transactions_csv
 from app.ui_bridge.schemas import MAX_BATCH_BYTES, MAX_FILE_BYTES, MAX_FILES
 from app.ui_bridge.store import STORE, Job
 
@@ -231,6 +234,17 @@ def test_same_filename_in_different_nested_directories_is_accepted(client: TestC
     assert status["processing_state"] == "SUCCEEDED"
     assert result["summary"]["documents_succeeded"] == 2
     assert len({document["source_id"] for document in result["documents"]}) == 2
+    descriptor = result["exports"]["transactions_csv"]
+    response = client.get(descriptor["url"])
+    exported = list(csv.DictReader(io.StringIO(response.text, newline="")))
+    assert response.status_code == 200
+    assert descriptor["row_count"] == len(exported) == 32
+    for document_index, document in enumerate(result["documents"]):
+        block = exported[document_index * 16:(document_index + 1) * 16]
+        assert {row["source_id"] for row in block} == {document["source_id"]}
+        assert {row["source_relative_path"] for row in block} == {document["relative_path"]}
+        assert [row["source_index"] for row in block] == [str(index) for index in range(16)]
+        assert [row["chain_order"] for row in block] == [str(index) for index in reversed(range(16))]
 
 
 @pytest.mark.parametrize(
@@ -558,6 +572,11 @@ def test_readable_nonstatement_is_failed_without_discarding_other_sources(
     if with_good_statement:
         assert documents["good"]["processing_state"] == "SUCCEEDED"
         assert len(documents["good"]["rows"]) == 16
+    else:
+        assert result["exports"] == {}
+        response = client.get(f"/api/ui/v1/jobs/{result['job_id']}/transactions.csv")
+        assert response.status_code == 409
+        assert response.json()["detail"]["code"] == "NO_TRANSACTION_ROWS"
 
 
 @pytest.mark.parametrize("kind", ["encrypted", "image-only"])
@@ -647,6 +666,197 @@ def test_json_artifact_download_contains_the_real_result(client: TestClient, com
     assert payload["result"]["job_id"] == result["job_id"]
     assert payload["result"]["documents"][0]["rows"] == result["documents"][0]["rows"]
     assert payload["result"]["profile_projection"]["status"] == "AVAILABLE"
+    assert payload["result"]["exports"] == result["exports"]
+
+
+def test_transaction_csv_schema_exact_bytes_hash_and_source_linkage(client: TestClient, completed_job: dict):
+    result = completed_job["result"]
+    document = result["documents"][0]
+    descriptor = result["exports"]["transactions_csv"]
+    response = client.get(descriptor["url"])
+    assert response.status_code == 200
+    assert response.headers["content-type"] == descriptor["content_type"] == "text/csv; charset=utf-8"
+    assert response.headers["content-disposition"] == f'attachment; filename="{descriptor["filename"]}"'
+    assert response.headers["etag"] == f'"{descriptor["sha256"]}"'
+    assert descriptor == {
+        "url": f"/api/ui/v1/jobs/{result['job_id']}/transactions.csv",
+        "filename": f"{result['job_id']}-transactions.csv",
+        "content_type": "text/csv; charset=utf-8",
+        "row_count": 16,
+        "sha256": hashlib.sha256(response.content).hexdigest(),
+    }
+    assert response.content == build_transactions_csv(result).content
+    assert not response.content.startswith(b"\xef\xbb\xbf")
+    assert response.content.endswith(b"\r\n")
+    reader = csv.DictReader(io.StringIO(response.content.decode("utf-8"), newline=""))
+    expected_columns = (
+        "schema_version", "job_id", "profile_id", "case_name", "execution_label",
+        "agent_resolution_status", "job_processing_state", "source_id", "source_filename",
+        "source_relative_path", "document_hash", "atlas_document_id", "atlas_extraction_status",
+        "document_processing_state", "computational_outcome", "account_short_code",
+        "account_number", "currency", "row_id", "source_index", "chain_order",
+        "value_date", "value_date_iso", "post_date", "time", "bank_reference",
+        "customer_reference", "trn_type", "narrative", "credit", "debit", "signed_movement",
+        "balance", "link_status", "difference", "finding_id", "older_row_id",
+        "derived_balance", "comparison_balance", "citation_page", "citation_x0", "citation_top",
+        "citation_x1", "citation_bottom",
+    )
+    assert tuple(reader.fieldnames) == CSV_COLUMNS == expected_columns
+    rows = list(reader)
+    assert len(rows) == descriptor["row_count"] == len(document["rows"])
+    original_hash = hashlib.sha256(completed_job["bytes"]).hexdigest()
+    links = {link["newer_row_id"]: link for link in document["transaction_links"]}
+    for index, (exported, original) in enumerate(zip(rows, document["rows"])):
+        assert exported["schema_version"] == "transactions.v1"
+        assert exported["job_id"] == result["job_id"]
+        assert exported["job_processing_state"] == result["processing_state"]
+        assert exported["execution_label"] == "LOCAL_DETERMINISTIC"
+        assert exported["agent_resolution_status"] == "NOT_RUN"
+        assert exported["source_id"] == document["source_id"]
+        assert exported["source_filename"] == document["filename"]
+        assert exported["source_relative_path"] == document["relative_path"]
+        assert exported["document_hash"] == original_hash == document["atlas"]["document_hash"]
+        assert exported["atlas_document_id"] == original["citation"]["atlas_document_id"] == document["atlas"]["document_id"]
+        assert exported["atlas_extraction_status"] == document["atlas"]["extraction_status"]
+        assert exported["computational_outcome"] == document["computational_outcome"]
+        assert exported["account_number"] == original["account_number"]
+        assert exported["account_short_code"] == document["statement"]["account_short_code"]
+        assert exported["currency"] == original["currency"]
+        assert exported["row_id"] == original["row_id"]
+        assert exported["source_index"] == str(index) == str(original["index"])
+        assert exported["chain_order"] == str(len(rows) - 1 - index)
+        for key in ("value_date", "post_date", "time", "bank_reference", "customer_reference", "trn_type"):
+            assert exported[key] == original[key]
+        for key in ("credit", "debit", "balance", "signed_movement"):
+            assert exported[key] == (original[key] if original[key] is not None else "")
+        assert exported["citation_page"] == str(original["citation"]["page"])
+        for coordinate, value in original["citation"]["bbox"].items():
+            assert exported[f"citation_{coordinate}"] == str(value)
+        link = links.get(original["row_id"], {})
+        for column, key in (("link_status", "status"), ("difference", "difference"), ("finding_id", "finding_id"),
+                            ("older_row_id", "older_row_id"), ("derived_balance", "derived_balance"),
+                            ("comparison_balance", "comparison_balance")):
+            assert exported[column] == (link.get(key) if link.get(key) is not None else "")
+    assert rows[0]["value_date"] == "31 Mar 2026"
+    assert rows[0]["value_date_iso"] == "2026-03-31"
+    assert rows[-1]["link_status"] == rows[-1]["finding_id"] == rows[-1]["difference"] == ""
+
+
+def test_transaction_csv_preserves_negative_debits_and_does_not_reanalyse(
+    client: TestClient, completed_job: dict, monkeypatch: pytest.MonkeyPatch
+):
+    def must_not_run(*args, **kwargs):
+        raise AssertionError("CSV download must not rerun ingestion, parsing or verification")
+
+    for name in ("normalize_file", "parse_statement", "run_parse_checks", "balance_chain_links"):
+        monkeypatch.setattr(f"app.ui_bridge.service.{name}", must_not_run)
+    result = completed_job["result"]
+    descriptor = result["exports"]["transactions_csv"]
+    first = client.get(descriptor["url"])
+    second = client.get(descriptor["url"])
+    assert first.status_code == second.status_code == 200
+    assert first.content == second.content
+    rows = list(csv.DictReader(io.StringIO(first.text, newline="")))
+    assert rows[0]["credit"] == ""
+    assert rows[0]["debit"] == rows[0]["signed_movement"] == "-0.44"
+    for exported, original in zip(rows, result["documents"][0]["rows"]):
+        expected = original["credit"] if original["credit"] is not None else original["debit"]
+        assert exported["signed_movement"] == (expected if expected is not None else "")
+    source_id = result["documents"][0]["source_id"]
+    assert client.get(f"/api/ui/v1/jobs/{result['job_id']}/sources/{source_id}").content == completed_job["bytes"]
+
+
+@pytest.mark.parametrize("text", ["=SUM(A1:A2)", "+CMD", "-CMD", "@SUM(A1:A2)", " \t\r\n\ufeff=1+1"])
+def test_transaction_csv_escapes_untrusted_text_only(completed_job: dict, text: str):
+    result = deepcopy(completed_job["result"])
+    result["case_name"] = text
+    document = result["documents"][0]
+    document["filename"] = document["relative_path"] = text
+    original = document["rows"][0]
+    for key in ("narrative", "bank_reference", "customer_reference", "trn_type", "account_number"):
+        original[key] = text
+    original["debit"] = original["signed_movement"] = "-0.44"
+    export = build_transactions_csv(result)
+    first = next(csv.DictReader(io.StringIO(export.content.decode("utf-8"), newline="")))
+    for key in ("case_name", "source_filename", "source_relative_path", "narrative", "bank_reference",
+                "customer_reference", "trn_type", "account_number"):
+        assert first[key] == "'" + text
+    assert first["debit"] == first["signed_movement"] == "-0.44"
+
+
+def test_transaction_csv_quotes_unicode_and_preserves_exact_decimals_and_missing_values(completed_job: dict):
+    result = deepcopy(completed_job["result"])
+    result["documents"][0]["computational_outcome"] = "FAIL"
+    result["documents"][0]["transaction_links"][0].update(status="FAIL", difference="0.01")
+    original = result["documents"][0]["rows"][0]
+    original.update(
+        narrative='Caf\u00e9, "supplier"\r\nsecond line',
+        balance="9007199254740993.12500000000000001",
+        credit="0.00",
+        debit=None,
+        signed_movement="0.00",
+        value_date="not a valid date",
+    )
+    export = build_transactions_csv(result)
+    first = next(csv.DictReader(io.StringIO(export.content.decode("utf-8"), newline="")))
+    assert b'Caf\xc3\xa9, ""supplier""\r\nsecond line' in export.content
+    assert first["narrative"] == original["narrative"]
+    assert first["balance"] == original["balance"]
+    assert first["credit"] == first["signed_movement"] == "0.00"
+    assert first["debit"] == ""
+    assert first["value_date"] == "not a valid date"
+    assert first["value_date_iso"] == ""
+    assert first["computational_outcome"] == first["link_status"] == "FAIL"
+    assert first["difference"] == "0.01"
+    original.update(credit=None, debit=None, signed_movement=None)
+    missing = next(csv.DictReader(io.StringIO(build_transactions_csv(result).content.decode("utf-8"), newline="")))
+    assert missing["credit"] == missing["debit"] == missing["signed_movement"] == ""
+
+
+@pytest.mark.parametrize("invalid", ["=1+1", "-1+2", "Infinity", "NaN", 0.44])
+def test_transaction_csv_rejects_nondecimal_money(completed_job: dict, invalid):
+    result = deepcopy(completed_job["result"])
+    result["documents"][0]["rows"][0]["debit"] = invalid
+    with pytest.raises(ValueError, match="exact finite decimal"):
+        build_transactions_csv(result)
+
+
+def test_transaction_csv_is_unavailable_before_result_or_without_rows(client: TestClient, tmp_path: Path):
+    job = Job(
+        job_id=f"job_{uuid.uuid4().hex}", idempotency_key=f"csv-pending-{uuid.uuid4().hex}",
+        request_fingerprint="csv-pending", profile_id="journal-entries", case_name="CSV pending",
+        directory=tmp_path / "not-a-stored-source-directory", files=[],
+    )
+    STORE.add_or_reuse(job)
+    url = f"/api/ui/v1/jobs/{job.job_id}/transactions.csv"
+    pending = client.get(url)
+    assert pending.status_code == 409
+    assert pending.json()["detail"]["code"] == "RESULT_NOT_READY"
+    with job.lock:
+        job.processing_state = "FAILED"
+        job.result = {"job_id": job.job_id, "documents": [], "exports": {}}
+    empty = client.get(url)
+    assert empty.status_code == 409
+    assert empty.json()["detail"]["code"] == "NO_TRANSACTION_ROWS"
+    missing = client.get(f"/api/ui/v1/jobs/job_{uuid.uuid4().hex}/transactions.csv")
+    assert missing.status_code == 404
+    assert missing.json()["detail"]["code"] == "JOB_NOT_FOUND"
+
+
+def test_transaction_csv_and_descriptor_do_not_change_on_human_review(client: TestClient, completed_job: dict):
+    result = completed_job["result"]
+    descriptor = result["exports"]["transactions_csv"]
+    before = client.get(descriptor["url"]).content
+    link = result["documents"][0]["transaction_links"][0]
+    response = client.patch(
+        f"/api/ui/v1/jobs/{result['job_id']}/findings/{link['finding_id']}/review",
+        json={"review_status": "NEEDS_FOLLOW_UP"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == link["status"]
+    after = client.get(f"/api/ui/v1/jobs/{result['job_id']}/result").json()
+    assert after["exports"]["transactions_csv"] == descriptor
+    assert client.get(descriptor["url"]).content == before
 
 
 def test_review_action_changes_only_review_state_and_refreshes_artifact(
@@ -703,6 +913,14 @@ def test_one_failed_document_does_not_discard_the_successful_document(client: Te
     assert by_client_id["bad"]["rows"] == []
     assert result["summary"]["documents_succeeded"] == 1
     assert result["summary"]["documents_failed"] == 1
+    descriptor = result["exports"]["transactions_csv"]
+    csv_response = client.get(descriptor["url"])
+    assert csv_response.status_code == 200
+    exported = list(csv.DictReader(io.StringIO(csv_response.text, newline="")))
+    assert len(exported) == descriptor["row_count"] == len(by_client_id["good"]["rows"])
+    assert {row["source_id"] for row in exported} == {by_client_id["good"]["source_id"]}
+    assert {row["job_processing_state"] for row in exported} == {"PARTIAL"}
+    assert {row["computational_outcome"] for row in exported} == {by_client_id["good"]["computational_outcome"]}
 
 
 def test_reference_workbook_is_schema_validated_but_resolution_is_not_run(client: TestClient):

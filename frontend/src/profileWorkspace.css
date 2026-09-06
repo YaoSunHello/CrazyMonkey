@@ -2217,6 +2217,69 @@ input[type="checkbox"] {
   color: var(--red-deep);
 }
 
+.financial-movements {
+  min-width: 0;
+  margin: 0 0 .85rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.movement-heading { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.movement-heading h2 { margin: .2rem 0; font-size: 1.35rem; }
+.movement-heading p { margin: .2rem 0; overflow-wrap: anywhere; }
+.movement-heading > div { min-width: 0; }
+.movement-heading > a { flex-shrink: 0; }
+.movement-disclaimer, .movement-provenance, .movement-chart-note {
+  color: var(--muted); font-size: .76rem; line-height: 1.55; margin: .6rem 0;
+}
+.movement-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin: .85rem 0; }
+.movement-kpis > div { padding: .85rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-muted); min-width: 0; }
+.movement-kpis dt { font-weight: 700; font-size: .8rem; }
+.movement-kpis dt small { display: block; margin-top: .2rem; color: var(--muted); font-weight: 400; font-size: .72rem; }
+.movement-kpis dd { margin: .6rem 0 0; font-size: clamp(1.15rem, 1.65vw, 1.7rem); font-weight: 750; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.movement-kpis dd span { font-size: .7rem; font-weight: 600; color: var(--muted); }
+.movement-status-summary { font-size: .79rem; color: var(--ink); line-height: 1.6; }
+.movement-legend { display: flex; flex-wrap: wrap; gap: .55rem 1.25rem; font-size: .73rem; }
+.movement-legend span { display: inline-flex; align-items: center; gap: .4rem; }
+.movement-legend i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
+.movement-legend .legend-balance { height: 3px; background: var(--ink); }
+.legend-inflow { background: var(--green); }
+.legend-outflow { background: var(--blue); }
+.movement-legend .legend-failure { background: var(--red-soft); border: 1px solid var(--red); }
+.movement-chart { min-width: 0; margin: 1rem 0 .5rem; }
+.movement-svg-scroll { overflow-x: auto; overscroll-behavior-inline: contain; }
+.movement-svg-scroll svg { display: block; width: 100%; min-width: 620px; max-height: 340px; }
+.plot-section-title { fill: var(--ink); font-size: 12px; font-weight: 700; }
+.plot-axis { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.plot-grid { stroke: var(--line); stroke-dasharray: 3 4; }
+.plot-zero { stroke: var(--line-strong); }
+.balance-path { fill: none; stroke: var(--ink); stroke-width: 2; }
+.balance-point { fill: var(--ink); }
+.movement-bar-in { fill: var(--green); }
+.movement-bar-out { fill: var(--blue); }
+.plot-failure { fill: var(--red); font-size: 18px; font-weight: 800; }
+.plot-source-point { cursor: pointer; }
+.plot-source-point:hover .balance-point { r: 5; }
+.movement-exclusions { margin: .7rem 0; padding: .7rem .8rem; background: var(--surface-muted); border-left: 3px solid var(--amber); font-size: .79rem; line-height: 1.6; }
+.movement-exclusions summary { cursor: pointer; font-weight: 650; }
+.movement-values { border-top: 1px solid var(--line); padding-top: .8rem; font-size: .78rem; }
+.movement-values > summary { cursor: pointer; font-weight: 650; }
+.movement-table-scroll { margin-top: .8rem; max-height: 390px; overflow: auto; overscroll-behavior: contain; }
+.movement-table-scroll table { border-collapse: collapse; width: 100%; font-size: .75rem; }
+.movement-table-scroll caption { text-align: left; padding: .5rem 0; color: var(--muted); }
+.movement-table-scroll th, .movement-table-scroll td { text-align: left; vertical-align: top; padding: .65rem; border-bottom: 1px solid var(--line); }
+.movement-table-scroll thead th { background: var(--surface-muted); white-space: nowrap; }
+.movement-table-scroll td:nth-child(n+4):nth-child(-n+7) { white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+.movement-table-scroll td:nth-child(3) { min-width: 170px; max-width: 340px; overflow-wrap: anywhere; }
+.movement-table-scroll th small { display: block; white-space: nowrap; font-weight: 400; }
+.movement-table-scroll button, .movement-pagination button { padding: .35rem .5rem; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--surface); font: inherit; color: var(--green-deep); cursor: pointer; }
+.movement-pagination { display: flex; gap: .8rem; align-items: center; margin: .7rem 0; }
+.movement-pagination button:disabled { opacity: .5; cursor: default; }
+.movement-error { margin: .8rem 0; padding: .9rem; border: 1px solid var(--red); border-radius: 6px; background: var(--red-soft); font-size: .82rem; }
+.movement-svg-scroll:focus-visible, .movement-table-scroll:focus-visible, .evidence-panel:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
 @media (max-width: 1149px) {
   .intake-intro {
     grid-template-areas:
@@ -2315,6 +2378,13 @@ input[type="checkbox"] {
 }
 
 @media (max-width: 799px) {
+  .financial-movements { padding: .85rem; }
+  .movement-heading { align-items: flex-start; flex-direction: column; gap: .65rem; }
+  .movement-kpis { grid-template-columns: 1fr; }
+  .movement-kpis > div { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+  .movement-kpis dd { margin: 0; font-size: 1.1rem; text-align: right; }
+  .movement-pagination { flex-wrap: wrap; }
+
   body {
     background: var(--canvas);
   }

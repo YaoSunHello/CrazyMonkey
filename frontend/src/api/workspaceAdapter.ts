@@ -256,6 +256,37 @@ export class HttpWorkspaceAdapter implements WorkspaceAdapter {
     return `${this.baseUrl}/api/ui/v1/jobs/${encodeURIComponent(jobId)}/artifacts/${encodeURIComponent(artifactId)}`;
   }
 
+  transactionCsvUrl(jobId: string): string {
+    return `${this.baseUrl}/api/ui/v1/jobs/${encodeURIComponent(jobId)}/transactions.csv`;
+  }
+
+  async fetchTransactionCsv(jobId: string, expectedSha256: string, signal?: AbortSignal): Promise<string> {
+    // Resolve the job-bound endpoint locally; never fetch an arbitrary export URL.
+    let response: Response;
+    try {
+      response = await fetch(this.transactionCsvUrl(jobId), { signal });
+    } catch (error) {
+      throw new Error(`Backend unavailable. ${messageFrom(error)}`, { cause: error });
+    }
+    if (!response.ok) throw await responseError(response);
+    if (response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "text/csv") {
+      throw new Error("The transaction export did not return CSV data.");
+    }
+    if (!/^[a-f\d]{64}$/i.test(expectedSha256)) {
+      throw new Error("The transaction export has an invalid integrity checksum.");
+    }
+    const bytes = await response.arrayBuffer();
+    const digest = await sha256Hex(bytes);
+    if (digest !== expectedSha256.toLowerCase()) {
+      throw new Error("The transaction CSV failed its integrity check and was not displayed.");
+    }
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch (error) {
+      throw new Error("The transaction export is not valid UTF-8 CSV data.", { cause: error });
+    }
+  }
+
   private async fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     let response: Response;
     try {
@@ -270,6 +301,14 @@ export class HttpWorkspaceAdapter implements WorkspaceAdapter {
       throw new Error("The backend returned invalid JSON.", { cause: error });
     }
   }
+}
+
+async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error("CSV integrity verification is unavailable in this browser.");
+  }
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export const workspaceAdapter: WorkspaceAdapter = new HttpWorkspaceAdapter(
@@ -387,6 +426,7 @@ function requireJobResult(value: unknown, expectedJobId: string): JobResult {
     || !value.findings.every(isResultFinding)
     || !Array.isArray(value.artifacts)
     || !value.artifacts.every(isResultArtifact)
+    || !isResultExports(value.exports, expectedJobId)
     || !isRecord(value.agent_resolution)
     || value.agent_resolution.status !== "NOT_RUN"
     || !isText(value.agent_resolution.reason)
@@ -646,6 +686,19 @@ function isResultArtifact(value: unknown): boolean {
     && isText(value.filename)
     && isText(value.content_type)
     && isText(value.url);
+}
+
+function isResultExports(value: unknown, jobId: string): boolean {
+  if (value === undefined) return true;
+  if (!isRecord(value)) return false;
+  const csv = value.transactions_csv;
+  return csv === undefined || (isRecord(csv)
+    && csv.url === `/api/ui/v1/jobs/${encodeURIComponent(jobId)}/transactions.csv`
+    && isText(csv.filename)
+    && csv.content_type === "text/csv; charset=utf-8"
+    && isNonNegativeInteger(csv.row_count)
+    && typeof csv.sha256 === "string"
+    && /^[a-f\d]{64}$/i.test(csv.sha256));
 }
 
 function isResultSummary(value: unknown): boolean {
