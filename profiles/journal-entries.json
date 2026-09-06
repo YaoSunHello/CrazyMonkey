@@ -700,6 +700,13 @@
             ]
           },
           "describe": "every transaction_type must exist in the chart of accounts"
+        },
+        {
+          "name": "stage_tie",
+          "options": {
+            "field": "journal_lines"
+          },
+          "describe": "the journal's total must equal the movement the rows describe, so a batch that balances at the wrong magnitude is caught"
         }
       ],
       "nudges": [
