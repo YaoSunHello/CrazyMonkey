@@ -45,10 +45,30 @@ function environment() {
   return out;
 }
 
+// Stamped so a stale deployment can be told apart from a live one that is
+// failing. Without it, "still 500" means either and there is no way to know.
+const BUILD = "run.js/cjs-2";
+
 module.exports = async (req, res) => {
   const url = new URL(req.url, `https://${req.headers.host}`);
   const account = url.searchParams.get("account") || ALL;
   const profile = url.searchParams.get("profile") || "journal-entries";
+
+  /* Answers before anything else can throw: which build is serving, whether
+     the sandbox module resolves, and which of the pipeline's keys this
+     deployment actually has. Names only — never a value. */
+  if (url.searchParams.get("probe")) {
+    let sandbox = "ok";
+    try { require("@vercel/sandbox"); } catch (error) { sandbox = String(error && error.message); }
+    res.setHeader("Content-Type", "application/json");
+    return res.end(JSON.stringify({
+      build: BUILD,
+      runtime: process.version,
+      sandbox_module: sandbox,
+      env_present: PASSED.filter((k) => process.env[k]),
+      env_missing: PASSED.filter((k) => !process.env[k]),
+    }, null, 1));
+  }
 
   const reject = (code, payload) => {
     res.statusCode = code;
