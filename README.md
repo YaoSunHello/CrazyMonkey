@@ -8,6 +8,12 @@
   ![Encode](https://img.shields.io/badge/Encode-Hackathon-2563EB?style=for-the-badge)
   
 
+
+**[▶ Live demo — crazymonkey-live.vercel.app](https://crazymonkey-live.vercel.app/)**
+
+Seven statements, 100 transactions, every run replayable with its trace, its checks
+and the parser the agent wrote — and CSV, JSON and notes you can take away.
+
 CrazyMonkey is a hackathon product for fund managers and investment teams. It helps transform messy investment documents into clean, model-ready datasets.
 
 The MVP focuses on the part of the research pipeline before IC materials: taking PDFs, statements, NAV packs, portfolio reports, and similar files, then extracting traceable structured data that analysts can validate and export.
