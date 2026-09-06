@@ -47,7 +47,7 @@ function environment() {
 
 // Stamped so a stale deployment can be told apart from a live one that is
 // failing. Without it, "still 500" means either and there is no way to know.
-const BUILD = "run.js/cjs-2";
+const BUILD = "run.js/cjs-3-dynamic-import";
 
 module.exports = async (req, res) => {
   const url = new URL(req.url, `https://${req.headers.host}`);
@@ -59,7 +59,7 @@ module.exports = async (req, res) => {
      deployment actually has. Names only — never a value. */
   if (url.searchParams.get("probe")) {
     let sandbox = "ok";
-    try { require("@vercel/sandbox"); } catch (error) { sandbox = String(error && error.message); }
+    try { await import("@vercel/sandbox"); } catch (error) { sandbox = String(error && error.message); }
     res.setHeader("Content-Type", "application/json");
     return res.end(JSON.stringify({
       build: BUILD,
@@ -106,7 +106,11 @@ module.exports = async (req, res) => {
   };
 
   try {
-    const { Sandbox } = require("@vercel/sandbox");
+    // Dynamic import, not require: the package ships a .cjs build but that
+    // build itself requires an ES-only module, so require() dies at the
+    // first call with "require() of ES Module ... not supported". import()
+    // works from CommonJS and is the only way in.
+    const { Sandbox } = await import("@vercel/sandbox");
 
     send("creating a sandbox…");
     const sandbox = await Sandbox.create({
