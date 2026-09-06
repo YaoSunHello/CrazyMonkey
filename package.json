@@ -1,0 +1,8 @@
+{
+  "name": "crazymonkey-console",
+  "private": true,
+  "description": "The console is static; this exists only so the live-run endpoint has its one dependency.",
+  "dependencies": {
+    "@vercel/sandbox": "^3.2.1"
+  }
+}

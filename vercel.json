@@ -1,14 +1,27 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": null,
-  "installCommand": null,
+  "buildCommand": "echo 'public/ is committed; nothing to build'",
   "outputDirectory": "public",
   "cleanUrls": false,
   "trailingSlash": false,
+  "functions": {
+    "api/run.ts": {
+      "maxDuration": 300
+    }
+  },
   "rewrites": [
-    { "source": "/api/runs", "destination": "/api/runs.json" },
-    { "source": "/api/examples", "destination": "/api/examples.json" },
-    { "source": "/api/runs/:id", "destination": "/api/runs/:id.json" }
+    {
+      "source": "/api/runs",
+      "destination": "/api/runs.json"
+    },
+    {
+      "source": "/api/examples",
+      "destination": "/api/examples.json"
+    },
+    {
+      "source": "/api/runs/:id",
+      "destination": "/api/runs/:id.json"
+    }
   ]
 }

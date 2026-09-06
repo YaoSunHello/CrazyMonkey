@@ -276,50 +276,73 @@
       CM.api.profiles().catch(() => []),
     ]);
 
-    /* A published snapshot has no serve.py to restart and nowhere to put an
-       uploaded file, so telling somebody to pass a different flag is advice
-       they cannot act on. Show what this deployment does have instead: the
-       profiles, as a selection, and the recorded runs under each one. */
+    /* The deployed console. There is no serve.py to restart and nowhere to put
+       an uploaded file, so the old message told somebody to pass a flag to a
+       process that does not exist.
+
+       The documents are not uploaded here — they are already in the repository
+       the sandbox clones, which is why there is no browse control and does not
+       need to be one. Pick a statement and a profile; the run happens in a
+       Vercel Sandbox with the pipeline completely unmodified. */
     if (health.static) {
       const runs = await CM.api.runs().then((r) => r.runs).catch(() => []);
-      const counted = profiles.map((p) => ({
-        ...p, runs: runs.filter((r) => r.profile === p.id),
-      }));
-      const first = (counted.find((p) => p.runs.length) || counted[0] || {}).id;
+      const bundled = statements.length ? statements : [...new Set(runs.map((r) => r.account))]
+        .map((account) => ({ account, filename: "" }));
 
-      target.innerHTML = `<div class="pad" style="max-width:760px">
-        <div class="notice plain">This is a published snapshot. A run spends model calls and
-          creates a sandbox per document, so it happens on the machine that owns those
-          credentials — what is here is every run already recorded, with its trace, its
-          checks and its exports.</div>
+      target.innerHTML = `<div class="pad" style="max-width:800px">
+        <div class="notice plain">A run happens in a Vercel Sandbox — a Linux machine created
+          for it, running the same pipeline as a laptop does, unmodified. It takes a few
+          minutes per document. The statements come from the repository the sandbox clones,
+          so there is nothing to upload.</div>
         <section class="panel">
-          <header><h3>Profiles</h3></header>
+          <header><h3>Start a run</h3></header>
           <div class="body">
             <div class="launcher">
+              <div class="field"><label for="acct">statement</label>
+                <select id="acct"><option value="__all__">— all ${bundled.length} statements,
+                  one batch —</option>${bundled.map((s) =>
+                  `<option value="${esc(s.account)}">${esc(s.account)}${
+                    s.filename ? ` — ${esc(s.filename)}` : ""}</option>`).join("")}</select></div>
               <div class="field"><label for="prof">profile</label>
-                <select id="prof">${counted.map((p) =>
-                  `<option value="${esc(p.id)}"${p.id === first ? " selected" : ""}>${
-                    esc(p.id)} — ${esc(p.label)}</option>`).join("")}</select>
+                <select id="prof">${profiles.map((p) =>
+                  `<option value="${esc(p.id)}">${esc(p.id)} — ${esc(p.label)}</option>`
+                ).join("")}</select>
                 <span class="note" id="profnote"></span></div>
-              <div id="profruns"></div>
+              <div class="confirm-row">
+                <button class="btn" id="golive">Start the run</button>
+                <span class="note" id="livenote" style="color:var(--ink-faint)">
+                  one statement is quicker; all seven takes longer</span>
+              </div>
             </div>
           </div>
+        </section>
+        <section class="panel" id="livelog" hidden>
+          <header><h3>live output</h3><span class="spacer"></span>
+            <span class="note" id="livemeta"></span></header>
+          <div class="body tight"><pre id="livelines" style="margin:0;padding:14px 16px;
+            max-height:460px;overflow:auto;background:var(--forest-deep);color:var(--term-ink);
+            font-family:var(--mono);font-size:11.5px;line-height:1.6"></pre></div>
+        </section>
+        <section class="panel">
+          <header><h3>Recorded runs on this profile</h3></header>
+          <div class="body"><div id="profruns"></div></div>
         </section></div>`;
 
-      const show = () => {
-        const picked = counted.find((p) => p.id === $("prof").value) || { runs: [], passes: [] };
+      const listRuns = () => {
+        const id = $("prof").value;
+        const mine = runs.filter((r) => r.profile === id);
+        const picked = profiles.find((p) => p.id === id) || {};
         $("profnote").textContent = picked.passes && picked.passes.length
-          ? `passes: ${picked.passes.join(" → ")}`
-          : "no passes declared";
-        $("profruns").innerHTML = picked.runs.length
+          ? `passes: ${picked.passes.join(" → ")}` : "";
+        $("profruns").innerHTML = mine.length
           ? `<table class="rows"><thead><tr><th>run</th><th>document</th>
                <th class="num">rows</th><th>outcome</th></tr></thead><tbody>${
-             picked.runs.map((r) => `<tr><td><a href="#" data-run="${esc(r.run_id)}">${
+             mine.map((r) => `<tr><td><a href="#" data-run="${esc(r.run_id)}">${
                esc(r.run_id)}</a></td><td>${esc(r.account)}</td><td class="num">${
                r.rows}</td><td>${r.accepted ? "accepted" : "not accepted"} · ${
                r.attempts} attempt${r.attempts === 1 ? "" : "s"}</td></tr>`).join("")
              }</tbody></table>`
-          : `<div class="notice plain">No run of this profile is in this snapshot.</div>`;
+          : `<div class="notice plain">No recorded run of this profile.</div>`;
         $("profruns").querySelectorAll("[data-run]").forEach((link) => {
           link.onclick = (event) => {
             event.preventDefault();
@@ -327,8 +350,49 @@
           };
         });
       };
-      $("prof").onchange = show;
-      show();
+      $("prof").onchange = listRuns;
+      listRuns();
+
+      /* Server-sent events rather than polling: the run produces lines for
+         minutes and the browser should show each one as it arrives, which is
+         the only feedback there is while a sandbox is working. */
+      $("golive").onclick = () => {
+        const account = $("acct").value;
+        const profile = $("prof").value;
+        const button = $("golive");
+        button.disabled = true;
+        button.textContent = "Running…";
+        $("livelog").hidden = false;
+        const pre = $("livelines");
+        pre.textContent = "";
+        const started = Date.now();
+
+        const source = new EventSource(
+          `/api/run?account=${encodeURIComponent(account)}&profile=${encodeURIComponent(profile)}`);
+
+        const stop = (why) => {
+          source.close();
+          button.disabled = false;
+          button.textContent = "Start the run";
+          $("livemeta").textContent = why;
+        };
+
+        source.onmessage = (event) => {
+          let line = event.data;
+          try { line = JSON.parse(event.data); } catch (_) { /* already text */ }
+          if (String(line).startsWith("__exit__")) {
+            stop(`finished — exit ${String(line).split(" ")[1]}`);
+          } else if (String(line).startsWith("__error__")) {
+            stop(String(line).slice(10));
+          } else {
+            pre.textContent += line + "\n";
+            pre.scrollTop = pre.scrollHeight;
+            $("livemeta").textContent =
+              `${Math.round((Date.now() - started) / 1000)}s · ${pre.textContent.split("\n").length} lines`;
+          }
+        };
+        source.onerror = () => stop("connection closed — the sandbox may still be running");
+      };
       return;
     }
 
