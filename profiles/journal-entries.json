@@ -198,7 +198,11 @@
         "                                  case-insensitive",
         "    t = kit.table(name)",
         "      t.columns / t.contains(col, v) / t.find(col, v) / t.values(col)",
-        "      t.candidates(col, v, n)     -> near matches, ranked, for PROPOSING only",
+        "    kit.candidates(value, pools, n) -> near misses across the pools, RANKED by",
+        "                                  how much the words they share actually identify —",
+        "                                  a word in most names counts for little, a rare one",
+        "                                  for a lot. Each carries matched_name, table and a",
+        "                                  score. For PROPOSING only, never for a MATCH.",
         "    kit.write_result(rows)        -> writes /work/result.json",
         "",
         "**Do not hand-roll normalisation, comma-unwrapping or a variant ladder.**",
@@ -503,10 +507,9 @@
           "name": "proposal_distance",
           "options": {
             "field": "counterparty_match",
-            "span": "counterparty_raw",
-            "min_overlap": 0.5
+            "span": "counterparty_raw"
           },
-          "describe": "a PROBABLE must be about the value you read — same ordinals, mostly the same words"
+          "describe": "a PROBABLE must not differ from what you read by a number or ordinal — those are different entities"
         },
         {
           "name": "not_self",

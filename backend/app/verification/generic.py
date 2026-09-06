@@ -430,16 +430,25 @@ def check_proposal_distance(rows: list[dict], scope: str, options: dict) -> Chec
     that appears on one side and not the other separates siblings — Fund I from
     Fund II, Holding 2 from Holding 3 — and is never a spelling variation.
 
-    **A proposal must share most of its words with what was read.** A name that
-    introduces whole new words is a different name. The threshold is profile
-    data because how much of a name a document is willing to omit is a fact
-    about the document, not about naming.
+    **And that is the only thing checked here.** A word-overlap threshold was
+    tried alongside it and taken out again, because it was the wrong kind of
+    rule in the wrong place. Whether two differently-spelled names are one
+    company is a judgement — the judgement this pipeline exists to get from a
+    model rather than a script — and a similarity score with a threshold picked
+    by looking at known answers is a worse method overruling a better one. It
+    also blocked real matches: an initialism against its expansion shares no
+    words at all and scores zero, yet a reader knows them instantly.
 
-    Nothing here knows a company, a jurisdiction or a legal form.
+    The measure itself was worth keeping; it just belonged to the agent rather
+    than to the verifier. It now ranks `reference_kit.candidates`, so the model
+    is offered plausible near misses instead of being punished for accepting the
+    implausible ones the toolkit used to hand it.
+
+    What stays here is not a similarity heuristic but a fact about naming: a
+    differing number is a differing entity. No threshold, nothing tuned.
     """
     field = options["field"]
     span_field = options.get("span") or field.rsplit("_", 1)[0] + "_raw"
-    overlap_floor = float(options.get("min_overlap", 0.5))
 
     problems, proposals = [], 0
     for index, row in enumerate(rows):
@@ -463,18 +472,9 @@ def check_proposal_distance(rows: list[dict], scope: str, options: dict) -> Chec
             )
             continue
 
-        # How much of the shorter name the two have in common. Comparing against
-        # the shorter side means a list entry that appends a qualifier the
-        # document omits is still recognised, which is the case this must not
-        # break.
-        shared = len(set(mine) & set(theirs))
-        floor = min(len(set(mine)), len(set(theirs))) or 1
-        if shared / floor < overlap_floor:
-            problems.append(
-                f"row {index}: read {read!r}, proposed {proposed!r} — they share "
-                f"{shared} of {floor} words, which is a different name rather than "
-                f"another spelling"
-            )
+        # Nothing else. Whether these two names are one company is the model's
+        # call, and it has already been made to state a reason and a confidence
+        # below 1 for a person to weigh.
 
     if not proposals:
         return Check(

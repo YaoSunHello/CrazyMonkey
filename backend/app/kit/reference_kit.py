@@ -27,6 +27,7 @@ Available inside the sandbox:
 from __future__ import annotations
 
 import difflib
+import math
 import json
 import os
 import unicodedata
@@ -255,6 +256,87 @@ def narrative_span(narrative: object, name: object) -> str:
             if seen == target:
                 return text[start : end + 1].strip(" ,.")
     return ""
+
+
+def _words(text: object) -> set[str]:
+    """Comparable words. Whitespace-separated so a dotted abbreviation stays whole."""
+    return {w for w in (compact(part) for part in normalise(text).split()) if w}
+
+
+def candidates(
+    value: object,
+    pools: list,
+    limit: int = 5,
+    source: dict[str, Table] | None = None,
+) -> list[dict]:
+    """Near misses worth a person's judgement, ranked by what they share.
+
+    The sibling of `lookup`: same pools, same order, but for the case where
+    nothing matched exactly and you need to see what is close.
+
+    **Ranked by how much the shared words identify, not by how similar the
+    characters are**, and the difference decides whether this is useful. Raw
+    character similarity treats every word as equal evidence: against one
+    mounted set `ni` appears in 1855 of 2726 names and `scsp` in hundreds, so
+    two names sharing only those look alike while differing in the word that
+    means something. Asked for near misses on `NI ABF II SCSP`, character
+    similarity offered `NI GCF II USD HedgeCo SCSp` — a different fund — and a
+    run duly proposed it. Asked about `NI V AZURITE HOLDCO LTD` it returned
+    nothing at all, though `NI V Azurite HoldCo Limited` was sitting in the
+    reference data.
+
+    Weighting a word by how rare it is across the mounted data fixes both, and
+    knows nothing about the data to do it: a word in nearly every name carries
+    nearly no information, a word in one name carries almost all of it. The same
+    two queries now return the right entry first.
+
+    Scored both directions, so a candidate that *adds* a rare word ranks below
+    one that merely spells a word differently — adding `Co-Invest` makes a
+    different vehicle, adding a jurisdiction suffix does not.
+
+    Every result is a real entry, and none of them is an answer: `matched_name`
+    here is a suggestion for a `PROBABLE` with a reason, never a `MATCH`.
+    """
+    known = _load() if source is None else source
+
+    frequency: dict[str, int] = {}
+    entries: list[tuple[str, str, str, set[str]]] = []
+    for name, column in pools:
+        table = known.get(name)
+        if table is None or column not in table.columns:
+            continue
+        for entry in table.values(column):
+            words = _words(entry)
+            entries.append((entry, name, column, words))
+            for word in words:
+                frequency[word] = frequency.get(word, 0) + 1
+
+    if not entries:
+        return []
+    total = len(entries)
+    weigh = lambda w: math.log((total + 1) / (frequency.get(w, 0) + 1))  # noqa: E731
+
+    mine = _words(value)
+    if not mine:
+        return []
+    my_weight = sum(weigh(w) for w in mine) or 1.0
+
+    scored = []
+    for entry, name, column, words in entries:
+        shared = sum(weigh(w) for w in mine & words)
+        if not shared:
+            continue
+        their_weight = sum(weigh(w) for w in words) or 1.0
+        scored.append(
+            {
+                "matched_name": entry,
+                "table": name,
+                "column": column,
+                "score": round(min(shared / my_weight, shared / their_weight), 3),
+            }
+        )
+    scored.sort(key=lambda c: -c["score"])
+    return scored[:limit]
 
 
 def lookup(
