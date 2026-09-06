@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "echo 'the site is committed already; nothing to build'",
-  "installCommand": "echo 'no npm dependencies'",
-  "outputDirectory": "backend/test-simple-frontend/dist",
+  "buildCommand": null,
+  "installCommand": null,
+  "outputDirectory": "public",
   "cleanUrls": false,
   "trailingSlash": false,
   "rewrites": [
