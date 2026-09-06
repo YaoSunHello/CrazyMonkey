@@ -23,5 +23,6 @@
       "source": "/api/runs/:id",
       "destination": "/api/runs/:id.json"
     }
-  ]
+  ],
+  "installCommand": "npm install --no-audit --no-fund"
 }

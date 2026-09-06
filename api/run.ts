@@ -23,9 +23,11 @@
    the run does not die with it, and the browser reconnects with ?sandbox=<id>
    to pick the logs back up.  */
 
-import { Sandbox } from "@vercel/sandbox";
-
-export const config = { maxDuration: 300 };
+// Imported inside the handler, not here. At module scope a packaging problem —
+// the dependency not installed, the wrong Node version — becomes an opaque
+// FUNCTION_INVOCATION_FAILED with nothing to go on from outside. Imported late
+// and caught, the same problem arrives as a sentence naming the module.
+export const maxDuration = 300;
 
 // Cloned rather than bundled. The pipeline is not part of this deployment and
 // must not be — it is a Python project with its own lockfile, and `uv sync`
@@ -85,10 +87,10 @@ export default async function handler(request: Request): Promise<Response> {
       const send = (line: string) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(line)}\n\n`));
 
-      let sandbox: Awaited<ReturnType<typeof Sandbox.create>> | undefined;
       try {
+        const { Sandbox } = await import("@vercel/sandbox");
         send("creating a sandbox…");
-        sandbox = await Sandbox.create({
+        const sandbox = await Sandbox.create({
           source: { type: "git", url: REPO, revision: "main", depth: 1 },
           resources: { vcpus: 2 },
           timeout: 45 * 60 * 1000,
@@ -96,12 +98,23 @@ export default async function handler(request: Request): Promise<Response> {
         });
         send(`sandbox ${sandbox.sandboxId} up — installing dependencies`);
 
+        // uv is on the managed Python image, but which image a runtime maps to
+        // is not something to bet a demo on — installing it when it is already
+        // there costs a second, and not having it is a dead run.
         const install = await sandbox.runCommand({
-          cmd: "uv", args: ["sync", "--frozen"], cwd: "/vercel/sandbox",
+          cmd: "sh",
+          args: [
+            "-c",
+            "command -v uv >/dev/null 2>&1 || pip install --quiet uv; " +
+            "uv sync --frozen 2>&1 || uv sync 2>&1",
+          ],
+          cwd: "/vercel/sandbox",
         });
         if (install.exitCode !== 0) {
-          send(`uv sync failed (${install.exitCode})`);
-          send(await install.stderr());
+          send(`installing dependencies failed (${install.exitCode})`);
+          for (const line of (await install.stderr()).split("\n").slice(-25)) {
+            if (line.trim()) send(line);
+          }
           return;
         }
         send("dependencies installed");
