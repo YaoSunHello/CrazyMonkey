@@ -93,17 +93,43 @@ def test_a_dropped_row_is_caught_even_though_the_chain_still_links(statement):
     assert status_of(checks, "printed_openings") == "FAIL"
 
 
-def test_missing_marker_is_unresolved_not_failed():
+def test_missing_marker_cannot_be_verified_rather_than_unresolved():
     """Four of the seven statements print no opening marker.
 
-    Absent evidence must not be reported as either a pass or a failure.
+    Absent evidence must not be reported as a pass or a failure — and the
+    distinction between the two honest outcomes matters more than it looks.
+    `UNRESOLVED` says the run fell short; `CANNOT_VERIFY` says the document does
+    not carry what the check needs. Reported as the former, this looked like a
+    shortfall, and the profile grew a nudge naming the two statements that print
+    no markers so the model would not chase them. Two of those were hold-out
+    documents — which stopped being a hold-out the moment somebody opened them
+    to write that nudge. The right status removes the reason to look.
     """
     dkk = SAMPLES / "20260331_NI_A_B__FUND_II_CALDER_DKK_4319.pdf"
     if not dkk.exists():
         pytest.skip("sample not present")
     checks = run_parse_checks(parse_statement(dkk))
-    assert status_of(checks, "printed_openings") == "UNRESOLVED"
+    assert status_of(checks, "printed_openings") == "CANNOT_VERIFY"
     assert [c for c in checks if c.status == "FAIL"] == []
+
+
+def test_no_nudge_names_a_document():
+    """A nudge naming a document is a note written by opening that document.
+
+    Harmless-looking, and it is how a hold-out quietly stops being one. If a
+    document needs special handling, the check that judges it should say so
+    generically instead.
+    """
+    from app.profiles import available, load
+
+    named = {
+        (name, spec.name, tuple(nudge.documents))
+        for name in available()
+        for spec in load(name).passes
+        for nudge in spec.nudges
+        if nudge.documents
+    }
+    assert named == set(), f"nudges naming specific documents: {named}"
 
 
 def test_provenance_failure_names_the_likely_cause(statement):

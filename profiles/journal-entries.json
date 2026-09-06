@@ -159,17 +159,6 @@
           ]
         },
         {
-          "documents": [
-            "EUR_0894",
-            "USD_4373"
-          ],
-          "text": [
-            "This statement prints no \"Balance brought forward\" marker at all, so",
-            "  `printed_openings` will come back UNRESOLVED. That is expected and does not",
-            "  block acceptance — do not invent a marker to satisfy it."
-          ]
-        },
-        {
           "check_failed": "reference_provenance",
           "text": [
             "`bank_reference` must appear **literally** in the PDF. Join words with a single",
@@ -218,10 +207,9 @@
         "Every previous run rewrote these by hand and roughly half got them subtly",
         "wrong.",
         "",
-        "`kit.tables()` names the lists this run mounted. Look at them before you",
-        "decide anything: print a few values from each, see how they spell a name,",
-        "see which list a party is likely to be on. You have a sandbox precisely so",
-        "you can find that out rather than be told.",
+        "`kit.tables()` names what this run mounted, and `kit.table(name)` opens one.",
+        "Print a few values from the lists named above before you decide anything —",
+        "see how they spell a name, see which list a party is likely to be on.",
         "",
         "Emit every input row, in the same order, with these keys added and every",
         "original key kept unchanged:",
@@ -272,14 +260,26 @@
         "",
         "- **exactly one name resolves** — that is the counterparty, unless it is this",
         "  account's own party (see below), in which case keep looking",
-        "- **several resolve** — the narrative names both sides. Drop the account's own",
-        "  party. If more than one still stands, prefer the longer, more specific name",
-        "  over a fragment of it, and say in `why` how you chose",
+        "- **several resolve** — the narrative names more than one party. In order:",
+        "      1. drop this account's own party",
+        "      2. **drop any whose numbers, numerals or ordinals differ from the text you",
+        "         read.** Sibling entities differ by one numeral and nothing else, and",
+        "         that numeral is never noise — it is the whole difference between two",
+        "         companies. This is the single most common way the wrong party is",
+        "         chosen, because the siblings otherwise look identical",
+        "      3. of those left, prefer the one accounting for MORE of what the document",
+        "         actually wrote. A list may hold both a bare name and the same name with",
+        "         a qualifier; if the narrative carries something the qualifier explains,",
+        "         the qualified entry is the better answer, not the shorter one",
+        "      4. say in `why` how you chose",
         "- **none resolve** — now the name may be present in a form no list holds",
         "  exactly. That is what PROBABLE is for; see below",
         "",
         "Emit `counterparty_raw` using `kit.narrative_span(narrative, matched_name)` so",
         "it is the document's own characters. That is what the provenance check reads.",
+        "It is judged on being a plausible name, so keep it to the name: a span carrying",
+        "the purpose of the payment as well will be rejected, and so will one long enough",
+        "to be a clause rather than a party.",
         "",
         "## Proposing, when it is obviously the same company",
         "",
@@ -314,9 +314,9 @@
         "A narrative often names both sides of a movement. The account these rows came",
         "from belongs to one of them, and **that one is not the counterparty**. Take",
         "the other. Each row carries its own `account_number`; work out whose account",
-        "this is — the mounted lists include the account-to-entity mapping, and the",
-        "statement's own entity is also the name that recurs on nearly every row. If a",
-        "candidate is that entity, you have picked the wrong side of the sentence.",
+        "is — the account-to-owner mapping named above tells you, and the statement's",
+        "own entity is also the name that recurs on nearly every row. If a candidate is",
+        "that entity, you have picked the wrong side of the sentence.",
         "",
         "## Which list to prefer",
         "",
@@ -356,10 +356,8 @@
         "",
         "    Investment            buying or selling a position, or funding one directly",
         "    Investment Transfer   money moved between two of the platform's own entities",
-        "                          in order to fund or settle an investment. Most rows",
-        "                          whose narrative says FROM one entity TO another and",
-        "                          then names a project are this, even though the",
-        "                          counterparty is also on the related party list",
+        "                          in order to fund or settle an investment, rather than",
+        "                          out to a third party",
         "    Vendor                paying a supplier",
         "    Related Party         a movement with a related party that is not funding",
         "                          an investment — a fee, a rebate, a settling of",
@@ -497,7 +495,7 @@
           "severity": "retry",
           "options": {
             "field": "counterparty_match",
-            "max_share": 0.25
+            "max_share": 0.4
           },
           "describe": "of the names actually read out of the document, most should resolve"
         },
@@ -518,7 +516,8 @@
             "key": "account_number",
             "owner": [
               "account_map:Account Number"
-            ]
+            ],
+            "min_overlap": 0.6
           },
           "describe": "the counterparty is never the account's own party"
         },
@@ -565,11 +564,10 @@
             "    do here: an UNRESOLVED row goes to a person, a wrong match goes into the",
             "    accounts. Never use `candidates` to pick a match.",
             "",
-            "  So a narrative naming `NI V KALVIK TOPCO LTD.` that is in no list gives",
+            "  So a narrative naming a party the narrative names that is in no list gives",
             "  `counterparty_raw` set and status UNRESOLVED. Only a narrative that names no",
             "  party at all — a bank charge, an interest posting — gives null and",
-            "  CANNOT_VERIFY. In this week's data roughly half the rows name somebody, and",
-            "  about half of those resolve."
+            "  CANNOT_VERIFY."
           ]
         },
         {

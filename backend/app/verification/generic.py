@@ -379,13 +379,28 @@ def check_proposal_wellformed(rows: list[dict], scope: str, options: dict) -> Ch
 
 
 def _tokens(text: object) -> list[str]:
-    """Comparable words: folded, punctuation dropped, empties removed."""
-    return [t for t in re.split(r"[^0-9a-z]+", fold(text)) if t]
+    """Comparable words: whitespace-separated, folded, punctuation removed.
+
+    **Split on whitespace, not on every non-alphanumeric**, and the difference
+    is not cosmetic. Splitting on punctuation tears a dotted abbreviation into
+    single letters, and a single letter can look exactly like a roman numeral:
+    `S.à r.l.` became `s a r l`, the `l` read as fifty, and `check_proposal_
+    distance` then rejected `NI ABF II MizarCo S.à r.l.` as a different company
+    from `NI ABF II MIZARCO S.A` over an ordinal that was never there. That was
+    the human's own answer, proposed correctly and thrown out by this function.
+
+    Keeping the abbreviation whole makes `r.l.` one token, `rl`, which is not a
+    numeral in any reading — while a real ordinal written as its own word (`V`,
+    `IV`, `2`) still stands alone and is still caught.
+    """
+    words = fold(text).split()
+    return [t for t in (re.sub(r"[^0-9a-z]+", "", w) for w in words) if t]
 
 
 # A token that distinguishes one entity from its sibling rather than describing
-# it: a digit run, or a roman numeral. Two names that differ here are two
-# companies, in every jurisdiction and every naming convention.
+# it: a digit run, or a roman numeral standing as a word of its own. Two names
+# that differ here are two companies, in every jurisdiction and every naming
+# convention.
 _ORDINAL = re.compile(r"^(?:\d+|[ivxlcdm]+)$")
 
 

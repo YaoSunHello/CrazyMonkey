@@ -220,10 +220,68 @@ class Pass:
         """
         return {c.reported_as for c in self.checks if c.severity == "retry"}
 
+    def reference_brief(self) -> str:
+        """Which mounted table is for what, taken from the checks themselves.
+
+        The most expensive omission this prompt ever had. A resolution is judged
+        against a fixed list of party pools declared in the `membership` check —
+        and that list was never shown to the model. It was graded on a rule it
+        could not read, and reconstructed it six different ways in six attempts,
+        twice naming tables that do not exist and once dropping a real one.
+        Meanwhile the prompt mentioned, approvingly, that "the mounted lists
+        include the account-to-entity mapping" without saying that mapping is
+        only for identifying the account holder — so the agent resolved three
+        rows to a bank-account label and the run was rejected.
+
+        Derived rather than written, which is the point: the profile declares
+        each pool once, for the check that enforces it, and the model is shown
+        the same declaration. There is no second list to drift.
+        """
+        pools: dict[str, list[str]] = {}
+        owners: list[str] = []
+        charts: list[str] = []
+        for check in self.checks:
+            field = check.options.get("field", "")
+            for pool in check.options.get("tables", []):
+                pools.setdefault(field, []).append(pool)
+            owners += check.options.get("owner", [])
+            charts += check.options.get("chart", [])
+
+        if not (pools or owners or charts):
+            return ""
+
+        lines = []
+        for field, entries in pools.items():
+            lines.append(f"- **{field}** may only resolve against, in an order you decide:")
+            lines += [f"      {entry}" for entry in dict.fromkeys(entries)]
+        if charts:
+            lines.append("- the chart of accounts, for booking values only, never for a party:")
+            lines += [f"      {entry}" for entry in dict.fromkeys(charts)]
+        if owners:
+            lines.append(
+                "- the account-to-owner mapping. Use it ONLY to work out whose account this"
+            )
+            lines.append(
+                "  is, so you can exclude that party. It is a register of accounts, not of"
+            )
+            lines.append("  companies, and a value from it is never a counterparty:")
+            lines += [f"      {entry}" for entry in dict.fromkeys(owners)]
+
+        return (
+            "## The reference data, and what each part is for\n\n"
+            "Anything else this run mounts is for context. Resolving against a table not\n"
+            "listed here fails, however real the value you find in it looks.\n\n"
+            + "\n".join(lines)
+        )
+
     def compose(self, *, document: str = "", failed: set[str] | None = None) -> str:
-        """The full prompt: the engine's rules, the task, the checks, the notes."""
+        """The full prompt: the engine's rules, the task, the data, the checks, the notes."""
         failed = failed or set()
         parts = [CORE, self.prompt]
+
+        brief = self.reference_brief()
+        if brief:
+            parts.append(brief)
 
         described = [(c.reported_as, c.describe) for c in self.checks if c.describe]
         if described:

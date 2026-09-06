@@ -270,7 +270,13 @@ def _judge(spec, rows: list[dict], statement: Path, account: str, tables: dict) 
     ]
 
 
-def retry_prompt(failures: list[dict], attempt: int, of: int, script: str = "parse.py") -> str:
+def retry_prompt(
+    failures: list[dict],
+    attempt: int,
+    of: int,
+    script: str = "parse.py",
+    previous: str = "",
+) -> str:
     """Fold the verifier's exact objections into the next attempt.
 
     Two headings, because the two kinds of objection call for different work and
@@ -278,6 +284,17 @@ def retry_prompt(failures: list[dict], attempt: int, of: int, script: str = "par
     is wrong and the cause has to be found. An advisory means the output is
     sound but thinner than the data supports, and the answer is to look harder —
     usually at rows the previous attempt gave up on.
+
+    **And the script itself, which for a long time it did not get.** Without it
+    each retry rewrote the whole file from the base prompt and a list of
+    complaints, so the agent could not build on what it had. Traced over six
+    attempts on one account, that produced oscillation rather than progress: the
+    correct account-holder lookup was found, discarded, rediscovered twice and
+    lost twice, and the sixth attempt reproduced the second's output verbatim.
+    One attempt even tried to exclude a table by a name that does not exist —
+    it was working from the failure text, because that was all it had.
+
+    Nobody debugs by being told what is wrong with a file they cannot see.
     """
     broken = [f for f in failures if f.get("status") not in ("UNRESOLVED", "STDOUT")]
     thin = [f for f in failures if f.get("status") == "UNRESOLVED"]
@@ -292,6 +309,19 @@ def retry_prompt(failures: list[dict], attempt: int, of: int, script: str = "par
         return out
 
     lines = [f"Your {script} was REJECTED by the verifier. Attempt {attempt} of {of}.", ""]
+
+    if previous:
+        lines += [
+            f"This is the {script} you wrote, in full. **Edit it.** Keep every part that",
+            "worked and change the part the verifier objected to — a rewrite from scratch",
+            "loses what you had already got right, and you will not be able to tell which",
+            "of your own ideas has already been tried and falsified.",
+            "",
+            "```python",
+            previous.strip(),
+            "```",
+            "",
+        ]
 
     if broken:
         lines.append("These checks failed — the output is wrong:")
@@ -366,6 +396,9 @@ async def _run_pass(
     outcome = {"passed": False, "attempts": 0, "rows": 0, "summary": "", "checks": []}
     failures: list[dict] = []
     rows: list[dict] = []
+    # The script this pass last produced, carried into the next attempt so the
+    # agent edits its own work instead of starting over. See `retry_prompt`.
+    previous = ""
 
     for attempt in range(1, spec.max_attempts + 1):
         outcome["attempts"] = attempt
@@ -389,7 +422,8 @@ async def _run_pass(
         prompt = (
             base
             if attempt == 1
-            else f"{base}\n\n{retry_prompt(failures, attempt, spec.max_attempts, script)}"
+            else f"{base}\n\n"
+            + retry_prompt(failures, attempt, spec.max_attempts, script, previous)
         )
 
         trace.tool("model", f"generating {script} · attempt {attempt}", status="running")
@@ -410,6 +444,7 @@ async def _run_pass(
             failures = [{"name": "generation", "detail": "model returned no code"}]
             continue
 
+        previous = source
         trace.code(f"{WORKDIR}/{script}", source)
         # Keep every attempt's source. When a run fails, the code that failed is
         # the first thing worth reading, and digging it out of a JSONL blob is

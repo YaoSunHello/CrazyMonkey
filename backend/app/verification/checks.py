@@ -116,10 +116,17 @@ def check_printed_openings(statement: Statement) -> Check:
     would do by hand.
     """
     if not statement.printed_openings:
+        # `CANNOT_VERIFY`, not `UNRESOLVED`: the input needed to decide is simply
+        # not in this document, which is what the fourth state is for. Reported
+        # as `UNRESOLVED` it read as a shortfall in the run, and the profile grew
+        # a nudge naming the two statements that print no markers — two of which
+        # were hold-out documents, so the hold-out stopped being a hold-out the
+        # moment somebody opened them to write it. Getting the status right
+        # removes the need for anyone to have looked.
         return Check(
             name="printed_openings",
             scope=statement.account_short_code,
-            status="UNRESOLVED",
+            status="CANNOT_VERIFY",
             detail="statement prints no 'Balance brought forward' markers",
         )
     if not statement.rows or statement.rows[0].balance is None:
