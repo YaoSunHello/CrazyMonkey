@@ -1,0 +1,300 @@
+/* The harness: a recorded run played back the way it was printed.
+   ---------------------------------------------------------------------------
+   The terminal renderer in backend/app/trace.py already made the layout
+   decisions — a timestamp column, a status dot, then the tree glyphs ├ and ⎿
+   for everything that hangs off a step. This keeps them, because the point is
+   that this is the same stream, not a prettier retelling of it.  */
+
+.harness {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+}
+
+/* --- stage rail: extract → resolve → journal ------------------------------ */
+
+.stagerail {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 11px 22px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+}
+.stagerail .arrow { color: var(--ink-faint); font-size: var(--t-sm); }
+.stagerail .spacer { flex: 1; }
+
+.stage-chip {
+  display: flex; align-items: center; gap: 9px;
+  border: 1px solid var(--rule); border-radius: var(--r-pill);
+  padding: 4px 12px 4px 13px;
+  font-size: var(--t-sm); color: var(--ink-faint);
+  transition: border-color var(--ease), color var(--ease), background var(--ease);
+}
+.stage-chip.seen    { color: var(--ink); }
+.stage-chip.current { border-color: var(--forest); background: var(--forest); color: var(--ink-invert); }
+.stage-chip.done    { border-color: var(--pass); color: var(--pass); }
+.stage-chip.failed  { border-color: var(--fail); color: var(--fail); }
+.stage-chip .pips { display: flex; gap: 3px; }
+.stage-chip .pips i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--well-deep); display: block;
+}
+.stage-chip .pips i.ok  { background: var(--pass); }
+.stage-chip .pips i.bad { background: var(--fail); }
+.stage-chip .pips i.live { background: var(--accent); }
+.stage-chip.current .pips i { background: rgba(255, 255, 255, .25); }
+.stage-chip.current .pips i.ok  { background: var(--accent); }
+.stage-chip.current .pips i.bad { background: var(--term-red); }
+.stage-chip.current .pips i.live { background: var(--accent); }
+
+/* The only motion on the page, and it is one 7px dot. FRONTEND.md rules out
+   hover lift and staggered fade-in; a slow opacity pulse on the pass that is
+   currently working says "live" without any of that. */
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.stage-chip.pulse .pips i.live { animation: breathe 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .stage-chip.pulse .pips i.live { animation: none; } }
+
+.counters { display: flex; gap: 18px; align-items: baseline; }
+.count-cell { font-size: var(--t-xs); color: var(--ink-faint); letter-spacing: .04em; }
+.count-cell b {
+  display: block; font-size: var(--t-md); font-weight: 600; color: var(--forest);
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1.1;
+  transition: color var(--ease);
+}
+.count-cell.bad b { color: var(--fail); }
+
+.replay-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: var(--t-xs); font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.replay-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+.replay-badge.live { color: var(--fail); }
+.replay-badge.live .dot { background: var(--fail); }
+
+/* --- the terminal --------------------------------------------------------- */
+
+.harness-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 384px;
+  min-height: 0;
+}
+@media (max-width: 1240px) { .harness-body { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1240px) { .explain { display: none; } }
+
+.term {
+  background: var(--forest-deep);
+  overflow: auto;
+  padding: 14px 0 40px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.62;
+  color: var(--term-ink);
+  scroll-behavior: auto;
+}
+
+.ev {
+  display: block; width: 100%; text-align: left;
+  border: 0; background: none; color: inherit;
+  font: inherit;
+  padding: 1px 18px 1px 14px;
+  border-left: 3px solid transparent;
+  white-space: pre-wrap; word-break: break-word;
+  transition: background var(--ease), border-color var(--ease);
+}
+.ev:hover { background: rgba(159, 232, 112, .07); }
+.ev[aria-current="true"] {
+  background: rgba(159, 232, 112, .11);
+  border-left-color: var(--term-accent);
+}
+.ev .at {
+  display: inline-block; width: 58px;
+  color: #55663F; text-align: right; margin-right: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.ev .tree { color: #3F5230; }
+.ev .glyph { font-weight: 700; }
+.ev .label { color: var(--term-ink); font-weight: 600; }
+.ev .detail { color: var(--term-dim); }
+
+.ev.k-state    { margin-top: 10px; }
+.ev.k-state .label { color: #fff; }
+.ev.k-tool.running .glyph { color: var(--term-cyan); }
+.ev.k-tool.ok      .glyph { color: var(--term-accent); }
+.ev.k-tool.fail    .glyph { color: var(--term-red); }
+.ev.k-tool.skip    .glyph { color: var(--term-dim); }
+.ev.k-stdout { color: var(--term-dim); }
+.ev.k-stderr { color: var(--term-amber); }
+.ev.k-think  { color: #93A984; font-style: italic; }
+
+/* The code's own output, kept as a block rather than one line per event: a
+   rolling tail while it is printing, one foldable line once it has stopped. */
+.outgroup { color: var(--term-dim); padding-top: 2px; padding-bottom: 2px; }
+.outgroup.folded { color: #5E7049; }
+.outgroup .oline { display: block; }
+.outgroup .oline.k-stderr { color: var(--term-amber); }
+.outgroup .fold {
+  text-decoration: none; border-bottom: 1px dotted currentColor;
+  color: var(--term-dim); cursor: pointer;
+}
+.outgroup .fold:hover { color: var(--term-accent); }
+
+.ev.k-code .path { color: var(--term-cyan); font-weight: 600; }
+.codeblock { margin: 2px 0 4px; }
+.codeblock .ln {
+  display: inline-block; width: 40px; text-align: right;
+  color: #3F5230; margin-right: 12px; user-select: none;
+}
+.codeblock .more { color: var(--term-dim); }
+.codeblock .more u { text-decoration: none; border-bottom: 1px dotted currentColor; cursor: pointer; }
+
+/* Collapsed dead time. FRONTEND.md §3: say where the time went — a marker is
+   both more honest and more impressive than silently deleting 97 seconds. */
+.gapmark {
+  padding: 3px 18px 3px 85px;
+  color: #5E7049; font-style: italic;
+}
+.gapmark b { color: var(--term-amber); font-style: normal; font-weight: 500; }
+
+.verdictblock {
+  margin: 3px 0 6px;
+  padding: 8px 18px 8px 85px;
+  border-left: 3px solid transparent;
+}
+.verdictblock.passed { border-left-color: var(--pass); }
+.verdictblock.failed { border-left-color: var(--fail); background: rgba(240, 138, 132, .07); }
+.verdictblock .vline { display: block; padding: 1px 0; }
+.verdictblock .vname { display: inline-block; min-width: 250px; }
+.verdictblock .vdetail { color: var(--term-dim); }
+.verdictblock .vevidence { display: block; color: #6E8060; padding-left: 26px; }
+.verdictblock .tally { display: block; margin-top: 4px; font-weight: 600; }
+.verdictblock.passed .tally { color: var(--term-accent); }
+.verdictblock.failed .tally { color: var(--term-red); }
+.v-PASS          { color: var(--term-accent); }
+.v-FAIL          { color: var(--term-red); }
+.v-UNRESOLVED    { color: var(--term-amber); }
+.v-CANNOT_VERIFY { color: var(--term-dim); }
+
+/* The rolling reasoning window. Only ever rendered if think deltas actually
+   arrive — the served model has no reasoning channel, and a "thinking…"
+   placeholder that never resolves is worse than nothing. */
+.thoughts {
+  margin: 4px 18px 8px 85px; padding: 8px 12px;
+  border-left: 2px solid #3F5230; background: rgba(255, 255, 255, .03);
+  color: #93A984; font-style: italic; max-height: 88px; overflow: hidden;
+}
+
+.term-empty {
+  padding: 34px 24px; max-width: 560px;
+  color: var(--term-dim); line-height: 1.7;
+}
+.term-empty b { color: var(--term-ink); font-weight: 500; }
+
+/* The closing card. The run is over; this is the one place to go next. */
+.runcard {
+  margin: 18px 18px 8px 85px;
+  border-radius: var(--r);
+  border: 1px solid rgba(159, 232, 112, .25);
+  background: rgba(159, 232, 112, .07);
+  padding: 14px 16px;
+  max-width: 720px;
+}
+.runcard.lost {
+  border-color: rgba(240, 138, 132, .3);
+  background: rgba(240, 138, 132, .08);
+}
+.rc-head {
+  font-size: 14px; font-weight: 600; letter-spacing: .01em;
+  color: var(--term-accent); margin-bottom: 12px;
+}
+.runcard.lost .rc-head { color: var(--term-red); }
+
+.rc-stats { display: flex; gap: 26px; flex-wrap: wrap; margin-bottom: 14px; }
+.rc-stats span { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: #7E9070; }
+.rc-stats span b {
+  display: block; font-size: 21px; font-weight: 600; color: var(--term-ink);
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em; margin-bottom: 1px;
+}
+.rc-stats span.bad b { color: var(--term-red); }
+
+.rc-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.rc-foot span { color: #6E8060; font-size: 11px; }
+.rc-foot span b { color: var(--term-dim); font-weight: 500; }
+
+/* --- transport ------------------------------------------------------------ */
+
+.transport {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 22px;
+  background: var(--paper); border-top: 1px solid var(--rule);
+}
+.transport .play {
+  width: 38px; height: 38px; border-radius: 50%; border: 0;
+  background: var(--forest); color: var(--accent);
+  font-size: 13px; display: grid; place-items: center; flex: none;
+  transition: background var(--ease);
+}
+.transport .play:hover { background: var(--forest-soft); }
+.transport .scrub { flex: 1; min-width: 180px; accent-color: var(--forest); }
+.transport .readout {
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.speeds { display: flex; gap: 2px; background: var(--well); border-radius: var(--r-pill); padding: 2px; }
+.speeds button {
+  border: 0; background: none; border-radius: var(--r-pill);
+  padding: 4px 10px; font-size: var(--t-xs); font-weight: 600; color: var(--ink-soft);
+  transition: background var(--ease), color var(--ease);
+}
+.speeds button[aria-pressed="true"] { background: var(--forest); color: var(--ink-invert); }
+.toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--t-xs); color: var(--ink-soft); cursor: pointer; user-select: none;
+}
+
+/* --- the explanation panel ------------------------------------------------ */
+
+.explain {
+  background: var(--paper);
+  border-left: 1px solid var(--rule);
+  overflow: auto;
+  padding: 16px 18px 40px;
+  min-height: 0;
+}
+.explain .hint { color: var(--ink-faint); font-size: var(--t-sm); line-height: 1.6; }
+.explain .kicker {
+  font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .08em;
+  font-weight: 600; color: var(--ink-faint); margin-bottom: 5px;
+}
+.explain h3 {
+  margin: 0 0 8px; font-size: var(--t-md); font-weight: 600;
+  letter-spacing: -.01em; color: var(--forest); line-height: 1.35;
+}
+.explain p { margin: 0 0 10px; font-size: var(--t-sm); line-height: 1.62; color: var(--ink); }
+.explain p.why {
+  background: var(--well); border-radius: var(--r-sm);
+  padding: 10px 12px; color: var(--ink-soft);
+}
+.explain .fields { margin: 12px 0 0; }
+.explain .fields dt {
+  font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ink-faint); font-weight: 600; margin-top: 10px;
+}
+.explain .fields dd { margin: 2px 0 0; font-size: var(--t-sm); word-break: break-word; }
+.explain .fields dd.mono { font-family: var(--mono); font-size: 11.5px; }
+.explain details { margin-top: 14px; }
+.explain summary {
+  font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ink-faint); font-weight: 600; cursor: pointer;
+}
+.explain pre {
+  margin: 8px 0 0; padding: 10px 12px;
+  background: var(--forest-deep); color: var(--term-ink);
+  border-radius: var(--r-sm); overflow: auto;
+  font-family: var(--mono); font-size: 11px; line-height: 1.55;
+  max-height: 300px;
+}
+.explain .jump {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px;
+  padding-top: 12px; border-top: 1px solid var(--rule-soft);
+}

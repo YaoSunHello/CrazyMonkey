@@ -3,497 +3,82 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CrazyMonkey — run viewer</title>
-<style>
-/* Near-black ink on warm paper. One accent. Red, amber and green are reserved
-   for status and are never decoration — if a row is green here, a check said so. */
-:root {
-  --paper:    #faf8f5;
-  --card:     #fffefc;
-  --ink:      #1c1a17;
-  --ink-soft: #6b655c;
-  --rule:     #e5e0d8;
-  --accent:   #1f5f8b;
-  --ok:       #2e7d32;
-  --warn:     #b26a00;
-  --bad:      #c62828;
-  --none:     #8a8378;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--paper); color: var(--ink);
-  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-/* Every figure in this document is scanned in a column, so all of them get
-   tabular numerals. Proportional digits make a money column unreadable. */
-.num, td.num, .stat b, .bar span { font-variant-numeric: tabular-nums; }
-
-header {
-  position: sticky; top: 0; z-index: 5;
-  background: var(--card); border-bottom: 1px solid var(--rule);
-  padding: 14px 20px; display: flex; gap: 24px; align-items: baseline; flex-wrap: wrap;
-}
-header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .01em; }
-header .meta { color: var(--ink-soft); font-size: 12.5px; }
-header .meta b { color: var(--ink); font-weight: 600; }
-main { padding: 20px; max-width: 1500px; }
-
-.drop {
-  border: 1.5px dashed var(--rule); border-radius: 6px; background: var(--card);
-  padding: 40px 24px; text-align: center; color: var(--ink-soft);
-}
-.drop.over { border-color: var(--accent); background: #f4f8fb; }
-.drop h2 { margin: 0 0 6px; font-size: 16px; color: var(--ink); font-weight: 600; }
-.drop code { background: #f0ece5; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
-.drop input { margin-top: 14px; }
-
-.split { display: flex; gap: 28px; align-items: flex-end; margin-bottom: 6px; }
-.stat { line-height: 1.15; }
-.stat b { font-size: 30px; font-weight: 650; display: block; }
-.stat span { font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; }
-.stat.ok b   { color: var(--ok); }
-.stat.warn b { color: var(--warn); }
-.stat.bad b  { color: var(--bad); }
-
-.bar { display: flex; height: 10px; border-radius: 3px; overflow: hidden; margin: 12px 0 22px; }
-.bar i { display: block; height: 100%; }
-.bar i.ok { background: var(--ok); }
-.bar i.warn { background: var(--warn); }
-
-nav.accounts { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-nav.accounts button {
-  font: inherit; font-size: 12.5px; padding: 6px 11px; border-radius: 4px; cursor: pointer;
-  border: 1px solid var(--rule); background: var(--card); color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-nav.accounts button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-nav.accounts button .n { color: var(--ink-soft); font-weight: 400; }
-
-.layout { display: grid; grid-template-columns: minmax(0,1fr) 340px; gap: 20px; align-items: start; }
-@media (max-width: 1100px) { .layout { grid-template-columns: minmax(0,1fr); } }
-
-section.panel { background: var(--card); border: 1px solid var(--rule); border-radius: 6px; margin-bottom: 20px; }
-section.panel > h2 {
-  margin: 0; padding: 10px 14px; font-size: 12px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .07em; color: var(--ink-soft);
-  border-bottom: 1px solid var(--rule);
-}
-section.panel .body { padding: 12px 14px; }
-
-/* Checks: the sentence beside the tick is what makes the run credible, so it is
-   shown in full rather than truncated behind a status pill. */
-ul.checks { list-style: none; margin: 0; padding: 0; }
-ul.checks li { display: flex; gap: 10px; padding: 5px 14px; align-items: baseline; border-top: 1px solid #f2eee7; }
-ul.checks li:first-child { border-top: 0; }
-ul.checks .mark { width: 14px; font-weight: 700; }
-ul.checks .name { width: 220px; font-size: 12.5px; }
-ul.checks .detail { color: var(--ink-soft); font-size: 12.5px; }
-.PASS .mark, .ok-t { color: var(--ok); }
-.FAIL .mark, .bad-t { color: var(--bad); }
-.UNRESOLVED .mark, .warn-t { color: var(--warn); }
-.CANNOT_VERIFY .mark, .none-t { color: var(--none); }
-
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-thead th {
-  text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--ink-soft); font-weight: 600; padding: 7px 10px; border-bottom: 1px solid var(--rule);
-  position: sticky; top: 52px; background: var(--card);
-}
-tbody td { padding: 7px 10px; border-top: 1px solid #f2eee7; vertical-align: top; }
-tbody tr { cursor: pointer; }
-tbody tr:hover { background: #f6f2ec; }
-tbody tr[aria-selected="true"] { background: #eef4f9; }
-td.num { text-align: right; white-space: nowrap; }
-td.narrative { color: var(--ink-soft); max-width: 460px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-td.blocked { border-left: 3px solid var(--warn); }
-td.clean   { border-left: 3px solid var(--ok); }
-
-.chip {
-  display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 3px;
-  border: 1px solid currentColor; white-space: nowrap;
-}
-.chip.m { color: var(--ok); }
-.chip.u { color: var(--warn); }
-.chip.c { color: var(--none); }
-.chip.x { color: var(--bad); font-weight: 600; }
-
-/* Evidence: the whole point. A number that cannot show its page is the thing
-   the customer says they cannot trust. */
-.evidence dt { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); margin-top: 10px; }
-.evidence dd { margin: 2px 0 0; }
-.evidence .quote {
-  background: #f6f2ec; border-left: 2px solid var(--rule); padding: 7px 9px;
-  font-size: 12.5px; white-space: pre-wrap; word-break: break-word;
-}
-.evidence .cite { font-size: 12px; color: var(--ink-soft); }
-.sticky { position: sticky; top: 76px; }
-
-ol.queue { list-style: none; margin: 0; padding: 0; }
-ol.queue li { padding: 8px 14px; border-top: 1px solid #f2eee7; font-size: 12.5px; }
-ol.queue li:first-child { border-top: 0; }
-ol.queue .why { font-weight: 600; font-size: 11px; letter-spacing: .04em; }
-ol.queue .amt { float: right; font-variant-numeric: tabular-nums; }
-ol.queue .txt { color: var(--ink-soft); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.note { color: var(--ink-soft); font-size: 12.5px; }
-.warnbox { border-left: 3px solid var(--bad); background: #fdf3f2; padding: 8px 11px; font-size: 12.5px; margin-bottom: 14px; }
-footer { padding: 24px 20px 60px; color: var(--ink-soft); font-size: 12px; max-width: 1500px; }
-</style>
+<title>CrazyMonkey — run console</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/harness.css">
 </head>
 <body>
 
-<header>
-  <h1>CrazyMonkey — run viewer</h1>
-  <div class="meta" id="meta">no run loaded</div>
-</header>
+<!-- Markup only. Every view below is filled in by js/, so this file stays the
+     shape of the screen rather than a place logic accumulates. -->
+<div class="shell">
 
-<main>
-  <div class="drop" id="drop">
-    <h2>Drop a run JSON here</h2>
-    <p>Either file from <code>examples/</code> — <code>batch-…-journal-entries.json</code>
-       or <code>batch-…-pipeline-validation.json</code>. The same page renders both.</p>
-    <input type="file" id="file" accept="application/json,.json">
-  </div>
-  <div id="app"></div>
-</main>
-
-<footer id="foot"></footer>
-
-<script>
-"use strict";
-
-/* ---------------------------------------------------------------------------
-   Reading the two envelopes.
-
-   The profiles name the same things differently, so everything is normalised
-   here on the way in and the rendering below sees one shape. A third profile
-   with different names would only need entries adding to these two functions.
---------------------------------------------------------------------------- */
-
-const pick = (obj, ...names) => {
-  for (const name of names) if (obj && obj[name] !== undefined) return obj[name];
-  return undefined;
-};
-
-// Mirrors the export gate in backend/app/emit.py. MATCH and CANNOT_VERIFY are
-// settled — "the document named nobody" is a finding, not a gap. UNRESOLVED and
-// a missing status are not: somebody has to decide those.
-const SETTLED = new Set(["MATCH", "CANNOT_VERIFY"]);
-
-function resolution(row, base) {
-  const nested = row[base + "_match"];
-  if (nested && typeof nested === "object") {
-    return {
-      status: nested.status || "", name: nested.matched_name || "",
-      table: nested.table || "", detailed: true,
-    };
-  }
-  // `pipeline-validation` projects a bare status string, because that is what
-  // its specification asks for. So this envelope cannot say where a match came
-  // from — which is different from a match that could not. `detailed` keeps the
-  // viewer from accusing the second profile of something the first would catch,
-  // and the `..._membership` check is what proves sourcing in either case.
-  const flat = row[base + "_status"];
-  return { status: typeof flat === "string" ? flat : "", name: "", table: "", detailed: false };
-}
-
-function normaliseRow(row, i) {
-  const cp = resolution(row, "counterparty");
-  const pc = resolution(row, "project_code");
-  const citation = row.source_citation || {};
-  const settled = SETTLED.has(cp.status) && SETTLED.has(pc.status);
-  const classification = row.classification || "";
-
-  // The profile that carries `review_reason` has already been through the
-  // backend's gate. The other has not, so it is derived with the same rule —
-  // and the totals are cross-checked against the envelope's own summary below,
-  // so a divergence shows up rather than being quietly rendered.
-  let reason = row.review_reason || null;
-  if (reason === undefined || (reason === null && row.ready_for_export === undefined)) {
-    if (row.source_page == null) reason = "MISSING_SOURCE_CITATION";
-    else if (!SETTLED.has(cp.status)) reason = "COUNTERPARTY_UNRESOLVED";
-    else if (!SETTLED.has(pc.status)) reason = "PROJECT_CODE_UNRESOLVED";
-    else if (classification.toLowerCase() === "review") reason = "LOW_CLASSIFICATION_CONFIDENCE";
-    else reason = null;
-  }
-  const ready = row.ready_for_export !== undefined ? !!row.ready_for_export : reason === null;
-
-  return {
-    id: row.row_id || String(i).padStart(3, "0"),
-    page: row.source_page ?? citation.page ?? null,
-    date: row.transaction_date || row.value_date || "",
-    amount: typeof row.amount === "number" ? row.amount : null,
-    currency: row.currency || "",
-    narrative: row.raw_narrative || row.source_snippet || citation.snippet || "",
-    cpRaw: row.counterparty_raw || "",
-    cp, pc,
-    classification,
-    ready, reason,
-    settledBoth: settled,
-    raw: row,
-  };
-}
-
-function normalise(payload) {
-  const accounts = (payload.accounts || []).map((entry) => {
-    const e = entry.envelope || {};
-    const rows = (pick(e, "statement_rows", "extracted_rows") || []).map(normaliseRow);
-    const summary = e.summary || {};
-    return {
-      account: entry.account,
-      runId: entry.run_id,
-      accepted: !!entry.accepted,
-      attempts: entry.attempts,
-      seconds: entry.seconds,
-      source: (pick(e, "source_files", "input_documents") || [])[0] || {},
-      checks: pick(e, "checks", "verification_results") || [],
-      mapping: pick(e, "mapping_results", "mapping_summary") || {},
-      queue: e.review_queue || [],
-      journal: e.journal_entries,
-      audit: e.audit_trail || null,
-      rows,
-      // The envelope's own count where it has one, so the page can say if its
-      // derivation ever disagrees with the backend's.
-      statedClean: e.export_candidates ? e.export_candidates.length
-                 : (summary.ready_for_export !== undefined ? summary.ready_for_export : null),
-    };
-  });
-  return { batch: payload.batch || "", profile: payload.profile || "", accounts };
-}
-
-/* --------------------------------------------------------------------------- */
-
-const money = (value, currency) =>
-  value === null ? "—"
-  : new Intl.NumberFormat("en-GB", { style: "currency", currency: currency || "EUR" }).format(value);
-
-const escape = (text) => String(text ?? "").replace(/[&<>"]/g, (c) =>
-  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-
-const MARK = { PASS: "✓", FAIL: "✗", UNRESOLVED: "!", CANNOT_VERIFY: "–" };
-
-// UNRESOLVED and CANNOT_VERIFY deliberately do not look the same. One is a
-// person's problem; the other says the document named nothing to resolve.
-function chip(res) {
-  if (!res.status) return '<span class="chip x">no status</span>';
-  if (res.status === "MATCH") {
-    // A match that cannot say where it came from must look wrong, not clean —
-    // but only when the envelope carries that detail at all.
-    if (res.detailed && !res.table && !res.name) return '<span class="chip x">MATCH, unsourced</span>';
-    const label = res.name ? escape(res.name) : "matched";
-    return `<span class="chip m" title="${escape(res.table || "")}">${label}</span>`;
-  }
-  if (res.status === "UNRESOLVED") return '<span class="chip u">unresolved</span>';
-  if (res.status === "CANNOT_VERIFY") return '<span class="chip c">none named</span>';
-  return `<span class="chip x">${escape(res.status)}</span>`;
-}
-
-let STATE = { data: null, account: 0, row: null };
-
-function render() {
-  const { data } = STATE;
-  const app = document.getElementById("app");
-  if (!data) { app.innerHTML = ""; return; }
-
-  const accounts = data.accounts;
-  const rows = accounts.flatMap((a) => a.rows);
-  const clean = rows.filter((r) => r.ready).length;
-  const review = rows.length - clean;
-  const accepted = accounts.filter((a) => a.accepted).length;
-  const allChecks = accounts.flatMap((a) => a.checks);
-  const failed = allChecks.filter((c) => c.status === "FAIL").length;
-
-  document.getElementById("meta").innerHTML =
-    `profile <b>${escape(data.profile)}</b> · batch <b>${escape(data.batch)}</b> · ` +
-    `<b>${accepted}/${accounts.length}</b> statements accepted · <b>${rows.length}</b> rows`;
-
-  // If the page's own gate ever disagrees with the backend's, say so rather
-  // than rendering a number nobody can reconcile.
-  const stated = accounts.reduce((n, a) => n + (a.statedClean ?? 0), 0);
-  const statedKnown = accounts.every((a) => a.statedClean !== null);
-  const mismatch = statedKnown && stated !== clean
-    ? `<div class="warnbox">This page counts <b>${clean}</b> rows ready for export; the run's own
-       envelope says <b>${stated}</b>. The viewer's rule has drifted from the backend's — trust the
-       envelope, not this page.</div>` : "";
-
-  const selected = accounts[STATE.account];
-
-  app.innerHTML = `
-    ${mismatch}
-    <div class="split">
-      <div class="stat ok"><b>${clean}</b><span>ready for export</span></div>
-      <div class="stat warn"><b>${review}</b><span>need a person</span></div>
-      <div class="stat ${failed ? "bad" : "ok"}"><b>${failed}</b><span>failed checks</span></div>
-      <div class="stat"><b>${allChecks.length}</b><span>checks run</span></div>
-    </div>
-    <div class="bar">
-      <i class="ok" style="width:${(clean / rows.length) * 100}%"></i>
-      <i class="warn" style="width:${(review / rows.length) * 100}%"></i>
+  <aside class="rail">
+    <div class="brand">
+      <h1><span class="dot"></span>CrazyMonkey</h1>
+      <p>bank statements → journal entries, proved</p>
     </div>
 
-    <nav class="accounts">${accounts.map((a, i) => `
-      <button data-account="${i}" aria-pressed="${i === STATE.account}">
-        ${escape(a.account)} <span class="n">${a.rows.length}</span>
-      </button>`).join("")}</nav>
-
-    <div class="layout">
-      <div>
-        <section class="panel">
-          <h2>${escape(selected.account)} — what the verifier said</h2>
-          <ul class="checks">${selected.checks.map((c) => `
-            <li class="${escape(c.status)}">
-              <span class="mark">${MARK[c.status] || "?"}</span>
-              <span class="name">${escape(c.name)}</span>
-              <span class="detail">${escape(c.detail || "")}</span>
-            </li>`).join("")}</ul>
-        </section>
-
-        <section class="panel">
-          <h2>${selected.rows.length} rows · click one for its evidence</h2>
-          <table>
-            <thead><tr>
-              <th>date</th><th class="num">amount</th><th>narrative</th>
-              <th>counterparty</th><th>project</th><th>class</th>
-            </tr></thead>
-            <tbody>${selected.rows.map((r, i) => `
-              <tr data-row="${i}" aria-selected="${STATE.row === i}">
-                <td class="${r.ready ? "clean" : "blocked"}">${escape(r.date)}</td>
-                <td class="num">${money(r.amount, r.currency)}</td>
-                <td class="narrative" title="${escape(r.narrative)}">${escape(r.narrative)}</td>
-                <td>${chip(r.cp)}</td>
-                <td>${chip(r.pc)}</td>
-                <td>${escape(r.classification)}</td>
-              </tr>`).join("")}</tbody>
-          </table>
-        </section>
-
-        <section class="panel">
-          <h2>Journal entries</h2>
-          <div class="body note">${
-            Array.isArray(selected.journal) && selected.journal.length
-              ? `${selected.journal.length} lines`
-              : "Not produced by this run. No pass builds them yet, and an empty table would read as “none were needed”."
-          }</div>
-        </section>
+    <div class="rail-scroll">
+      <div class="rail-head">
+        <span>runs on disk</span>
+        <button id="refresh" type="button">refresh</button>
       </div>
+      <div id="runlist"></div>
+    </div>
 
-      <div class="sticky">
-        <section class="panel">
-          <h2>Evidence</h2>
-          <div class="body" id="evidence"><p class="note">Select a row.</p></div>
-        </section>
-        <section class="panel">
-          <h2>Review queue — ${review} items, biggest first</h2>
-          <ol class="queue">${queueItems(accounts).map((q) => `
-            <li>
-              <span class="amt">${q.amount === null ? "" : money(q.amount, q.currency)}</span>
-              <span class="why ${q.tone}">${escape(q.reason)}</span>
-              <span class="txt" title="${escape(q.text)}">${escape(q.account)} · ${escape(q.text)}</span>
-            </li>`).join("")}</ol>
-        </section>
+    <!-- The offline path. A file:// page cannot fetch its own siblings, so
+         dropping a file is the one route that always works. -->
+    <div class="rail-foot">
+      <div class="drop" id="drop">
+        <b>Drop a batch envelope</b>
+        either file from <code>examples/</code>
+        <input type="file" id="file" accept="application/json,.json">
       </div>
-    </div>`;
+      <button class="btn" id="newrun" type="button">Start a new run</button>
+    </div>
+  </aside>
 
-  app.querySelectorAll("nav.accounts button").forEach((b) =>
-    b.onclick = () => { STATE.account = +b.dataset.account; STATE.row = null; render(); });
-  app.querySelectorAll("tbody tr").forEach((tr) =>
-    tr.onclick = () => { STATE.row = +tr.dataset.row; render(); });
+  <main class="stage">
+    <div class="topbar">
+      <div class="topline" id="topline"></div>
+      <nav class="tabs" id="tabs"></nav>
+    </div>
 
-  if (STATE.row !== null && selected.rows[STATE.row]) showEvidence(selected.rows[STATE.row], selected);
-  document.getElementById("foot").innerHTML =
-    `Read from <code>${escape(selected.runId || data.batch)}</code>` +
-    (selected.source.sha256 ? ` · source sha256 <code>${escape(selected.source.sha256.slice(0, 16))}…</code>` : "") +
-    (selected.audit && selected.audit.generated_at ? ` · generated ${escape(selected.audit.generated_at)}` : "") +
-    ` · rendered ${new Date().toISOString().slice(0, 19).replace("T", " ")}`;
-}
+    <!-- Replay: the recorded event stream, played back. -->
+    <section class="view no-scroll" id="view-replay">
+      <div class="harness">
+        <div class="stagerail" id="stagerail"></div>
+        <div class="harness-body">
+          <div class="term" id="term"></div>
+          <aside class="explain" id="explain"></aside>
+        </div>
+        <div class="transport">
+          <button class="play" id="play" type="button" aria-label="Play">▶</button>
+          <input class="scrub" id="scrub" type="range" min="0" max="0" value="0" step="1"
+                 aria-label="Position in the recorded run">
+          <span class="readout" id="readout"></span>
+          <div class="speeds" id="speeds"></div>
+          <label class="toggle"><input type="checkbox" id="follow" checked> follow</label>
+        </div>
+      </div>
+    </section>
 
-// A €1.16m suspense row and a €0.0000009 mapping gap are not equal work, so the
-// queue is ordered by exposure — largest absolute amount first. Statement-level
-// items carry no amount and go last rather than first: they were sorting above
-// a €15.7m row, which is exactly the ordering this is supposed to avoid. They
-// stay visible in each account's check report, which is where they belong.
-function queueItems(accounts) {
-  const items = [];
-  for (const a of accounts) {
-    for (const q of a.queue) {
-      const isCheck = !q.row_id;
-      items.push({
-        account: a.account,
-        reason: (q.reason || "").replace(/_/g, " ").toLowerCase(),
-        tone: isCheck ? "bad-t" : "warn-t",
-        amount: typeof q.amount === "number" ? q.amount : null,
-        currency: q.currency || "",
-        text: isCheck ? `${q.check}: ${q.detail || ""}` : (q.raw_narrative || ""),
-        isCheck,
-      });
-    }
-  }
-  return items.sort((x, y) =>
-    (x.isCheck - y.isCheck) || (Math.abs(y.amount ?? 0) - Math.abs(x.amount ?? 0)));
-}
+    <!-- Output: the deliverable. -->
+    <section class="view" id="view-output" hidden></section>
+    <section class="view" id="view-checks" hidden></section>
+    <section class="view" id="view-code" hidden></section>
+    <section class="view" id="view-new" hidden></section>
+  </main>
+</div>
 
-function showEvidence(row, account) {
-  const source = account.source.filename || "";
-  document.getElementById("evidence").innerHTML = `
-    <dl class="evidence">
-      <dt>row</dt><dd>${escape(row.id)} · ${row.ready
-        ? '<span class="ok-t">ready for export</span>'
-        : `<span class="warn-t">${escape((row.reason || "").replace(/_/g, " ").toLowerCase())}</span>`}</dd>
-      <dt>amount</dt><dd class="num">${money(row.amount, row.currency)} · ${escape(row.date)}</dd>
-      <dt>read from</dt>
-      <dd class="cite">${escape(source)}${row.page ? ` · page ${row.page}` : ' · <span class="bad-t">no page recorded</span>'}</dd>
-      <dt>narrative, as the bank wrote it</dt>
-      <dd class="quote">${escape(row.narrative)}</dd>
-      ${row.cpRaw ? `<dt>counterparty pulled out</dt><dd class="quote">${escape(row.cpRaw)}</dd>` : ""}
-      <dt>counterparty</dt><dd>${chip(row.cp)}${row.cp.table ? ` <span class="cite">from ${escape(row.cp.table)}</span>` : ""}</dd>
-      <dt>project code</dt><dd>${chip(row.pc)}${row.pc.table ? ` <span class="cite">from ${escape(row.pc.table)}</span>` : ""}</dd>
-      <dt>classification</dt><dd>${escape(row.classification) || "—"}</dd>
-    </dl>`;
-}
-
-/* --- loading ------------------------------------------------------------- */
-
-function load(text, label) {
-  try {
-    STATE = { data: normalise(JSON.parse(text)), account: 0, row: null };
-    document.getElementById("drop").style.display = "none";
-    render();
-  } catch (err) {
-    document.getElementById("app").innerHTML =
-      `<div class="warnbox">Could not read ${escape(label)}: ${escape(err.message)}</div>`;
-  }
-}
-
-const readFile = (file) => {
-  const reader = new FileReader();
-  reader.onload = () => load(reader.result, file.name);
-  reader.readAsText(file);
-};
-
-const drop = document.getElementById("drop");
-document.getElementById("file").onchange = (e) => e.target.files[0] && readFile(e.target.files[0]);
-["dragenter", "dragover"].forEach((k) => drop.addEventListener(k, (e) => {
-  e.preventDefault(); drop.classList.add("over");
-}));
-["dragleave", "drop"].forEach((k) => drop.addEventListener(k, () => drop.classList.remove("over")));
-drop.addEventListener("drop", (e) => {
-  e.preventDefault();
-  const file = e.dataTransfer.files[0];
-  if (file) readFile(file);
-});
-document.addEventListener("dragover", (e) => e.preventDefault());
-document.addEventListener("drop", (e) => {
-  e.preventDefault();
-  const file = e.dataTransfer.files[0];
-  if (file && !STATE.data) readFile(file);
-});
-
-// Only works when the page is served rather than opened from disk — a file://
-// page cannot fetch a sibling. The drop zone is the path that always works.
-const src = new URLSearchParams(location.search).get("src");
-if (src) {
-  fetch(src).then((r) => r.text()).then((t) => load(t, src)).catch(() => {});
-}
-</script>
+<script src="js/api.js"></script>
+<script src="js/adapters.js"></script>
+<script src="js/explain.js"></script>
+<script src="js/harness.js"></script>
+<script src="js/output.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>

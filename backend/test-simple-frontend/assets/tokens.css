@@ -1,0 +1,118 @@
+/* The one place a colour, a size or a radius is decided.
+   ---------------------------------------------------------------------------
+   Borrowed from Wise, because Wise is a company whose whole product is a
+   column of other people's money and whose UI is trusted at a glance: a very
+   dark green that is almost black, one bright green that is only ever an
+   accent, and a lot of white with a warm-grey well behind it.
+
+   docs/FRONTEND.md §7 rules out the tells that make a UI read as generated:
+   no indigo→purple gradient anywhere in this file, no Inter, and every figure
+   in the product is a tabular numeral because the reader works in Excel.  */
+
+:root {
+  /* Ground */
+  --forest:      #163300;   /* headings, the terminal, the dark rail */
+  --forest-deep: #0E2200;   /* the terminal one shade under the rail */
+  --forest-soft: #2F5711;
+  --paper:       #FFFFFF;
+  --well:        #F4F5F2;   /* page ground behind the white cards */
+  --well-deep:   #E9EBE4;
+  --rule:        #DFE2D9;
+  --rule-soft:   #EDEFE9;
+
+  /* Ink */
+  --ink:         #0E1A05;
+  --ink-soft:    #5A6552;
+  --ink-faint:   #8B9382;
+  --ink-invert:  #F2F5EC;
+
+  /* One accent. Bright green is Wise's, and it is load-bearing: it marks the
+     current thing and nothing else. It is never used for status. */
+  --accent:      #9FE870;
+  --accent-deep: #7FCB4A;
+  --accent-ink:  #163300;   /* text on top of the accent */
+
+  /* Status. Reserved — if something is green here, a check said so.
+     Four, not two: UNRESOLVED is a person's problem and CANNOT_VERIFY is the
+     document naming nothing, and collapsing them is the one dishonesty this
+     product cannot afford. */
+  --pass:        #1E7B34;
+  --pass-well:   #E8F5E4;
+  --fail:        #B4292A;
+  --fail-well:   #FBECEA;
+  --unresolved:  #A15C00;
+  --unresolved-well: #FDF3E2;
+  --none:        #77806E;
+  --none-well:   #F1F2EE;
+
+  /* Terminal ink — reads on --forest-deep, not on paper. */
+  --term-ink:    #DCE7D2;
+  --term-dim:    #7E9070;
+  --term-accent: #9FE870;
+  --term-cyan:   #7FD3D0;
+  --term-amber:  #E5B85C;
+  --term-red:    #F08A84;
+
+  /* Type. Deliberately not Inter. A grotesque with real weight range for the
+     interface, and a genuine mono for the log — falling back through what is
+     actually installed on Windows, macOS and Linux rather than pretending. */
+  --font: "Söhne", "Suisse Int'l", "Neue Haas Grotesk Text", "Helvetica Now Text",
+          -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, Arial, sans-serif;
+  --mono: "Berkeley Mono", "JetBrains Mono", "Cascadia Mono", "SF Mono",
+          "DejaVu Sans Mono", ui-monospace, Consolas, monospace;
+
+  --t-xs:  11px;
+  --t-sm:  12.5px;
+  --t:     13.5px;
+  --t-md:  15px;
+  --t-lg:  19px;
+  --t-xl:  27px;
+  --t-2xl: 40px;
+
+  /* Dense, not airy. Statement rows are 34px: about 25 visible without
+     scrolling, which is the density this reader expects. */
+  --row: 34px;
+  --gap: 16px;
+
+  --r-sm: 6px;
+  --r:    12px;
+  --r-lg: 18px;
+  --r-pill: 999px;
+
+  --shadow: 0 1px 2px rgba(22, 51, 0, .06), 0 6px 18px rgba(22, 51, 0, .05);
+
+  /* Almost no motion: colour and opacity, 120ms, nothing else. No hover lift,
+     no staggered fade-in. */
+  --ease: 120ms ease;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--well);
+  color: var(--ink);
+  font: var(--t)/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Mandatory, per FRONTEND.md §7. Every figure in this product is scanned down
+   a column, and proportional digits make a money column unreadable. */
+.num, td.num, th.num, .stat-value, .money, time, .tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--forest-soft); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--well-deep); border-radius: var(--r-pill); }
+::-webkit-scrollbar-track { background: transparent; }
+
+:focus-visible { outline: 2px solid var(--forest-soft); outline-offset: 2px; }
