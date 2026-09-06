@@ -183,6 +183,61 @@ def build(destination: Path, batches: list[str]) -> Site:
     return site
 
 
+def preview(destination: Path, host: str, port: int) -> None:
+    """Serve the built site the way the deploy will.
+
+    A plain static server is not a fair check: three paths in this API are a
+    file *and* a directory, and on the deploy they only work because
+    `vercel.json` rewrites them. Serving without those rewrites would 404 the
+    run list and make a correct build look broken. So this reads the rewrites
+    out of the file it just wrote and applies them — what you see here is what
+    the deploy serves, or the preview is worthless.
+    """
+    import re
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+    rules = []
+    for rule in json.loads((destination / "vercel.json").read_text())["rewrites"]:
+        # `:id` is path-to-regexp's named parameter, which is what Vercel reads.
+        # Escape everything else, then put the one wildcard back.
+        pattern = "(?P<id>[^/]+)".join(
+            re.escape(part) for part in rule["source"].split(":id")
+        )
+        rules.append((re.compile(f"^{pattern}$"), rule["destination"]))
+
+    class Preview(SimpleHTTPRequestHandler):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, directory=str(destination), **kw)
+
+        def do_GET(self):  # noqa: N802
+            for pattern, target in rules:
+                found = pattern.match(self.path.split("?")[0])
+                if found:
+                    self.path = target.replace(":id", found.groupdict().get("id", ""))
+                    break
+            super().do_GET()
+
+        def end_headers(self):
+            # Everything here is JSON the browser must not cache between builds.
+            self.send_header("Cache-Control", "no-store")
+            super().end_headers()
+
+        def guess_type(self, path):
+            # The API is written without extensions on purpose. This receives a
+            # filesystem path, which on Windows uses backslashes — checking only
+            # for "/api/" silently misses every one of them.
+            name = str(path).replace("\\", "/")
+            if "/api/" in name and not name.endswith((".js", ".css", ".html", ".pdf")):
+                return "application/json"
+            return super().guess_type(path)
+
+        def log_message(self, fmt, *args):
+            sys.stderr.write(f"  {fmt % args}\n")
+
+    print(f"\n  preview  http://{host}:{port}/   (Ctrl-C to stop)\n")
+    ThreadingHTTPServer((host, port), Preview).serve_forever()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -192,6 +247,9 @@ def main(argv: list[str] | None = None) -> int:
         help="a batch id to include; repeatable. Defaults to the newest.",
     )
     parser.add_argument("--out", default=str(HERE / "dist"))
+    parser.add_argument("--serve", type=int, metavar="PORT",
+                        help="after building, serve it as the deploy would")
+    parser.add_argument("--host", default="0.0.0.0")
     args = parser.parse_args(argv)
 
     destination = Path(args.out).resolve()
@@ -210,6 +268,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  profiles {', '.join(p['id'] for p in serve.profiles())}")
     print()
     print(f"  vercel deploy --prod --cwd {destination}")
+
+    if args.serve:
+        preview(destination, args.host, args.serve)
     return 0
 
 

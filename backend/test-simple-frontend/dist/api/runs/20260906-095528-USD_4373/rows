@@ -1,0 +1,993 @@
+{
+  "account": "USD_4373",
+  "source_file": "20260331_NI_GMF_II_SCSP_CALDER_USD_4373.pdf",
+  "profile": "journal-entries",
+  "stage": "journal",
+  "attempt": 5,
+  "accepted": true,
+  "checks": [
+    {
+      "name": "balance_chain",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "18/18 links hold",
+      "evidence": ""
+    },
+    {
+      "name": "closing_balance",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "newest row 943598.38 vs printed 943598.38",
+      "evidence": ""
+    },
+    {
+      "name": "printed_openings",
+      "scope": "USD_4373",
+      "status": "CANNOT_VERIFY",
+      "detail": "statement prints no 'Balance brought forward' markers",
+      "evidence": ""
+    },
+    {
+      "name": "row_count",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "parsed 19, raw text shows 19",
+      "evidence": ""
+    },
+    {
+      "name": "one_amount_per_row",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "19/19 rows have exactly one amount",
+      "evidence": ""
+    },
+    {
+      "name": "reference_provenance",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "19/19 references are literal PDF substrings",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_raw_provenance",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "11/11 counterparty_raw values appear in their own narrative",
+      "evidence": ""
+    },
+    {
+      "name": "project_code_raw_provenance",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "6/6 project_code_raw values appear in their own narrative",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_membership",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "8 CANNOT_VERIFY \u00b7 7 MATCH \u00b7 4 UNRESOLVED",
+      "evidence": ""
+    },
+    {
+      "name": "project_code_match_membership",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "13 CANNOT_VERIFY \u00b7 6 MATCH",
+      "evidence": ""
+    },
+    {
+      "name": "resolution_completeness",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "38/38 resolutions carry a status",
+      "evidence": ""
+    },
+    {
+      "name": "classification_vocabulary",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "19/19 rows carry a declared classification",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_proposals",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "no proposals offered",
+      "evidence": ""
+    },
+    {
+      "name": "classification_review_rate",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "0/19 rows are 'review' (0%)",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_resolution_rate",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "7/11 values read from the document resolved; 4 did not (36%)",
+      "evidence": "rows [0, 11, 12, 17]"
+    },
+    {
+      "name": "counterparty_match_pairing",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "19/19 rows agree with their own counterparty_raw",
+      "evidence": ""
+    },
+    {
+      "name": "double_entry",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "19 batches over 19 rows, 0 problem(s)",
+      "evidence": ""
+    },
+    {
+      "name": "posting",
+      "scope": "USD_4373",
+      "status": "PASS",
+      "detail": "38/38 lines name an account that exists",
+      "evidence": ""
+    }
+  ],
+  "rows": [
+    {
+      "bank_reference": "TT UCL163D8BANG",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:01",
+      "narrative": "BQVRFRPP, /448323310 CHARGE WAIVED",
+      "credit": null,
+      "debit": "-184939.74",
+      "balance": "943598.38",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 1,
+      "counterparty_raw": "BQVRFRPP",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Party 'BQVRFRPP' not found in reference data tables"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "batch_1",
+          "amount": "184939.74",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_1",
+          "amount": "184939.74",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT YCB037B7GBGIU",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "COMMISSION USD 6,87, 16138PF705L0",
+      "credit": null,
+      "debit": "-6.87",
+      "balance": "1128538.12",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_2",
+          "amount": "6.87",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_2",
+          "amount": "6.87",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT YCB037B7GBGIU",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "NI GMF II COOPERATIEF U.A, 16138PF705L0, /DK8510041070352358 EQUITY: FROM NORDVIK, INFRASTRUCTURE GROWTH MARKET FUND II SCSP TO NI GMF II, COOPERATIEF U.A. PROJECT ATRIA",
+      "credit": null,
+      "debit": "-40000.00",
+      "balance": "1128544.99",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 1,
+      "counterparty_raw": "NI GMF II COOPERATIEF U.A",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI GMF II Co\u00f6peratief U.A.",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Matched in related_parties"
+      },
+      "project_code_raw": "ATRIA",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "Atria",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Project code matched in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "batch_3",
+          "amount": "40000.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_3",
+          "amount": "40000.00",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT TJK451YCABAJG",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "COMMISSION USD 6,87, 01104ZP014LE",
+      "credit": null,
+      "debit": "-6.87",
+      "balance": "1168544.99",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_4",
+          "amount": "6.87",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_4",
+          "amount": "6.87",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT TJK451YCABAJG",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "NI GMF II SCSP, 01104ZP014LE, /DK0996402923176963 INTERNAL TRANSFER",
+      "credit": null,
+      "debit": "-85000.00",
+      "balance": "1168551.86",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 1,
+      "counterparty_raw": "NI GMF II SCSP",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI GMF II SCSp",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Matched in related_parties"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "batch_5",
+          "amount": "85000.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_5",
+          "amount": "85000.00",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT TID363HB4NMXE",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "COMMISSION USD 6,87, 94453FH69CVT",
+      "credit": null,
+      "debit": "-6.87",
+      "balance": "1253551.86",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_6",
+          "amount": "6.87",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_6",
+          "amount": "6.87",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT TID363HB4NMXE",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "NI GMF II COOPERATIEF U.A., 94453FH69CVT, /DK8510041070352358 EQUITY: FROM NORDVIK INFRASTRUCTURE GROWTH MARKETS FUND II SCSP TO NI GMF II COOPERATIEF U.A. PROJECT TANSYMOOR.",
+      "credit": null,
+      "debit": "-750000.00",
+      "balance": "1253558.73",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 1,
+      "counterparty_raw": "NI GMF II COOPERATIEF U.A",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI GMF II Co\u00f6peratief U.A.",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Matched in related_parties"
+      },
+      "project_code_raw": "TANSYMOOR",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "Tansymoor",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Project code matched in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "batch_7",
+          "amount": "750000.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_7",
+          "amount": "750000.00",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT XTT580QZUKJDU",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "COMMISSION USD 6,87, 93301QH142TF",
+      "credit": null,
+      "debit": "-6.87",
+      "balance": "2003558.73",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_8",
+          "amount": "6.87",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_8",
+          "amount": "6.87",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT XTT580QZUKJDU",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "NI GMF II COOPERATIEF U.A, 93301QH142TF, /DK8510041070352358 EQUITY: FROM NI GMF II SCSP TO, NI GMF II COOPERATIEF U.A. PROJECT IAPETUS.",
+      "credit": null,
+      "debit": "-667723.00",
+      "balance": "2003565.60",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": "NI GMF II COOPERATIEF U.A",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI GMF II Co\u00f6peratief U.A.",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Matched in related_parties"
+      },
+      "project_code_raw": "IAPETUS",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "Iapetus",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Project code matched in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "batch_9",
+          "amount": "667723.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_9",
+          "amount": "667723.00",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT LKS976XV0DUWR",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "COMMISSION USD 6,87, 43433NJ28TB0",
+      "credit": null,
+      "debit": "-6.87",
+      "balance": "2671288.60",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_10",
+          "amount": "6.87",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_10",
+          "amount": "6.87",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT LKS976XV0DUWR",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "NI GMF II COOPERATIEF U.A, 43433NJ28TB0, /DK8510041070352358 EQUITY: FROM NORDVIK, INFRASTRUCTURE GROWTH MARKETS FUND II SCSP TO NI GMF II, COOPERATIEF U.A. PROJECT BRAGI.",
+      "credit": null,
+      "debit": "-736000.00",
+      "balance": "2671295.47",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": "NI GMF II COOPERATIEF U.A",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI GMF II Co\u00f6peratief U.A.",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Matched in related_parties"
+      },
+      "project_code_raw": "BRAGI",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "Bragi",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Project code matched in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "batch_11",
+          "amount": "736000.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_11",
+          "amount": "736000.00",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT KCX456J16RYR",
+      "trn_type": "S+P-",
+      "value_date": "27 Mar 2026",
+      "post_date": "27 Mar 2026",
+      "time": "14:21",
+      "narrative": "BQVRFRPP, /448323310 CHARGE WAIVED",
+      "credit": null,
+      "debit": "-10000000.00",
+      "balance": "3407295.47",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": "BQVRFRPP",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Party 'BQVRFRPP' not found in reference data tables"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "batch_12",
+          "amount": "10000000.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_12",
+          "amount": "10000000.00",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "SECVJT1732059308",
+      "trn_type": "S+P+",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "16:36",
+      "narrative": "1/NORDVIK INFRASTRUCTURE PARTNER, S+P+ CHARGE WAIVED",
+      "credit": "13007460.48",
+      "debit": null,
+      "balance": "13407295.47",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": "NORDVIK INFRASTRUCTURE PARTNER",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Party 'NORDVIK INFRASTRUCTURE PARTNER' not found in reference data tables"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "batch_13",
+          "amount": "13007460.48",
+          "is_debit": true,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_13",
+          "amount": "13007460.48",
+          "is_debit": false,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT HZR353RVTFKKR",
+      "trn_type": "S+P- CHG",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:09",
+      "narrative": "COMMISSION USD 6,97, 40123ZC60S9V",
+      "credit": null,
+      "debit": "-6.97",
+      "balance": "399834.99",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_14",
+          "amount": "6.97",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_14",
+          "amount": "6.97",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT HZR353RVTFKKR",
+      "trn_type": "S+P-",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:09",
+      "narrative": "NI GMF II COOPERATIEF U.A, 40123ZC60S9V, /DK8510041070352358 EQUITY: FROM NORDVIK, INFRASTRUCTURE GROWTH MARKET FUND, II SCSP TO NI GMF II COOPERATIEF, U.A. PROJECT OFW-XX-1",
+      "credit": null,
+      "debit": "-20000.00",
+      "balance": "399841.96",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": "NI GMF II COOPERATIEF U.A",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI GMF II Co\u00f6peratief U.A.",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Matched in related_parties"
+      },
+      "project_code_raw": "OFW-XX-1",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "OFW-XX-1 (New Market Screening NMF)",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Project code matched in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "batch_15",
+          "amount": "20000.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_15",
+          "amount": "20000.00",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT UPP910JIFPXRB",
+      "trn_type": "S+P- CHG",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:08",
+      "narrative": "COMMISSION USD 6,97, 20235GB45D5M",
+      "credit": null,
+      "debit": "-6.97",
+      "balance": "419841.96",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_16",
+          "amount": "6.97",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_16",
+          "amount": "6.97",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT UPP910JIFPXRB",
+      "trn_type": "S+P-",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:08",
+      "narrative": "NI GMF II COOPERATIEF U.A, 20235GB45D5M, /DK8510041070352358 EQUITY: FROM NORDVIK, INFRASTRUCTURE GROWTH MARKETS FUND, II SCSP TO NI GMF II COOPERATIEF, U.A. PROJECT ELMWOOD.",
+      "credit": null,
+      "debit": "-260000.00",
+      "balance": "419848.93",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": "NI GMF II COOPERATIEF U.A",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI GMF II Co\u00f6peratief U.A.",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Matched in related_parties"
+      },
+      "project_code_raw": "ELMWOOD",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "Elmwood",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Project code matched in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "batch_17",
+          "amount": "260000.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_17",
+          "amount": "260000.00",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT WKK555IJRWKY",
+      "trn_type": "S+P-",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "07:01",
+      "narrative": "BQVRFRPP, /448323310 CHARGE WAIVED",
+      "credit": null,
+      "debit": "-38739.87",
+      "balance": "679848.93",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 2,
+      "counterparty_raw": "BQVRFRPP",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Party 'BQVRFRPP' not found in reference data tables"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "batch_18",
+          "amount": "38739.87",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_18",
+          "amount": "38739.87",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        }
+      ]
+    },
+    {
+      "bank_reference": "NONREF",
+      "trn_type": "S+P+ INT",
+      "value_date": "23 Mar 2026",
+      "post_date": "23 Mar 2026",
+      "time": "21:06",
+      "narrative": "CREDIT INTEREST",
+      "credit": "3260.28",
+      "debit": null,
+      "balance": "718588.80",
+      "account_number": "240-644826-130",
+      "currency": "USD",
+      "page": 3,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": null
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_19",
+          "amount": "3260.28",
+          "is_debit": true,
+          "transaction_type": "Cash - Disbursed - USD"
+        },
+        {
+          "batch": "batch_19",
+          "amount": "3260.28",
+          "is_debit": false,
+          "transaction_type": "Suspense"
+        }
+      ]
+    }
+  ]
+}

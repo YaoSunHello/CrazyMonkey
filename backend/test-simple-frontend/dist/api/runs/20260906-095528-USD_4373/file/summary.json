@@ -1,0 +1,12 @@
+{
+  "run_id": "20260906-095528-USD_4373",
+  "account": "USD_4373",
+  "source_file": "20260331_NI_GMF_II_SCSP_CALDER_USD_4373.pdf",
+  "profile": "journal-entries",
+  "model": "gemini-3.8-flash",
+  "attempts": 10,
+  "accepted": true,
+  "rows": 19,
+  "seconds": 655.3,
+  "summary": "journal: 19 rows, every check green, attempt 5"
+}

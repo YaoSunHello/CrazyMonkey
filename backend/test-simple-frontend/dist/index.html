@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CrazyMonkey — run console</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/harness.css">
+</head>
+<body>
+
+<!-- Markup only. Every view below is filled in by js/, so this file stays the
+     shape of the screen rather than a place logic accumulates. -->
+<div class="shell">
+
+  <aside class="rail">
+    <div class="brand">
+      <h1><span class="dot"></span>CrazyMonkey</h1>
+      <p>bank statements → journal entries, proved</p>
+    </div>
+
+    <div class="rail-scroll">
+      <div class="rail-head">
+        <span>runs on disk</span>
+        <button id="refresh" type="button">refresh</button>
+      </div>
+      <div id="runlist"></div>
+    </div>
+
+    <!-- The offline path. A file:// page cannot fetch its own siblings, so
+         dropping a file is the one route that always works. -->
+    <div class="rail-foot">
+      <div class="drop" id="drop">
+        <b>Drop a batch envelope</b>
+        either file from <code>examples/</code>
+        <input type="file" id="file" accept="application/json,.json">
+      </div>
+      <button class="btn" id="newrun" type="button">Start a new run</button>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="topbar">
+      <div class="topline" id="topline"></div>
+      <nav class="tabs" id="tabs"></nav>
+    </div>
+
+    <!-- Replay: the recorded event stream, played back. -->
+    <section class="view no-scroll" id="view-replay">
+      <div class="harness">
+        <div class="stagerail" id="stagerail"></div>
+        <div class="harness-body">
+          <div class="term" id="term"></div>
+          <aside class="explain" id="explain"></aside>
+        </div>
+        <div class="transport">
+          <button class="play" id="play" type="button" aria-label="Play">▶</button>
+          <input class="scrub" id="scrub" type="range" min="0" max="0" value="0" step="1"
+                 aria-label="Position in the recorded run">
+          <span class="readout" id="readout"></span>
+          <div class="speeds" id="speeds"></div>
+          <label class="toggle"><input type="checkbox" id="follow" checked> follow</label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Output: the deliverable. -->
+    <section class="view" id="view-output" hidden></section>
+    <section class="view" id="view-checks" hidden></section>
+    <section class="view" id="view-code" hidden></section>
+    <section class="view" id="view-new" hidden></section>
+  </main>
+</div>
+
+<script>window.CM_STATIC = true;</script>
+<script src="js/api.js"></script>
+<script src="js/adapters.js"></script>
+<script src="js/explain.js"></script>
+<script src="js/harness.js"></script>
+<script src="js/output.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

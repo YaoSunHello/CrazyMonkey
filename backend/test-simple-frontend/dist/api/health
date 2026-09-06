@@ -1,0 +1,8 @@
+{
+ "status": "ok",
+ "root": "static snapshot",
+ "runs": 14,
+ "new_runs_allowed": false,
+ "statements": true,
+ "static": true
+}

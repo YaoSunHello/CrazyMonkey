@@ -1,0 +1,12 @@
+{
+  "run_id": "20260906-095528-EUR_8102",
+  "account": "EUR_8102",
+  "source_file": "20260331_NI_A_B__FUND_II_CALDER_EUR_8102.pdf",
+  "profile": "journal-entries",
+  "model": "gemini-3.8-flash",
+  "attempts": 8,
+  "accepted": true,
+  "rows": 16,
+  "seconds": 763.2,
+  "summary": "journal: 16 rows, every check green, attempt 5"
+}

@@ -1,0 +1,23 @@
+[
+ {
+  "id": "journal-entries",
+  "label": "Bank statements to journal entries",
+  "passes": [
+   "extract",
+   "resolve",
+   "journal"
+  ]
+ },
+ {
+  "id": "mandate-fit",
+  "label": "LP mandate-fit screening",
+  "passes": [
+   "screen"
+  ]
+ },
+ {
+  "id": "pipeline-validation",
+  "label": "Model and pipeline validation",
+  "passes": []
+ }
+]

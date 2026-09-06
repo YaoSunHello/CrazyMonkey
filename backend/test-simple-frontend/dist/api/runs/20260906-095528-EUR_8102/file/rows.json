@@ -1,0 +1,858 @@
+{
+  "account": "EUR_8102",
+  "source_file": "20260331_NI_A_B__FUND_II_CALDER_EUR_8102.pdf",
+  "profile": "journal-entries",
+  "stage": "journal",
+  "attempt": 5,
+  "accepted": true,
+  "checks": [
+    {
+      "name": "balance_chain",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "15/15 links hold",
+      "evidence": ""
+    },
+    {
+      "name": "closing_balance",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "newest row 20088.32 vs printed 20088.32",
+      "evidence": ""
+    },
+    {
+      "name": "printed_openings",
+      "scope": "EUR_8102",
+      "status": "CANNOT_VERIFY",
+      "detail": "statement prints no 'Balance brought forward' markers",
+      "evidence": ""
+    },
+    {
+      "name": "row_count",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "parsed 16, raw text shows 16",
+      "evidence": ""
+    },
+    {
+      "name": "one_amount_per_row",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "16/16 rows have exactly one amount",
+      "evidence": ""
+    },
+    {
+      "name": "reference_provenance",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "16/16 references are literal PDF substrings",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_raw_provenance",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "13/13 counterparty_raw values appear in their own narrative",
+      "evidence": ""
+    },
+    {
+      "name": "project_code_raw_provenance",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "7/7 project_code_raw values appear in their own narrative",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_membership",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "3 CANNOT_VERIFY \u00b7 11 MATCH \u00b7 2 UNRESOLVED",
+      "evidence": ""
+    },
+    {
+      "name": "project_code_match_membership",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "9 CANNOT_VERIFY \u00b7 7 MATCH",
+      "evidence": ""
+    },
+    {
+      "name": "resolution_completeness",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "32/32 resolutions carry a status",
+      "evidence": ""
+    },
+    {
+      "name": "classification_vocabulary",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "16/16 rows carry a declared classification",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_proposals",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "no proposals offered",
+      "evidence": ""
+    },
+    {
+      "name": "classification_review_rate",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "0/16 rows are 'review' (0%)",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_resolution_rate",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "11/13 values read from the document resolved; 2 did not (15%)",
+      "evidence": "rows [4, 12]"
+    },
+    {
+      "name": "counterparty_match_pairing",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "16/16 rows agree with their own counterparty_raw",
+      "evidence": ""
+    },
+    {
+      "name": "double_entry",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "16 batches over 16 rows, 0 problem(s)",
+      "evidence": ""
+    },
+    {
+      "name": "posting",
+      "scope": "EUR_8102",
+      "status": "PASS",
+      "detail": "32/32 lines name an account that exists",
+      "evidence": ""
+    }
+  ],
+  "rows": [
+    {
+      "bank_reference": "NONREF",
+      "trn_type": "TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "17:46",
+      "narrative": "CHARGES FOR 2, OUTWARD SEPA PAYMENT",
+      "credit": null,
+      "debit": "-0.44",
+      "balance": "20088.32",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank charges; no counterparty named"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project keyword in narrative"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "row_1",
+          "amount": "0.44",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_1",
+          "amount": "0.44",
+          "is_debit": true,
+          "transaction_type": "Accrued Expense - Withholding"
+        }
+      ]
+    },
+    {
+      "bank_reference": "10716RS62GWQ",
+      "trn_type": "TRF TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "11:01",
+      "narrative": "NI ABF I SCSP, PMT FRM NI ABF II SCSP TO NI ABF I, SCSP FOR PURCHASE 100PER OF ACC INT, IN CEPHALUS BIOGAS 001 LTD PREMIUM, ACCRUED INTEREST PROJECT CEPHALUS",
+      "credit": null,
+      "debit": "-301908.70",
+      "balance": "20088.76",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": "NI ABF I SCSP",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI ABF I SCSp",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": "CEPHALUS",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "Cephalus",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "row_2",
+          "amount": "301908.70",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_2",
+          "amount": "301908.70",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "85720JS23WNK",
+      "trn_type": "TRF TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "11:01",
+      "narrative": "NI ABF I SCSP, PMT FRM NI ABF II SCSP TO NI ABF I, SCSP FOR ACQ 100PER OF SHARES IN, CEPHALUS BIOGAS 001 LTD REL TOTAL, PREMIUM (EQUITY) PROJECT CEPHALUS)",
+      "credit": null,
+      "debit": "-2013809.89",
+      "balance": "321997.46",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": "NI ABF I SCSP",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI ABF I SCSp",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": "CEPHALUS",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "Cephalus",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "row_3",
+          "amount": "2013809.89",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_3",
+          "amount": "2013809.89",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "24381JR11YY3",
+      "trn_type": "TRF TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "11:01",
+      "narrative": "NI ABF I SCSP, PMT FRM NI ABF II SCSP TO NI ABF I, SCSP FOR PURCHAS 100PER OF LOAN, PRINCIP IN CEPHALUS BIOGAS 001 LTD, TOTAL COST LOAN PROJECT CEPHALUS",
+      "credit": null,
+      "debit": "-4232000.00",
+      "balance": "2335807.35",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": "NI ABF I SCSP",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI ABF I SCSp",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": "CEPHALUS",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "Cephalus",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "row_4",
+          "amount": "4232000.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_4",
+          "amount": "4232000.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "WQX04328RE10ADP4",
+      "trn_type": "TFR+",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:58",
+      "narrative": "NORDVIK INFRASTRUCTURE ADVANCED, TFR+ INTERNAL TRANSFER, CHARGE WAIVED",
+      "credit": "6550000.00",
+      "debit": null,
+      "balance": "6567807.35",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": "NORDVIK INFRASTRUCTURE ADVANCED",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Names platform entity 'Nordvik Infrastructure Advanced'; not found in counterparty lists"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project keyword in narrative"
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "row_5",
+          "amount": "6550000.00",
+          "is_debit": true,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_5",
+          "amount": "6550000.00",
+          "is_debit": false,
+          "transaction_type": "Accrued Expense - Withholding"
+        }
+      ]
+    },
+    {
+      "bank_reference": "WW43092242598430",
+      "trn_type": "SCT",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:18",
+      "narrative": "29000231,84819265, NIP PLATFORM SOLUTIONS APS",
+      "credit": null,
+      "debit": "-1041.13",
+      "balance": "17807.35",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": "NIP PLATFORM SOLUTIONS APS",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NIP PLATFORM SOLUTIONS APS",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project keyword in narrative"
+      },
+      "classification": "Related Party",
+      "journal_lines": [
+        {
+          "batch": "row_6",
+          "amount": "1041.13",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_6",
+          "amount": "1041.13",
+          "is_debit": true,
+          "transaction_type": "Payable - Interest - Related Party"
+        }
+      ]
+    },
+    {
+      "bank_reference": "YP03586039037340",
+      "trn_type": "SCT",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:18",
+      "narrative": "52443473437109-3528152584, TRENTBECK AUDIT LUXEMBOURG",
+      "credit": null,
+      "debit": "-5085.23",
+      "balance": "18848.48",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": "TRENTBECK AUDIT",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "Trentbeck Audit",
+        "table": "vendors",
+        "confidence": 1.0,
+        "why": "Exact match in vendors"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project keyword in narrative"
+      },
+      "classification": "Vendor",
+      "journal_lines": [
+        {
+          "batch": "row_7",
+          "amount": "5085.23",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_7",
+          "amount": "5085.23",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "55051QC31ZHZ",
+      "trn_type": "TRF TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "23:04",
+      "narrative": "NI ABF I SCSP, OBO PMT FRM NI ABF II SCSP ON BEHALF OF NI ABF II CO-INVEST SCSP, TO NI ABF I SCSP FOR ACQ OF 1 SHARE, IN CEPHALUS BIOGAS 001 LTD (EQUITY",
+      "credit": null,
+      "debit": "-1.62",
+      "balance": "23933.71",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": "NI ABF I SCSP",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI ABF I SCSp",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project keyword in narrative"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "row_8",
+          "amount": "1.62",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_8",
+          "amount": "1.62",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "85202DA174BN",
+      "trn_type": "TRF TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "23:04",
+      "narrative": "NI ABF I SCSP, OBO PMT FRM NI ABF II SCSP ON BEHALF OF NI ABF II QFPF BLOC. SCSP, TO NI ABF I SCSP FOR ACQ OF 1 SHARE, IN CEPHALUS BIOGAS 001 LTD (EQUITY",
+      "credit": null,
+      "debit": "-1.62",
+      "balance": "23935.33",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": "NI ABF I SCSP",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI ABF I SCSp",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project keyword in narrative"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "row_9",
+          "amount": "1.62",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_9",
+          "amount": "1.62",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "26623WD49U68",
+      "trn_type": "TRF TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "23:04",
+      "narrative": "NI ABF I SCSP, PMT FRM NI ABF II SCSP TO NI ABF I, SCSP FOR ACQ 100PER OF SHARE IN, CEPHALUS BIOGAS 001 LTD REL COST (EQUITY) (PROJECT CEPHALUS)",
+      "credit": null,
+      "debit": "-46272.93",
+      "balance": "23936.95",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": "NI ABF I SCSP",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI ABF I SCSp",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": "CEPHALUS",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "Cephalus",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "row_10",
+          "amount": "46272.93",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_10",
+          "amount": "46272.93",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "41377TZ050XC",
+      "trn_type": "TRF TFR-",
+      "value_date": "25 Mar 2026",
+      "post_date": "25 Mar 2026",
+      "time": "12:46",
+      "narrative": "NI ABF II MIZARCO S.A R., PAYMENT FROM NORDVIK INFRASTRUCTURE ABF II SCSP, TO TO NI ABF II MIZARCO S.A R.L. PROJECT BOREAS. TOTAL COST (LOAN)",
+      "credit": null,
+      "debit": "-664295.53",
+      "balance": "70209.88",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": "NI ABF II MIZARCO S.A R.L",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI ABF II MizarCo S.\u00e0 r.l.",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": "BOREAS",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "BOREAS",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "row_11",
+          "amount": "664295.53",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_11",
+          "amount": "664295.53",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "34487ET23F39",
+      "trn_type": "TRF TFR-",
+      "value_date": "25 Mar 2026",
+      "post_date": "25 Mar 2026",
+      "time": "12:45",
+      "narrative": "NI ABF II MIZARCO S.A R., PAYMENT FROM NORDVIK INFRASTRUCTURE ABF II SCSP, TO TO NI ABF II MIZARCO S.A R.L. PROJECT MIZAR. TOTAL COST (LOAN)",
+      "credit": null,
+      "debit": "-3465688.12",
+      "balance": "734505.41",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": "NI ABF II MIZARCO S.A R.L",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI ABF II MizarCo S.\u00e0 r.l.",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": "MIZAR",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "MIZAR",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "row_12",
+          "amount": "3465688.12",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_12",
+          "amount": "3465688.12",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "LRP25958JG3G21PQ",
+      "trn_type": "TFR+",
+      "value_date": "25 Mar 2026",
+      "post_date": "25 Mar 2026",
+      "time": "12:29",
+      "narrative": "NORDVIK INFRASTRUCTURE ADVANCED, TFR+ INTERNAL TRANSFER TO COVER INVOICES, CHARGE WAIVED",
+      "credit": "4200000.00",
+      "debit": null,
+      "balance": "4200193.53",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": "NORDVIK INFRASTRUCTURE ADVANCED",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Names platform entity 'Nordvik Infrastructure Advanced'; not found in counterparty lists"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project keyword in narrative"
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "row_13",
+          "amount": "4200000.00",
+          "is_debit": true,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_13",
+          "amount": "4200000.00",
+          "is_debit": false,
+          "transaction_type": "Accrued Expense - Withholding"
+        }
+      ]
+    },
+    {
+      "bank_reference": "33411WL46TRZ",
+      "trn_type": "TFR-",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:19",
+      "narrative": "LU HBEU 240-149813-131, INTERNAL FX TRANSFER TO COVER INVOICES",
+      "credit": null,
+      "debit": "-5000.00",
+      "balance": "193.53",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Internal FX transfer between platform accounts; no party name given"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project keyword in narrative"
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "row_14",
+          "amount": "5000.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_14",
+          "amount": "5000.00",
+          "is_debit": true,
+          "transaction_type": "Accrued Expense - Withholding"
+        }
+      ]
+    },
+    {
+      "bank_reference": "51300TQ48FS0",
+      "trn_type": "TRF TFR-",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:07",
+      "narrative": "NI ABF II MIZARCO S.A R., PAYMENT FROM NORDVIK INFRASTRUCTURE ABF II SCSP, TO TO NI ABF II MIZARCO S.A R.L., PROJECT GALENE. TOTAL COST (LOAN)",
+      "credit": null,
+      "debit": "-108724.20",
+      "balance": "5193.53",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": "NI ABF II MIZARCO S.A R.L",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI ABF II MizarCo S.\u00e0 r.l.",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": "GALENE",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "GALENE",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "row_15",
+          "amount": "108724.20",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_15",
+          "amount": "108724.20",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "NONREF",
+      "trn_type": "TFR+ INT",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "07:05",
+      "narrative": "CREDIT INTEREST",
+      "credit": "50.54",
+      "debit": null,
+      "balance": "113917.73",
+      "account_number": "240-149813-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Credit interest; no counterparty named"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project keyword in narrative"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "row_16",
+          "amount": "50.54",
+          "is_debit": true,
+          "transaction_type": "Cash - Disbursed - EUR"
+        },
+        {
+          "batch": "row_16",
+          "amount": "50.54",
+          "is_debit": false,
+          "transaction_type": "Accrued Expense - Withholding"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,582 @@
+{
+  "account": "EUR_030041",
+  "source_file": "20260331_NI_V_SCSP_CALDER_EUR_030041.pdf",
+  "profile": "pipeline-validation",
+  "stage": "resolve",
+  "attempt": 1,
+  "accepted": true,
+  "checks": [
+    {
+      "name": "balance_chain",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "17/17 links hold",
+      "evidence": ""
+    },
+    {
+      "name": "closing_balance",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "newest row 1197694.98 vs printed 1197694.98",
+      "evidence": ""
+    },
+    {
+      "name": "printed_openings",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "4/4 printed markers reproduce from the movements",
+      "evidence": ""
+    },
+    {
+      "name": "row_count",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "parsed 18, raw text shows 18",
+      "evidence": ""
+    },
+    {
+      "name": "one_amount_per_row",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "18/18 rows have exactly one amount",
+      "evidence": ""
+    },
+    {
+      "name": "reference_provenance",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "18/18 references are literal PDF substrings",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_raw_provenance",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "5/5 counterparty_raw values appear in their own narrative",
+      "evidence": ""
+    },
+    {
+      "name": "project_code_raw_provenance",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "1/1 project_code_raw values appear in their own narrative",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_membership",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "13 CANNOT_VERIFY \u00b7 1 UNRESOLVED \u00b7 4 MATCH",
+      "evidence": ""
+    },
+    {
+      "name": "project_code_match_membership",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "17 CANNOT_VERIFY \u00b7 1 MATCH",
+      "evidence": ""
+    },
+    {
+      "name": "resolution_completeness",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "36/36 resolutions carry a status",
+      "evidence": ""
+    },
+    {
+      "name": "classification_vocabulary",
+      "scope": "EUR_030041",
+      "status": "PASS",
+      "detail": "18/18 rows carry a declared classification",
+      "evidence": ""
+    }
+  ],
+  "rows": [
+    {
+      "bank_reference": "NONREF",
+      "trn_type": "TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "17:46",
+      "narrative": "CHARGES FOR 2, OUTWARD SEPA PAYMENT",
+      "credit": null,
+      "debit": "-0.44",
+      "balance": "1197694.98",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "GU26109510736433",
+      "trn_type": "SCT",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:18",
+      "narrative": "22434343,63324540,54833311,11522044, NIP CINNABAR APS",
+      "credit": null,
+      "debit": "-74960.33",
+      "balance": "1197695.42",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "LP87861598574517",
+      "trn_type": "SCT",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:18",
+      "narrative": "35051052 / 412263620, ELLMONT AND CHALWORTH LUXEMBOURG SARL",
+      "credit": null,
+      "debit": "-8671.31",
+      "balance": "1272655.75",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": "ELLMONT AND CHALWORTH LUXEMBOURG SARL",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "Ellmont and Chalworth Luxembourg Sarl",
+        "table": "vendors"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Vendor"
+    },
+    {
+      "bank_reference": "TT HKM371VDCAJA",
+      "trn_type": "TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "06:30",
+      "narrative": "BQVRFRPP, /FR6239723540911169279904595 CHARGE WAIVED",
+      "credit": null,
+      "debit": "-19526285.38",
+      "balance": "1281327.06",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "TT EKE400VADVFGU",
+      "trn_type": "TFR- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "06:30",
+      "narrative": "COMMISSION EUR 6,00, 25515MS49ERZ",
+      "credit": null,
+      "debit": "-6.00",
+      "balance": "20807612.44",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "TT EKE400VADVFGU",
+      "trn_type": "TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "06:30",
+      "narrative": "NI RANFJORD II SCSP, 25515MS49ERZ, /DK9152066306262321 EQUITY: FROM NORDVIK INFRAS, TRUCTURE V SCSP EUR) TO NI RANFJORD II SCSP (EUR). PROJECT, RANFJORD II.",
+      "credit": null,
+      "debit": "-9400000.00",
+      "balance": "20807618.44",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": "NORDVIK INFRAS, TRUCTURE V SCSP EUR)",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": "RANFJORD II",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "Ranfjord II",
+        "table": "project_codes"
+      },
+      "classification": "Investment Transfer"
+    },
+    {
+      "bank_reference": "ZAQ41907ZZ3414VA",
+      "trn_type": "TFR+",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "06:20",
+      "narrative": "NORDVIK INFRASTRUCTURE V, TFR+ NORDVIK INFRASTRUCTURE V SCSP,IS, IN XWDM430033AD,TRANCHE B1 CHARGE WAIVED",
+      "credit": "29700000.00",
+      "debit": null,
+      "balance": "30207618.44",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "TT EIB210FC5YPP",
+      "trn_type": "TFR-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "23:21",
+      "narrative": "BQVRFRPP, /FR6239723540911169279904595 CHARGE WAIVED",
+      "credit": null,
+      "debit": "-535331.91",
+      "balance": "507618.44",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "TT MWQ160P45UNY",
+      "trn_type": "TFR-",
+      "value_date": "27 Mar 2026",
+      "post_date": "27 Mar 2026",
+      "time": "14:21",
+      "narrative": "BQVRFRPP, /FR6239723540911169279904595 CHARGE WAIVED",
+      "credit": null,
+      "debit": "-2000000.00",
+      "balance": "1042950.35",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "TT RLF917ZB1BCX",
+      "trn_type": "TFR-",
+      "value_date": "25 Mar 2026",
+      "post_date": "25 Mar 2026",
+      "time": "09:38",
+      "narrative": "BQVRFRPP, /FR6239723540911169279904595 CHARGE WAIVED",
+      "credit": null,
+      "debit": "-2430836.90",
+      "balance": "3042950.35",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "NONREF",
+      "trn_type": "TFR-",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "17:44",
+      "narrative": "CHARGES FOR 1, OUTWARD SEPA PAYMENT",
+      "credit": null,
+      "debit": "-0.22",
+      "balance": "5473787.25",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "MUNBII5410435038",
+      "trn_type": "TFR+",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "15:31",
+      "narrative": "1/NORDVIK INFRASTRUCTURE PARTNER, TFR+ CHARGE WAIVED",
+      "credit": "5001458.33",
+      "debit": null,
+      "balance": "5473787.47",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "DZ48770552331763",
+      "trn_type": "SCT",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "09:40",
+      "narrative": "00345435, GARRFIELD",
+      "credit": null,
+      "debit": "-407.00",
+      "balance": "472329.14",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": "GARRFIELD",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "Garrfield",
+        "table": "vendors"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Vendor"
+    },
+    {
+      "bank_reference": "TT DAT804CKFPMKI",
+      "trn_type": "TFR- CHG",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:11",
+      "narrative": "COMMISSION EUR 6,00, 72905UE80MRC",
+      "credit": null,
+      "debit": "-6.00",
+      "balance": "472736.14",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "TT DAT804CKFPMKI",
+      "trn_type": "TFR-",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:11",
+      "narrative": "NI DRACONIS HOLDCO I SCSP, 72905UE80MRC, /DK4836650451224604 EQUITY: FROM NORDVIK, INFRASTRUCTURE V SCSP TO NI DRACONIS HOLDCO I SCSP",
+      "credit": null,
+      "debit": "-20000.00",
+      "balance": "472742.14",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": "NI DRACONIS HOLDCO I SCSP",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI DRACONIS HOLDCO I SCSp",
+        "table": "related_parties"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Investment"
+    },
+    {
+      "bank_reference": "TT VEM211DNNSFZS",
+      "trn_type": "TFR- CHG",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:11",
+      "narrative": "COMMISSION EUR 6,00, 67071UB44PDB",
+      "credit": null,
+      "debit": "-6.00",
+      "balance": "492742.14",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    },
+    {
+      "bank_reference": "TT VEM211DNNSFZS",
+      "trn_type": "TFR-",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:11",
+      "narrative": "NI DRACONIS HOLDCO II SCSP,, 67071UB44PDB, /DK8292743744610923 EQUITY: FROM NORDVIK, INFRASTRUCTURE V SCSP TO NI DRACONIS HOLDCO II SCSP",
+      "credit": null,
+      "debit": "-20000.00",
+      "balance": "492748.14",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 3,
+      "counterparty_raw": "NI DRACONIS HOLDCO II SCSP",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI DRACONIS HOLDCO II SCSp",
+        "table": "related_parties"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Investment"
+    },
+    {
+      "bank_reference": "NONREF",
+      "trn_type": "TFR+ INT",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "07:05",
+      "narrative": "CREDIT INTEREST",
+      "credit": "3937.30",
+      "debit": null,
+      "balance": "512748.14",
+      "account_number": "240-222731-030",
+      "currency": "EUR",
+      "page": 3,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null
+      },
+      "classification": "Other"
+    }
+  ]
+}

@@ -1,0 +1,588 @@
+{
+  "account": "DKK_4319",
+  "source_file": "20260331_NI_A_B__FUND_II_CALDER_DKK_4319.pdf",
+  "profile": "journal-entries",
+  "stage": "journal",
+  "attempt": 2,
+  "accepted": true,
+  "checks": [
+    {
+      "name": "balance_chain",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "9/9 links hold",
+      "evidence": ""
+    },
+    {
+      "name": "closing_balance",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "newest row 12887.11 vs printed 12887.11",
+      "evidence": ""
+    },
+    {
+      "name": "printed_openings",
+      "scope": "DKK_4319",
+      "status": "CANNOT_VERIFY",
+      "detail": "statement prints no 'Balance brought forward' markers",
+      "evidence": ""
+    },
+    {
+      "name": "row_count",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "parsed 10, raw text shows 10",
+      "evidence": ""
+    },
+    {
+      "name": "one_amount_per_row",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "10/10 rows have exactly one amount",
+      "evidence": ""
+    },
+    {
+      "name": "reference_provenance",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "10/10 references are literal PDF substrings",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_raw_provenance",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "5/5 counterparty_raw values appear in their own narrative",
+      "evidence": ""
+    },
+    {
+      "name": "project_code_raw_provenance",
+      "scope": "DKK_4319",
+      "status": "CANNOT_VERIFY",
+      "detail": "no row claims a project_code_raw",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_membership",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "5 CANNOT_VERIFY \u00b7 3 MATCH \u00b7 2 UNRESOLVED",
+      "evidence": ""
+    },
+    {
+      "name": "project_code_match_membership",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "10 CANNOT_VERIFY",
+      "evidence": ""
+    },
+    {
+      "name": "resolution_completeness",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "20/20 resolutions carry a status",
+      "evidence": ""
+    },
+    {
+      "name": "classification_vocabulary",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "10/10 rows carry a declared classification",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_proposals",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "no proposals offered",
+      "evidence": ""
+    },
+    {
+      "name": "classification_review_rate",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "0/10 rows are 'review' (0%)",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_resolution_rate",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "3/5 values read from the document resolved; 2 did not (40%)",
+      "evidence": "rows [3, 4]"
+    },
+    {
+      "name": "counterparty_match_pairing",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "10/10 rows agree with their own counterparty_raw",
+      "evidence": ""
+    },
+    {
+      "name": "double_entry",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "10 batches over 10 rows, 0 problem(s)",
+      "evidence": ""
+    },
+    {
+      "name": "posting",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "20/20 lines name an account that exists",
+      "evidence": ""
+    }
+  ],
+  "rows": [
+    {
+      "bank_reference": "TT JSL083B50KRNM",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:50",
+      "narrative": "COMMISSION DKK 44,83, 89732SV16BGK",
+      "credit": null,
+      "debit": "-44.83",
+      "balance": "12887.11",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank commission fee names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project code announced in narrative"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_1",
+          "amount": "0.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_1",
+          "amount": "0.00",
+          "is_debit": false,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT JSL083B50KRNM",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:50",
+      "narrative": "ULLA B. HILLEBRANDT CONSULTING, 89732SV16BGK, /DK5899030112098247 78",
+      "credit": null,
+      "debit": "-24750.00",
+      "balance": "12931.94",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1,
+      "counterparty_raw": "ULLA B. HILLEBRANDT CONSULTING",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "Ulla B. Hillebrandt Consulting - Non-LU",
+        "table": "vendors",
+        "confidence": 1.0,
+        "why": "Exact match in vendors list"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project code announced in narrative"
+      },
+      "classification": "Vendor",
+      "journal_lines": [
+        {
+          "batch": "batch_2",
+          "amount": "0.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_2",
+          "amount": "0.00",
+          "is_debit": false,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT TYS581R85JJGZ",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:50",
+      "narrative": "COMMISSION DKK 44,83, 55633BC44JQ0",
+      "credit": null,
+      "debit": "-44.83",
+      "balance": "37681.94",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank commission fee names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project code announced in narrative"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_3",
+          "amount": "0.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_3",
+          "amount": "0.00",
+          "is_debit": false,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT TYS581R85JJGZ",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:50",
+      "narrative": "NIP LIT, 55633BC44JQ0, /DK0441919414619452 RI00034",
+      "credit": null,
+      "debit": "-46608.00",
+      "balance": "37726.77",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1,
+      "counterparty_raw": "NIP LIT",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Counterparty 'NIP LIT' not found in master data lists"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project code announced in narrative"
+      },
+      "classification": "Related Party",
+      "journal_lines": [
+        {
+          "batch": "batch_4",
+          "amount": "0.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_4",
+          "amount": "0.00",
+          "is_debit": false,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "IJC91823B071SK14",
+      "trn_type": "TFR+",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:46",
+      "narrative": "NORDVIK INFRASTRUCTURE ADVANCED, TFR+ INTERNAL FX TRANSFER, FX EUR 10000,00 AT 7,1620422 032424373, CHARGE WAIVED",
+      "credit": "73602.74",
+      "debit": null,
+      "balance": "84334.77",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1,
+      "counterparty_raw": "NORDVIK INFRASTRUCTURE ADVANCED",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Internal FX transfer naming fund's own entity; no external counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project code announced in narrative"
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "batch_5",
+          "amount": "0.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_5",
+          "amount": "0.00",
+          "is_debit": false,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT EWR783W3NUPCV",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "COMMISSION DKK 44,84, 08334GU5571N",
+      "credit": null,
+      "debit": "-44.84",
+      "balance": "10732.03",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank commission fee names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project code announced in narrative"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_6",
+          "amount": "0.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_6",
+          "amount": "0.00",
+          "is_debit": false,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT EWR783W3NUPCV",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "NISC APS, 08334GU5571N, /DK6213128232682559 LO-DK00629",
+      "credit": null,
+      "debit": "-4121.79",
+      "balance": "10776.87",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1,
+      "counterparty_raw": "NISC APS",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NISC ApS - Non-LU",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties list"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project code announced in narrative"
+      },
+      "classification": "Related Party",
+      "journal_lines": [
+        {
+          "batch": "batch_7",
+          "amount": "0.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_7",
+          "amount": "0.00",
+          "is_debit": false,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT VJW022TY4REJT",
+      "trn_type": "S+P- CHG",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:22",
+      "narrative": "COMMISSION DKK 44,84, 44008EZ203K5",
+      "credit": null,
+      "debit": "-44.84",
+      "balance": "14898.66",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank commission fee names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project code announced in narrative"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_8",
+          "amount": "0.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_8",
+          "amount": "0.00",
+          "is_debit": false,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT VJW022TY4REJT",
+      "trn_type": "S+P-",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:22",
+      "narrative": "RAQ MARBECK COMMUNICATIONS, 44008EZ203K5, /DK0503692241454564 499",
+      "credit": null,
+      "debit": "-23800.00",
+      "balance": "14943.50",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 2,
+      "counterparty_raw": "RAQ MARBECK COMMUNICATIONS",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "RAQ Marbeck Communications - Non-LU",
+        "table": "vendors",
+        "confidence": 1.0,
+        "why": "Exact match in vendors list"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project code announced in narrative"
+      },
+      "classification": "Vendor",
+      "journal_lines": [
+        {
+          "batch": "batch_9",
+          "amount": "0.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_9",
+          "amount": "0.00",
+          "is_debit": false,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    },
+    {
+      "bank_reference": "33411WL46TRZ",
+      "trn_type": "TFR+",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:19",
+      "narrative": "LU HBEU 240-149813-030, TFR+ INTERNAL FX TRANSFER TO COVER INVOICES, FX EUR 5000,00 AT 7,0193998 524830540",
+      "credit": "36796.90",
+      "debit": null,
+      "balance": "38743.50",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Internal transfer between own accounts names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "No project code announced in narrative"
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "batch_10",
+          "amount": "0.00",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_10",
+          "amount": "0.00",
+          "is_debit": false,
+          "transaction_type": "Accounts Payable"
+        }
+      ]
+    }
+  ]
+}

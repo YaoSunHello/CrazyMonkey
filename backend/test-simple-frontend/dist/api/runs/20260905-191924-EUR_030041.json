@@ -1,0 +1,28 @@
+{
+ "run_id": "20260905-191924-EUR_030041",
+ "batch": "20260905-191924",
+ "when": "2026-09-05 19:19:24",
+ "account": "EUR_030041",
+ "source_file": "20260331_NI_V_SCSP_CALDER_EUR_030041.pdf",
+ "profile": "pipeline-validation",
+ "model": "gemini-3.8-flash",
+ "attempts": 2,
+ "accepted": true,
+ "rows": 18,
+ "seconds": 232.2,
+ "note": "resolve: 18 rows, every check green, attempt 1",
+ "finished": true,
+ "files": [
+  "extract-attempt-1.py",
+  "resolve-attempt-1.py",
+  "rows-extract.json",
+  "rows.json",
+  "summary.json",
+  "trace.jsonl"
+ ],
+ "has_trace": true,
+ "stages": [
+  "extract",
+  "resolve"
+ ]
+}

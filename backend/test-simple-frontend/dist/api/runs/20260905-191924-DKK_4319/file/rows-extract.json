@@ -1,0 +1,194 @@
+{
+  "account": "DKK_4319",
+  "source_file": "20260331_NI_A_B__FUND_II_CALDER_DKK_4319.pdf",
+  "profile": "pipeline-validation",
+  "stage": "extract",
+  "attempt": 1,
+  "accepted": true,
+  "checks": [
+    {
+      "name": "balance_chain",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "9/9 links hold",
+      "evidence": ""
+    },
+    {
+      "name": "closing_balance",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "newest row 12887.11 vs printed 12887.11",
+      "evidence": ""
+    },
+    {
+      "name": "printed_openings",
+      "scope": "DKK_4319",
+      "status": "UNRESOLVED",
+      "detail": "statement prints no 'Balance brought forward' markers",
+      "evidence": ""
+    },
+    {
+      "name": "row_count",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "parsed 10, raw text shows 10",
+      "evidence": ""
+    },
+    {
+      "name": "one_amount_per_row",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "10/10 rows have exactly one amount",
+      "evidence": ""
+    },
+    {
+      "name": "reference_provenance",
+      "scope": "DKK_4319",
+      "status": "PASS",
+      "detail": "10/10 references are literal PDF substrings",
+      "evidence": ""
+    }
+  ],
+  "rows": [
+    {
+      "bank_reference": "TT JSL083B50KRNM",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:50",
+      "narrative": "COMMISSION DKK 44,83, 89732SV16BGK",
+      "credit": null,
+      "debit": "-44.83",
+      "balance": "12887.11",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1
+    },
+    {
+      "bank_reference": "TT JSL083B50KRNM",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:50",
+      "narrative": "ULLA B. HILLEBRANDT CONSULTING, 89732SV16BGK, /DK5899030112098247 78",
+      "credit": null,
+      "debit": "-24750.00",
+      "balance": "12931.94",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1
+    },
+    {
+      "bank_reference": "TT TYS581R85JJGZ",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:50",
+      "narrative": "COMMISSION DKK 44,83, 55633BC44JQ0",
+      "credit": null,
+      "debit": "-44.83",
+      "balance": "37681.94",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1
+    },
+    {
+      "bank_reference": "TT TYS581R85JJGZ",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:50",
+      "narrative": "NIP LIT, 55633BC44JQ0, /DK0441919414619452 RI00034",
+      "credit": null,
+      "debit": "-46608.00",
+      "balance": "37726.77",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1
+    },
+    {
+      "bank_reference": "IJC91823B071SK14",
+      "trn_type": "TFR+",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:46",
+      "narrative": "NORDVIK INFRASTRUCTURE ADVANCED, TFR+ INTERNAL FX TRANSFER, FX EUR 10000,00 AT 7,1620422 032424373, CHARGE WAIVED",
+      "credit": "73602.74",
+      "debit": null,
+      "balance": "84334.77",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1
+    },
+    {
+      "bank_reference": "TT EWR783W3NUPCV",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "COMMISSION DKK 44,84, 08334GU5571N",
+      "credit": null,
+      "debit": "-44.84",
+      "balance": "10732.03",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1
+    },
+    {
+      "bank_reference": "TT EWR783W3NUPCV",
+      "trn_type": "S+P-",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:00",
+      "narrative": "NISC APS, 08334GU5571N, /DK6213128232682559 LO-DK00629",
+      "credit": null,
+      "debit": "-4121.79",
+      "balance": "10776.87",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 1
+    },
+    {
+      "bank_reference": "TT VJW022TY4REJT",
+      "trn_type": "S+P- CHG",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:22",
+      "narrative": "COMMISSION DKK 44,84, 44008EZ203K5",
+      "credit": null,
+      "debit": "-44.84",
+      "balance": "14898.66",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 2
+    },
+    {
+      "bank_reference": "TT VJW022TY4REJT",
+      "trn_type": "S+P-",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:22",
+      "narrative": "RAQ MARBECK COMMUNICATIONS, 44008EZ203K5, /DK0503692241454564 499",
+      "credit": null,
+      "debit": "-23800.00",
+      "balance": "14943.50",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 2
+    },
+    {
+      "bank_reference": "33411WL46TRZ",
+      "trn_type": "TFR+",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:19",
+      "narrative": "LU HBEU 240-149813-030, TFR+ INTERNAL FX TRANSFER TO COVER INVOICES, FX EUR 5000,00 AT 7,0193998 524830540",
+      "credit": "36796.90",
+      "debit": null,
+      "balance": "38743.50",
+      "account_number": "240-149813-131",
+      "currency": "DKK",
+      "page": 2
+    }
+  ]
+}

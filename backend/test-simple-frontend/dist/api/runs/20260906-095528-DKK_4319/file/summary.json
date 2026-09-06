@@ -1,0 +1,12 @@
+{
+  "run_id": "20260906-095528-DKK_4319",
+  "account": "DKK_4319",
+  "source_file": "20260331_NI_A_B__FUND_II_CALDER_DKK_4319.pdf",
+  "profile": "journal-entries",
+  "model": "gemini-3.8-flash",
+  "attempts": 5,
+  "accepted": true,
+  "rows": 10,
+  "seconds": 324.3,
+  "summary": "journal: 10 rows, every check green, attempt 2"
+}

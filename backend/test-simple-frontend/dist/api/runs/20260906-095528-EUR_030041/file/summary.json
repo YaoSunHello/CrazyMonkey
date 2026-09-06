@@ -1,0 +1,12 @@
+{
+  "run_id": "20260906-095528-EUR_030041",
+  "account": "EUR_030041",
+  "source_file": "20260331_NI_V_SCSP_CALDER_EUR_030041.pdf",
+  "profile": "journal-entries",
+  "model": "gemini-3.8-flash",
+  "attempts": 7,
+  "accepted": true,
+  "rows": 18,
+  "seconds": 607.1,
+  "summary": "journal: 18 rows, every check green, attempt 4"
+}

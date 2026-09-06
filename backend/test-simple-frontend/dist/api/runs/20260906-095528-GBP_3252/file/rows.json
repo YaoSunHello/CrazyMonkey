@@ -1,0 +1,858 @@
+{
+  "account": "GBP_3252",
+  "source_file": "20260331_NI_V_SCSP_CALDER_GBP_3252.pdf",
+  "profile": "journal-entries",
+  "stage": "journal",
+  "attempt": 7,
+  "accepted": true,
+  "checks": [
+    {
+      "name": "balance_chain",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "15/15 links hold",
+      "evidence": ""
+    },
+    {
+      "name": "closing_balance",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "newest row 103014.97 vs printed 103014.97",
+      "evidence": ""
+    },
+    {
+      "name": "printed_openings",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "4/4 printed markers reproduce from the movements",
+      "evidence": ""
+    },
+    {
+      "name": "row_count",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "parsed 16, raw text shows 16",
+      "evidence": ""
+    },
+    {
+      "name": "one_amount_per_row",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "16/16 rows have exactly one amount",
+      "evidence": ""
+    },
+    {
+      "name": "reference_provenance",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "16/16 references are literal PDF substrings",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_raw_provenance",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "9/9 counterparty_raw values appear in their own narrative",
+      "evidence": ""
+    },
+    {
+      "name": "project_code_raw_provenance",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "7/7 project_code_raw values appear in their own narrative",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_membership",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "2 PROBABLE \u00b7 7 CANNOT_VERIFY \u00b7 3 MATCH \u00b7 4 UNRESOLVED",
+      "evidence": ""
+    },
+    {
+      "name": "project_code_match_membership",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "3 PROBABLE \u00b7 9 CANNOT_VERIFY \u00b7 4 MATCH",
+      "evidence": ""
+    },
+    {
+      "name": "resolution_completeness",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "32/32 resolutions carry a status",
+      "evidence": ""
+    },
+    {
+      "name": "classification_vocabulary",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "16/16 rows carry a declared classification",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_proposals",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "2/2 proposals carry a reason and a confidence",
+      "evidence": ""
+    },
+    {
+      "name": "classification_review_rate",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "0/16 rows are 'review' (0%)",
+      "evidence": ""
+    },
+    {
+      "name": "counterparty_match_resolution_rate",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "5/9 values read from the document resolved; 4 did not (44%)",
+      "evidence": "rows [1, 7, 9, 12]"
+    },
+    {
+      "name": "counterparty_match_pairing",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "16/16 rows agree with their own counterparty_raw",
+      "evidence": ""
+    },
+    {
+      "name": "double_entry",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "16 batches over 16 rows, 0 problem(s)",
+      "evidence": ""
+    },
+    {
+      "name": "posting",
+      "scope": "GBP_3252",
+      "status": "PASS",
+      "detail": "32/32 lines name an account that exists",
+      "evidence": ""
+    }
+  ],
+  "rows": [
+    {
+      "bank_reference": "TT",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:45",
+      "narrative": "COMMISSION GBP 5,21, 21398DX37I23",
+      "credit": null,
+      "debit": "-5.21",
+      "balance": "103014.97",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank commission charge or credit interest names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Narrative names no project"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_001",
+          "amount": "-5.21",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        },
+        {
+          "batch": "batch_001",
+          "amount": "-5.21",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT",
+      "trn_type": "UNKNOWN",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:45",
+      "narrative": "NI V KALVIK TOPCO LTD., 21398DX37I23, /GB40NRVB51407454522412 LOAN: FROM NI V SCSP TO NI V, KALVIK TOPCO LTD.. PROJECT WILLOWBANK",
+      "credit": null,
+      "debit": "-15701940.20",
+      "balance": "103020.18",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 1,
+      "counterparty_raw": "NI V KALVIK TOPCO LTD",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Counterparty 'NI V KALVIK TOPCO LTD' not found in reference lists"
+      },
+      "project_code_raw": "WILLOWBANK",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "WILLOWBANK",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment",
+      "journal_lines": [
+        {
+          "batch": "batch_002",
+          "amount": "-15701940.20",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        },
+        {
+          "batch": "batch_002",
+          "amount": "-15701940.20",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "43110QR38LHY",
+      "trn_type": "UNKNOWN",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "10:45",
+      "narrative": "NORDVIK INFRA.V CN SC,, SHORT TERM LOAN: FROM NI V SCSP TO NI V CN SCSP . PROJECT WILLOWBANK",
+      "credit": null,
+      "debit": "-531701.80",
+      "balance": "15804960.38",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 1,
+      "counterparty_raw": "NORDVIK INFRA.V CN SC",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI V CN SCSp",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": "WILLOWBANK",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "WILLOWBANK",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "batch_003",
+          "amount": "-531701.80",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_003",
+          "amount": "-531701.80",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT",
+      "trn_type": "S+P- CHG",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:10",
+      "narrative": "COMMISSION GBP 5,22, 22801YB03UF8",
+      "credit": null,
+      "debit": "-5.22",
+      "balance": "16336662.18",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank commission charge or credit interest names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Narrative names no project"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_004",
+          "amount": "-5.22",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        },
+        {
+          "batch": "batch_004",
+          "amount": "-5.22",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT",
+      "trn_type": "UNKNOWN",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:10",
+      "narrative": "NI V SCSP, 22801YB03UF8, /DK8471936954300848 INTERNAL TRANSFER",
+      "credit": null,
+      "debit": "-610000.00",
+      "balance": "16336667.40",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 1,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Internal transfer naming only the account holder itself"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Narrative names no project"
+      },
+      "classification": "Internal",
+      "journal_lines": [
+        {
+          "batch": "batch_005",
+          "amount": "-610000.00",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        },
+        {
+          "batch": "batch_005",
+          "amount": "-610000.00",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "V400024233703R22",
+      "trn_type": "UNKNOWN",
+      "value_date": "31 Mar 2026",
+      "post_date": "31 Mar 2026",
+      "time": "07:03",
+      "narrative": "1/NORDVIK INFRASTRUCTURE PARTNER, S+P+ CHARGE WAIVED",
+      "credit": "16900000.00",
+      "debit": null,
+      "balance": "16946667.40",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 1,
+      "counterparty_raw": "NORDVIK INFRASTRUCTURE PARTNER",
+      "counterparty_match": {
+        "status": "PROBABLE",
+        "matched_name": "Nordvik Infrastructure V SCSp",
+        "table": "legal_entities",
+        "confidence": 0.85,
+        "why": "Truncated narrative 'NORDVIK INFRASTRUCTURE PARTNER' corresponds to list entry 'Nordvik Infrastructure V SCSp'"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Narrative names no project"
+      },
+      "classification": "Investor",
+      "journal_lines": [
+        {
+          "batch": "batch_006",
+          "amount": "16900000.00",
+          "is_debit": true,
+          "transaction_type": "Cash - Disbursed - GBP"
+        },
+        {
+          "batch": "batch_006",
+          "amount": "16900000.00",
+          "is_debit": false,
+          "transaction_type": "Capital Call - NonRecoverable Sales Tax"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT",
+      "trn_type": "S+P- CHG",
+      "value_date": "30 Mar 2026",
+      "post_date": "30 Mar 2026",
+      "time": "07:00",
+      "narrative": "COMMISSION GBP 5,20, 24370KF00HEC",
+      "credit": null,
+      "debit": "-5.20",
+      "balance": "46667.40",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank commission charge or credit interest names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Narrative names no project"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_007",
+          "amount": "-5.20",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        },
+        {
+          "batch": "batch_007",
+          "amount": "-5.20",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT",
+      "trn_type": "UNKNOWN",
+      "value_date": "30 Mar 2026",
+      "post_date": "30 Mar 2026",
+      "time": "07:00",
+      "narrative": "NI V AZURITE HOLDCO LTD, 24370KF00HEC, /GB14NRVB35403891305213 EQUITY: FROM NORDVIK, INFRASTRUCTURE V SCSP TO NI V AZURITE HOLDCO LTD., PROJECT AZURITE.",
+      "credit": null,
+      "debit": "-249549.75",
+      "balance": "46672.60",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 2,
+      "counterparty_raw": "NI V AZURITE HOLDCO LTD",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Counterparty 'NI V AZURITE HOLDCO LTD' not found in reference lists"
+      },
+      "project_code_raw": "AZURITE",
+      "project_code_match": {
+        "status": "PROBABLE",
+        "matched_name": "Azurite Array",
+        "table": "project_codes",
+        "confidence": 0.85,
+        "why": "List entry 'Azurite Array' expands document token 'AZURITE'"
+      },
+      "classification": "Investment",
+      "journal_lines": [
+        {
+          "batch": "batch_008",
+          "amount": "-249549.75",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        },
+        {
+          "batch": "batch_008",
+          "amount": "-249549.75",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT",
+      "trn_type": "S+P- CHG",
+      "value_date": "30 Mar 2026",
+      "post_date": "30 Mar 2026",
+      "time": "07:00",
+      "narrative": "COMMISSION GBP 5,20, 82924VJ9010W",
+      "credit": null,
+      "debit": "-5.20",
+      "balance": "296222.35",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank commission charge or credit interest names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Narrative names no project"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_009",
+          "amount": "-5.20",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        },
+        {
+          "batch": "batch_009",
+          "amount": "-5.20",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT",
+      "trn_type": "UNKNOWN",
+      "value_date": "30 Mar 2026",
+      "post_date": "30 Mar 2026",
+      "time": "07:00",
+      "narrative": "NI V AZURITE HOLDCO LTD, 82924VJ9010W, /GB14NRVB35403891305213 LOAN: FROM NORDVIK, INFRASTRUCTURE V SCSP TO NI V AZURITE HOLDCO LTD., PROJECT AZURITE.",
+      "credit": null,
+      "debit": "-582282.75",
+      "balance": "296227.55",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 2,
+      "counterparty_raw": "NI V AZURITE HOLDCO LTD",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Counterparty 'NI V AZURITE HOLDCO LTD' not found in reference lists"
+      },
+      "project_code_raw": "AZURITE",
+      "project_code_match": {
+        "status": "PROBABLE",
+        "matched_name": "Azurite Array",
+        "table": "project_codes",
+        "confidence": 0.85,
+        "why": "List entry 'Azurite Array' expands document token 'AZURITE'"
+      },
+      "classification": "Investment",
+      "journal_lines": [
+        {
+          "batch": "batch_010",
+          "amount": "-582282.75",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        },
+        {
+          "batch": "batch_010",
+          "amount": "-582282.75",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "59675NX26HUD",
+      "trn_type": "UNKNOWN",
+      "value_date": "30 Mar 2026",
+      "post_date": "30 Mar 2026",
+      "time": "07:00",
+      "narrative": "NORDVIK INFRA.V CN SC,, SHORT-TERM LOAN: FROM NORDVIK, INFRASTRUCTURE V SCSP TO NORDVIK, INFRASTRUCTURE V CN SCSP. PROJECT AZURITE.",
+      "credit": null,
+      "debit": "-28167.65",
+      "balance": "878510.30",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 2,
+      "counterparty_raw": "NORDVIK INFRA.V CN SC",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI V CN SCSp",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": "AZURITE",
+      "project_code_match": {
+        "status": "PROBABLE",
+        "matched_name": "Azurite Array",
+        "table": "project_codes",
+        "confidence": 0.85,
+        "why": "List entry 'Azurite Array' expands document token 'AZURITE'"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "batch_011",
+          "amount": "-28167.65",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_011",
+          "amount": "-28167.65",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT",
+      "trn_type": "S+P- CHG",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:10",
+      "narrative": "COMMISSION GBP 5,19, 19709GA25RZL",
+      "credit": null,
+      "debit": "-5.19",
+      "balance": "906677.95",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank commission charge or credit interest names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Narrative names no project"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_012",
+          "amount": "-5.19",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        },
+        {
+          "batch": "batch_012",
+          "amount": "-5.19",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "TT",
+      "trn_type": "UNKNOWN",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:10",
+      "narrative": "NI V FENWICK HOLDCO LTD,, 19709GA25RZL, /GB10NRVB98154047624001 LOAN: FROM NORDVIK INFRASTRUCTURE V SCSP TO NI V FENWICK HOLDCO LTD.., PROJECT FENWICK.",
+      "credit": null,
+      "debit": "-1160696.30",
+      "balance": "906683.14",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 2,
+      "counterparty_raw": "NI V FENWICK HOLDCO LTD",
+      "counterparty_match": {
+        "status": "UNRESOLVED",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Reference lists only contain sibling entity NI IV Fenwick HoldCo Ltd; numeral IV differs from V and cannot be matched"
+      },
+      "project_code_raw": "FENWICK",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "FENWICK",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment",
+      "journal_lines": [
+        {
+          "batch": "batch_013",
+          "amount": "-1160696.30",
+          "is_debit": true,
+          "transaction_type": "Suspense"
+        },
+        {
+          "batch": "batch_013",
+          "amount": "-1160696.30",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "49211YZ41JZ6",
+      "trn_type": "UNKNOWN",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "08:10",
+      "narrative": "NORDVIK INFRA.V CN SC,, SHORT TERM LOAN: FROM NORDVIK, INFRASTRUCTURE V SCSP TO NORDVIK, INFRASTRUCTURE V CN SCSP. PROJECT FENWICK.",
+      "credit": null,
+      "debit": "-39303.70",
+      "balance": "2067379.44",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 2,
+      "counterparty_raw": "NORDVIK INFRA.V CN SC",
+      "counterparty_match": {
+        "status": "MATCH",
+        "matched_name": "NI V CN SCSp",
+        "table": "related_parties",
+        "confidence": 1.0,
+        "why": "Exact match in related_parties"
+      },
+      "project_code_raw": "FENWICK",
+      "project_code_match": {
+        "status": "MATCH",
+        "matched_name": "FENWICK",
+        "table": "project_codes",
+        "confidence": 1.0,
+        "why": "Exact match in project_codes"
+      },
+      "classification": "Investment Transfer",
+      "journal_lines": [
+        {
+          "batch": "batch_014",
+          "amount": "-39303.70",
+          "is_debit": true,
+          "transaction_type": "Accounts Payable"
+        },
+        {
+          "batch": "batch_014",
+          "amount": "-39303.70",
+          "is_debit": false,
+          "transaction_type": "Cash - Disbursed - GBP"
+        }
+      ]
+    },
+    {
+      "bank_reference": "J545245036302N01",
+      "trn_type": "UNKNOWN",
+      "value_date": "24 Mar 2026",
+      "post_date": "24 Mar 2026",
+      "time": "07:02",
+      "narrative": "1/NORDVIK INFRASTRUCTURE PARTNER, S+P+ CHARGE WAIVED",
+      "credit": "2100000.00",
+      "debit": null,
+      "balance": "2106683.14",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 2,
+      "counterparty_raw": "NORDVIK INFRASTRUCTURE PARTNER",
+      "counterparty_match": {
+        "status": "PROBABLE",
+        "matched_name": "Nordvik Infrastructure V SCSp",
+        "table": "legal_entities",
+        "confidence": 0.85,
+        "why": "Truncated narrative 'NORDVIK INFRASTRUCTURE PARTNER' corresponds to list entry 'Nordvik Infrastructure V SCSp'"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Narrative names no project"
+      },
+      "classification": "Investor",
+      "journal_lines": [
+        {
+          "batch": "batch_015",
+          "amount": "2100000.00",
+          "is_debit": true,
+          "transaction_type": "Cash - Disbursed - GBP"
+        },
+        {
+          "batch": "batch_015",
+          "amount": "2100000.00",
+          "is_debit": false,
+          "transaction_type": "Capital Call - NonRecoverable Sales Tax"
+        }
+      ]
+    },
+    {
+      "bank_reference": "NONREF",
+      "trn_type": "S+P+ INT",
+      "value_date": "23 Mar 2026",
+      "post_date": "23 Mar 2026",
+      "time": "21:06",
+      "narrative": "CREDIT INTEREST",
+      "credit": "95.47",
+      "debit": null,
+      "balance": "6683.14",
+      "account_number": "240-222731-132",
+      "currency": "GBP",
+      "page": 2,
+      "counterparty_raw": null,
+      "counterparty_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Bank commission charge or credit interest names no counterparty"
+      },
+      "project_code_raw": null,
+      "project_code_match": {
+        "status": "CANNOT_VERIFY",
+        "matched_name": null,
+        "table": null,
+        "confidence": null,
+        "why": "Narrative names no project"
+      },
+      "classification": "Other",
+      "journal_lines": [
+        {
+          "batch": "batch_016",
+          "amount": "95.47",
+          "is_debit": true,
+          "transaction_type": "Cash - Disbursed - GBP"
+        },
+        {
+          "batch": "batch_016",
+          "amount": "95.47",
+          "is_debit": false,
+          "transaction_type": "Suspense"
+        }
+      ]
+    }
+  ]
+}

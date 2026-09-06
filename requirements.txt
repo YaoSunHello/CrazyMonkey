@@ -1,0 +1,16 @@
+# What the deployed function needs — deliberately not what the repository needs.
+#
+# `pyproject.toml` installs 275MB, over Vercel's 250MB function limit, and most
+# of that weight is two HTTP clients: litellm (67MB) and the Daytona SDK. The
+# backend makes one streamed completion and one code execution; both are REST
+# calls, so `httpx` replaces both and the bundle lands around 70MB.
+#
+# Nothing in the deterministic path — parse, the balance-chain verifier, the
+# resolution checks — ever needed either of them. `app/verification/` imports
+# nothing from `agent.py` or `sandbox.py`, which is what makes this split
+# possible at all rather than a rewrite.
+fastapi
+pydantic
+pdfplumber
+openpyxl
+httpx

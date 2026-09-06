@@ -1,0 +1,12 @@
+{
+  "run_id": "20260905-191924-DKK_0541",
+  "account": "DKK_0541",
+  "source_file": "20260331_NI_V_SCSP_CALDER_DKK_0541.pdf",
+  "profile": "pipeline-validation",
+  "model": "gemini-3.8-flash",
+  "attempts": 2,
+  "accepted": true,
+  "rows": 5,
+  "seconds": 208.5,
+  "summary": "resolve: 5 rows, every check green, attempt 1"
+}

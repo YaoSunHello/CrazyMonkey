@@ -1,0 +1,12 @@
+{
+  "run_id": "20260905-191924-EUR_030041",
+  "account": "EUR_030041",
+  "source_file": "20260331_NI_V_SCSP_CALDER_EUR_030041.pdf",
+  "profile": "pipeline-validation",
+  "model": "gemini-3.8-flash",
+  "attempts": 2,
+  "accepted": true,
+  "rows": 18,
+  "seconds": 232.2,
+  "summary": "resolve: 18 rows, every check green, attempt 1"
+}

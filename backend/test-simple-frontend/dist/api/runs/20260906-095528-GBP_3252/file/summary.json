@@ -1,0 +1,12 @@
+{
+  "run_id": "20260906-095528-GBP_3252",
+  "account": "GBP_3252",
+  "source_file": "20260331_NI_V_SCSP_CALDER_GBP_3252.pdf",
+  "profile": "journal-entries",
+  "model": "gemini-3.8-flash",
+  "attempts": 11,
+  "accepted": true,
+  "rows": 16,
+  "seconds": 657.8,
+  "summary": "journal: 16 rows, every check green, attempt 7"
+}
