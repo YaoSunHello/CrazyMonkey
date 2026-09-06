@@ -26,6 +26,7 @@ from app.ingestion.statements import parse_all, parse_statement
 from app.models import Check, Statement
 from app.profiles import DEFAULT_PROFILE
 from app.verification.checks import run_parse_checks
+from app.verification.reconciliation import run_reconciliation
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -127,6 +128,24 @@ def command_verify(args: argparse.Namespace) -> int:
             }
         )
 
+    corpus_checks = run_reconciliation(statements, _derived_rows(args.against))
+    for check in corpus_checks:
+        tally[check.status] = tally.get(check.status, 0) + 1
+    log("Corpus")
+    for check in corpus_checks:
+        log(f"  [{MARK[check.status]}] {check.name:22} {check.detail}")
+        if check.evidence:
+            log(f"      {check.evidence}")
+    log("")
+    payload.append(
+        {
+            "account": "all",
+            "source_file": "corpus",
+            "rows": sum(len(s.rows) for s in statements),
+            "checks": [c.model_dump() for c in corpus_checks],
+        }
+    )
+
     rows = sum(len(s.rows) for s in statements)
     elapsed = time.monotonic() - started
     log(f"{len(statements)} statements · {rows} rows · {elapsed:.2f}s")
@@ -148,6 +167,23 @@ def command_verify(args: argparse.Namespace) -> int:
 
     print(json.dumps(payload, indent=2, default=str))
     return 1 if tally["FAIL"] else 0
+
+
+
+def _derived_rows(path: str | None) -> list[dict]:
+    """Rows produced downstream, to reconcile the parse against.
+
+    Absent by design when nobody passes `--against`: `verify` only has the
+    documents, and reconciling the parse with itself would report a clean tie
+    that means nothing. The corpus checks then return CANNOT_VERIFY, which is
+    the honest answer — we could not look, rather than we looked and agreed.
+    """
+    if not path:
+        return []
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if isinstance(payload, dict):
+        payload = payload.get("rows", [])
+    return [row for row in payload if isinstance(row, dict)]
 
 
 def command_parse(args: argparse.Namespace) -> int:
@@ -454,6 +490,12 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         metavar="ROW",
         help="damage this row's amount on purpose, to show the verifier catching it",
+    )
+    verify.add_argument(
+        "--against",
+        metavar="ROWS.json",
+        help="downstream rows to reconcile the parse against; omit and the "
+             "corpus checks report CANNOT_VERIFY rather than a hollow pass",
     )
     verify.set_defaults(func=command_verify)
 
