@@ -10,6 +10,11 @@
 
 
 **[▶ Live demo — crazymonkey-live.vercel.app](https://crazymonkey-live.vercel.app/)**
+&nbsp;·&nbsp;
+**[▶ Watch the demo](https://youtu.be/bLVfu0zbtvA)**
+
+[![CrazyMonkey demo](https://img.youtube.com/vi/bLVfu0zbtvA/maxresdefault.jpg)](https://youtu.be/bLVfu0zbtvA)
+
 
 Seven statements, 100 transactions, every run replayable with its trace, its checks
 and the parser the agent wrote — and CSV, JSON and notes you can take away.
