@@ -36,3 +36,4 @@ CLAUDE.md
 
 # Local setup helpers may carry a key as a default argument.
 setup_*.sh
+backend/test-simple-frontend/dist/

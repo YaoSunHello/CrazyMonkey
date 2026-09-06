@@ -33,7 +33,12 @@ window.CM = window.CM || {};
     runs:       ()          => get("/api/runs"),
     run:        (id)        => get(`/api/runs/${id}`),
     trace:      (id)        => get(`/api/runs/${id}/trace`, true),
-    rows:       (id, stage) => get(`/api/runs/${id}/rows${stage ? `?stage=${stage}` : ""}`),
+    /* A static deployment has no query strings — every stage would come back as
+       the same file — so there the stage is a path segment the build wrote. */
+    rows(id, stage) {
+      if (!stage) return get(`/api/runs/${id}/rows`);
+      return get(`/api/runs/${id}/rows${window.CM_STATIC ? `-${stage}` : `?stage=${stage}`}`);
+    },
     file:       (id, name)  => get(`/api/runs/${id}/file/${encodeURIComponent(name)}`, true),
     examples:   ()          => get("/api/examples"),
     example:    (name)      => get(`/api/examples/${encodeURIComponent(name)}`),
