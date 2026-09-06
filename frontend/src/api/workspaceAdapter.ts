@@ -491,7 +491,7 @@ function isProcessingState(value: unknown): boolean {
 }
 
 function isOutcome(value: unknown): boolean {
-  return typeof value === "string" && ["PASS", "FAIL", "UNRESOLVED"].includes(value);
+  return typeof value === "string" && ["PASS", "FAIL", "UNRESOLVED", "CANNOT_VERIFY"].includes(value);
 }
 
 function isReviewStatus(value: unknown): boolean {
@@ -708,6 +708,7 @@ function isResultSummary(value: unknown): boolean {
     && isNonNegativeInteger(value.documents_failed)
     && isRecord(value.checks)
     && [value.checks.PASS, value.checks.FAIL, value.checks.UNRESOLVED].every(isNonNegativeInteger)
+    && (value.checks.CANNOT_VERIFY === undefined || isNonNegativeInteger(value.checks.CANNOT_VERIFY))
     && isRecord(value.transaction_links)
     && [value.transaction_links.PASS, value.transaction_links.FAIL].every(isNonNegativeInteger);
 }

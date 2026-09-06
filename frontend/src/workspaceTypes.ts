@@ -1,4 +1,4 @@
-export type ComputationalOutcome = "PASS" | "FAIL" | "UNRESOLVED";
+export type ComputationalOutcome = "PASS" | "FAIL" | "UNRESOLVED" | "CANNOT_VERIFY";
 export type HumanReviewStatus = "UNREVIEWED" | "REVIEWED" | "NEEDS_FOLLOW_UP";
 export type JobProcessingState = "QUEUED" | "PROCESSING" | "SUCCEEDED" | "PARTIAL" | "FAILED";
 export type DocumentProcessingState = "PENDING" | "PROCESSING" | "SUCCEEDED" | "FAILED";
@@ -307,7 +307,12 @@ export interface JobResult {
     documents_total: number;
     documents_succeeded: number;
     documents_failed: number;
-    checks: Record<ComputationalOutcome, number>;
+    checks: {
+      PASS: number;
+      FAIL: number;
+      UNRESOLVED: number;
+      CANNOT_VERIFY?: number;
+    };
     transaction_links: { PASS: number; FAIL: number };
   };
   reference_validation: {

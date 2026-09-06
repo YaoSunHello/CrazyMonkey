@@ -473,7 +473,12 @@ def _source_result(job: Job, item: StoredInput, profile) -> tuple[dict[str, Any]
         }, None
 
     statuses = [check.status for check in checks]
-    outcome = "FAIL" if "FAIL" in statuses else "UNRESOLVED" if "UNRESOLVED" in statuses else "PASS"
+    outcome = (
+        "FAIL" if "FAIL" in statuses
+        else "UNRESOLVED" if "UNRESOLVED" in statuses
+        else "CANNOT_VERIFY" if "CANNOT_VERIFY" in statuses
+        else "PASS"
+    )
     item.processing_state = "SUCCEEDED"
     item.computational_outcome = outcome
 
@@ -734,7 +739,7 @@ def process_job(job: Job) -> None:
         order = {item.source_id: index for index, item in enumerate(job.files)}
         documents.sort(key=lambda item: order[item["source_id"]])
 
-        check_tally = {"PASS": 0, "FAIL": 0, "UNRESOLVED": 0}
+        check_tally = {"PASS": 0, "FAIL": 0, "UNRESOLVED": 0, "CANNOT_VERIFY": 0}
         link_tally = {"PASS": 0, "FAIL": 0}
         checks_flat: list[dict[str, Any]] = []
         for document in documents:
@@ -837,7 +842,7 @@ def process_job(job: Job) -> None:
                     "documents_total": len(job.files),
                     "documents_succeeded": 0,
                     "documents_failed": len(job.files),
-                    "checks": {"PASS": 0, "FAIL": 0, "UNRESOLVED": 0},
+                    "checks": {"PASS": 0, "FAIL": 0, "UNRESOLVED": 0, "CANNOT_VERIFY": 0},
                     "transaction_links": {"PASS": 0, "FAIL": 0},
                 },
                 "reference_validation": {"status": "NOT_PROVIDED", "tables": []},

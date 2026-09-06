@@ -460,7 +460,13 @@ def test_status_has_bounded_events_and_separates_processing_from_outcome(
     status = completed_job["status"]
     assert status["processing_state"] == "SUCCEEDED"
     assert status["documents"][0]["processing_state"] == "SUCCEEDED"
-    assert status["documents"][0]["computational_outcome"] == "UNRESOLVED"
+    missing_status = next(
+        check["status"]
+        for check in completed_job["result"]["documents"][0]["checks"]
+        if check["name"] == "printed_openings"
+    )
+    assert missing_status in {"UNRESOLVED", "CANNOT_VERIFY"}
+    assert status["documents"][0]["computational_outcome"] == missing_status
     assert status["event_trace"] == {
         "bounded": True,
         "max_events": 100,
@@ -616,13 +622,14 @@ def test_atlas_rejections_are_document_failures_in_a_mixed_batch(client: TestCli
     assert len(good_document["rows"]) == 16
 
 
-def test_unresolved_checks_and_real_citation_source_identity_are_preserved(completed_job: dict):
+def test_unverified_checks_and_real_citation_source_identity_are_preserved(completed_job: dict):
     result = completed_job["result"]
     document = result["documents"][0]
     source_id = document["source_id"]
-    assert "UNRESOLVED" in {check["status"] for check in document["checks"]}
-    assert "UNRESOLVED" in {check["status"] for check in result["checks"]}
-    assert result["summary"]["checks"]["UNRESOLVED"] >= 1
+    missing_status = next(check["status"] for check in document["checks"] if check["name"] == "printed_openings")
+    assert missing_status in {"UNRESOLVED", "CANNOT_VERIFY"}
+    assert missing_status in {check["status"] for check in result["checks"]}
+    assert result["summary"]["checks"][missing_status] >= 1
 
     row_citation = document["rows"][0]["citation"]
     assert row_citation["source_id"] == source_id

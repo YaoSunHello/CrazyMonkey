@@ -126,6 +126,28 @@ describe("HttpWorkspaceAdapter requests", () => {
     expect(result.artifacts[0].kind).toBe("RESULT_JSON");
   });
 
+  it("accepts the backend's cannot-verify evidence status without treating it as a pass", async () => {
+    const firstDocument = resultFixture.documents[0];
+    const payload = {
+      ...resultFixture,
+      summary: {
+        ...resultFixture.summary,
+        checks: { ...resultFixture.summary.checks, CANNOT_VERIFY: 1 },
+      },
+      documents: [{
+        ...firstDocument,
+        computational_outcome: "CANNOT_VERIFY",
+        checks: firstDocument.checks.map((check, index) => index === 0
+          ? { ...check, status: "CANNOT_VERIFY" }
+          : check),
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json(payload)));
+    const result = await new HttpWorkspaceAdapter().getResult("job-123");
+    expect(result.documents[0].computational_outcome).toBe("CANNOT_VERIFY");
+    expect(result.summary.checks.CANNOT_VERIFY).toBe(1);
+  });
+
   it.each([
     { url: "https://untrusted.example/transactions.csv" },
     { url: "/api/ui/v1/jobs/another-job/transactions.csv" },

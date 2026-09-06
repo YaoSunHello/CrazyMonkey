@@ -74,6 +74,30 @@ describe("ProfileReviewDesk", () => {
     expect(screen.getByRole("link", { name: "Download JSON result" })).toHaveAttribute("href", "/api/ui/v1/jobs/job-123/artifacts/result-json");
   });
 
+  it("shows cannot-verify as an unresolved item requiring human review", () => {
+    const original = resultFixture.documents[0];
+    const document = {
+      ...original,
+      computational_outcome: "CANNOT_VERIFY" as const,
+      transaction_links: [],
+      checks: [{
+        finding_id: "missing-opening",
+        name: "printed_openings",
+        scope: "statement",
+        status: "CANNOT_VERIFY" as const,
+        detail: "The statement does not print an opening marker.",
+        evidence: "",
+        review_status: "UNREVIEWED" as const,
+      }],
+    };
+    render(<ProfileReviewDesk result={{ ...resultFixture, documents: [document] }}
+      profileLabel="Bank statement validation" connection={bootstrapFixture.connection}
+      onReview={vi.fn()} onBack={vi.fn()} sourceUrl={() => "/source"} artifactUrl={() => "/artifact"} />);
+    expect(screen.getByText("Unresolved / cannot verify").nextElementSibling).toHaveTextContent("1");
+    expect(screen.getAllByText("CANNOT VERIFY").length).toBeGreaterThan(0);
+    expect(screen.getByText("Needs review").nextElementSibling).toHaveTextContent("1");
+  });
+
   it("renders exact backend-supplied decimal operands and opens the cited source page without inventing a highlight", async () => {
     const user = userEvent.setup();
     const open = vi.spyOn(window, "open").mockImplementation(() => null);

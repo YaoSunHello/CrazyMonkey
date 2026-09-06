@@ -98,7 +98,7 @@ export function ProfileReviewDesk({
   const selectedDocument = result.documents.find((document) => document.source_id === selectedDocumentId)
     ?? result.documents[0];
   const failed = findings.filter((finding) => finding.status === "FAIL").length;
-  const unresolved = findings.filter((finding) => finding.status === "UNRESOLVED").length;
+  const unresolved = findings.filter((finding) => ["UNRESOLVED", "CANNOT_VERIFY"].includes(finding.status)).length;
   const needsReview = findings.filter((finding) => finding.status !== "PASS" && finding.reviewStatus !== "REVIEWED").length;
   const jsonArtifact = result.artifacts.find((artifact) => artifact.kind === "RESULT_JSON");
   const finalEvents = job?.job_id === result.job_id ? job.events.slice(-100) : [];
@@ -173,7 +173,7 @@ export function ProfileReviewDesk({
                       <small title={document.relative_path}>{document.relative_path}</small>
                     </span>
                     {document.computational_outcome && (
-                      <span className={`outcome outcome-${document.computational_outcome.toLowerCase()}`}>{document.computational_outcome}</span>
+                      <span className={`outcome outcome-${document.computational_outcome.toLowerCase()}`}>{outcomeLabel(document.computational_outcome)}</span>
                     )}
                   </button>
                   {document.error && <p className="inline-error">{document.error}</p>}
@@ -184,7 +184,7 @@ export function ProfileReviewDesk({
 
           <div className="rail-summary">
             <div><span>Failed checks</span><strong className={failed ? "text-fail" : ""}>{failed}</strong></div>
-            <div><span>Unresolved</span><strong className={unresolved ? "text-warning" : ""}>{unresolved}</strong></div>
+            <div><span>Unresolved / cannot verify</span><strong className={unresolved ? "text-warning" : ""}>{unresolved}</strong></div>
             <div><span>Needs review</span><strong>{needsReview}</strong></div>
           </div>
         </aside>
@@ -255,7 +255,7 @@ export function ProfileReviewDesk({
                     <td className="numeric">{displayDecimal(finding.comparisonBalance)}</td>
                     <td className="numeric difference-cell">{displayDecimal(finding.difference)}</td>
                     <td>
-                      <span className={`outcome outcome-${finding.status.toLowerCase()}`}>{finding.status}</span>
+                      <span className={`outcome outcome-${finding.status.toLowerCase()}`}>{outcomeLabel(finding.status)}</span>
                       {finding.reviewStatus !== "UNREVIEWED" && <small className="review-marker">{finding.reviewStatus.replaceAll("_", " ")}</small>}
                     </td>
                   </tr>
@@ -292,12 +292,12 @@ export function ProfileReviewDesk({
             <>
               <div className="panel-heading">
                 <div><p className="step-label">Selected finding</p><h2 id="evidence-heading">{selected.title}</h2></div>
-                <span className={`outcome outcome-${selected.status.toLowerCase()}`}>{selected.status}</span>
+                <span className={`outcome outcome-${selected.status.toLowerCase()}`}>{outcomeLabel(selected.status)}</span>
               </div>
               <dl className="finding-meta">
                 <div><dt>Source</dt><dd>{selected.documentName}</dd></div>
                 <div><dt>Account</dt><dd>{selected.account}</dd></div>
-                <div><dt>Check outcome</dt><dd>{selected.status}</dd></div>
+                <div><dt>Check outcome</dt><dd>{outcomeLabel(selected.status)}</dd></div>
                 <div><dt>Human review</dt><dd>{selected.reviewStatus.replaceAll("_", " ")}</dd></div>
               </dl>
 
@@ -509,7 +509,11 @@ function abbreviateIdentity(value: string): string {
 }
 
 function statusRank(status: ComputationalOutcome): number {
-  return status === "FAIL" ? 0 : status === "UNRESOLVED" ? 1 : 2;
+  return status === "FAIL" ? 0 : status === "UNRESOLVED" || status === "CANNOT_VERIFY" ? 1 : 2;
+}
+
+function outcomeLabel(status: ComputationalOutcome): string {
+  return status === "CANNOT_VERIFY" ? "CANNOT VERIFY" : status;
 }
 
 function compareDecimalMagnitude(left?: string, right?: string): number {

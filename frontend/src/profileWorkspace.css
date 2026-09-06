@@ -1759,7 +1759,8 @@ input[type="checkbox"] {
   color: var(--red-deep);
 }
 
-.outcome-unresolved {
+.outcome-unresolved,
+.outcome-cannot_verify {
   border-color: var(--amber-line);
   background: var(--amber-soft);
   color: #704506;
