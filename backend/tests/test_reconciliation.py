@@ -205,3 +205,29 @@ def test_supplied_corpus_totals_are_unchanged(corpus):
     absolute = sum((abs(row.amount) for s in corpus for row in s.rows), Decimal(0))
     assert signed == CORPUS_SIGNED_TOTAL
     assert absolute == CORPUS_ABSOLUTE_MOVEMENT
+
+
+# --------------------------------------------------------------------------
+# cli wiring
+# --------------------------------------------------------------------------
+
+
+def test_derived_rows_reads_both_payload_shapes(tmp_path):
+    """A bare list and a run payload with a `rows` key both load."""
+    from app.cli import _derived_rows
+
+    bare = tmp_path / "bare.json"
+    bare.write_text('[{"amount": "-0.44", "balance": "20088.32"}]')
+    assert _derived_rows(str(bare)) == [{"amount": "-0.44", "balance": "20088.32"}]
+
+    wrapped = tmp_path / "wrapped.json"
+    wrapped.write_text('{"run_id": "x", "rows": [{"amount": "1.00", "balance": "2.00"}]}')
+    assert _derived_rows(str(wrapped)) == [{"amount": "1.00", "balance": "2.00"}]
+
+
+def test_derived_rows_absent_is_empty_not_invented():
+    """No --against means no second side, which the checks report honestly."""
+    from app.cli import _derived_rows
+
+    assert _derived_rows(None) == []
+    assert check_universe([SOURCE], _derived_rows(None)).status == "CANNOT_VERIFY"

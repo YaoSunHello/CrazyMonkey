@@ -29,6 +29,36 @@ The MVP focuses on the part of the research pipeline before IC materials: taking
 5. Review extracted values with source snippets or page references.
 6. Export a modelable dataset.
 
+## Pipeline Architecture
+
+![Agent flow v2 — Resolver, Classifier, Builder and Reconciler, with a suspense lane for unresolved rows and two review loops](assets/agent-flow-v2.png)
+
+Four agents take a document from raw statement to posted journal lines, with a
+deterministic check after every stage rather than one at the end. The working
+file this was drawn from puts the reason plainly: *"each value is only as good
+as the stage before it."*
+
+| Agent | Does | Checked by |
+|---|---|---|
+| **1 Resolver** | Bridges the bank's truncated, wrapped, upper-case names to canonical entities, projects and counterparties | provenance, membership |
+| **2 Classifier** | Applies the rulebook — six transaction types, and equity versus loan | vocabulary, pairing, review rate |
+| **3 Builder** | Resolves the position and writes the double entry, two lines per batch | double entry, posting |
+| **4 Reconciler** | Proves the output foots before a human sees it | universe, aggregate, stage tie |
+
+Two things the drawing is making a point about:
+
+**The suspense lane.** Rows that do not resolve are booked to suspense and
+carried forward, not dropped and not guessed. Unmatched is a third outcome
+beside pass and fail, because in the supplied week 52 of 100 rows genuinely
+have no counterparty match.
+
+**The two loops are not the same cost.** The machine loop is cheap and runs
+until the arithmetic comes back clean. The review loop costs a day or two of a
+fund manager's time per pass, and the last NAV took six of them. Everything
+above the review queue exists to reduce that count, which is why turn count is
+the metric rather than latency.
+
+
 ## Team Agenda
 
 ### Teammate 1: Document Ingestion

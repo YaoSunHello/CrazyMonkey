@@ -667,6 +667,105 @@ def check_vocabulary(rows: list[dict], scope: str, options: dict) -> Check:
 # Every check this module offers, by the name a profile uses to ask for it.
 # `run` dispatches through here so an unknown name is a clear error at the
 # profile rather than a silently skipped check.
+def check_stage_tie(rows: list[dict], scope: str, options: dict) -> Check:
+    """The journal must move exactly the money the rows describe.
+
+    `double_entry` asks whether each batch nets to zero. That is necessary and
+    it is not sufficient, because it never looks up at the row the batch came
+    from: a batch of 30,190.87 against a row of 301,908.70 balances perfectly
+    and is wrong by a decimal place. Every internal check passes, the export
+    gate opens, and the error is invisible until someone reads the statement.
+
+    So this is the other direction — one number derived two ways. The absolute
+    movement described by the rows, the journal's debit total and its credit
+    total are three spellings of the same figure, and disagreement means the
+    journal stopped describing its own source.
+
+    `FAIL`, for the reason `double_entry` gives: a journal that does not tie is
+    wrong rather than undecided. `CANNOT_VERIFY` when there are no journal
+    lines at all — a pass with nothing to compare is the failure mode both
+    specifications name first, and a profile whose passes end at resolution
+    must not be turned red for output it never claimed to produce.
+
+    Tolerance follows `double_entry` rather than being stricter on principle:
+    one check quietly holding a different bar to its sibling is how a rounding
+    convention ends up asserted in two places and agreed in neither.
+    """
+    field = options.get("field", "journal_lines")
+    tolerance = Decimal(str(options.get("tolerance", "0.01")))
+
+    movement = Decimal(0)
+    debits = Decimal(0)
+    credits = Decimal(0)
+    lines = 0
+
+    for row in rows:
+        amount = _money(row.get("amount"))
+        if amount is None:
+            amount = _money(row.get("credit")) or _money(row.get("debit"))
+        if amount is not None:
+            movement += abs(amount)
+        for line in row.get(field) or []:
+            value = _money(line.get("amount"))
+            if value is None:
+                continue
+            lines += 1
+            if _is_debit(line):
+                debits += abs(value)
+            else:
+                credits += abs(value)
+
+    if not lines:
+        return Check(
+            name="stage_tie",
+            scope=scope,
+            status="CANNOT_VERIFY",
+            detail=f"no {field} to reconcile the rows against",
+            evidence=f"{len(rows)} rows carried no journal lines",
+        )
+
+    evidence = (
+        f"rows {movement:,.2f}, debits {debits:,.2f}, credits {credits:,.2f}"
+    )
+    if abs(movement - debits) <= tolerance and abs(debits - credits) <= tolerance:
+        return Check(
+            name="stage_tie",
+            scope=scope,
+            status="PASS",
+            detail=f"{lines} journal lines tie to the {len(rows)} rows they came from",
+            evidence=evidence,
+        )
+    return Check(
+        name="stage_tie",
+        scope=scope,
+        status="FAIL",
+        detail="the journal does not tie to the rows it was built from",
+        evidence=evidence,
+    )
+
+
+def _money(value: object) -> Decimal | None:
+    if value is None or value == "":
+        return None
+    try:
+        return Decimal(str(value).replace(",", "").strip())
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def _is_debit(line: dict) -> bool:
+    """Read the side exactly as `check_double_entry` does.
+
+    The profile tells the agent to emit `is_debit` as a JSON boolean, so plain
+    truthiness is the contract. Being cleverer here than the sibling check —
+    accepting "Yes"/"No" as well — would let the two disagree about the same
+    line, which is worse than either rule alone: a run could tie and not
+    balance, and no one reading the two results could tell which was right.
+    """
+    return bool(line.get("is_debit"))
+
+
+
 REGISTRY = {
     "provenance": check_provenance,
     "membership": check_membership,
@@ -679,6 +778,7 @@ REGISTRY = {
     "label_rate": check_label_rate,
     "agreement": check_agreement,
     "double_entry": check_double_entry,
+    "stage_tie": check_stage_tie,
     "explanation": check_explanation,
 }
 
