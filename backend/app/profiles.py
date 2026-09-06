@@ -62,6 +62,39 @@ Rules that hold for every task:
   wrong. Finish with a one-line summary, e.g. "parsed 16 rows".
 - Reply with the complete contents of the file in a single ```python code block,
   and nothing else.
+
+## What the checks are, and how much to trust each kind
+
+You will be judged by checks, and knowing what they can and cannot see is part
+of doing this well. They are not one thing.
+
+**A check about a number or about existence is proof. Trust it completely.**
+Does this balance chain close, does this batch net to zero, is this value
+actually present in the list it claims, does this string really appear in the
+document. There is no judgement in any of it. If one of these objects, it is
+right and you are wrong — find the cause and fix it. Never argue with
+arithmetic, and never adjust a figure to quiet it.
+
+**A check that reports a count or a share is a measurement, not a verdict.**
+How much *ought* to resolve is a fact about the document in front of you, and
+the check cannot read it. One source is full of dealings with outside parties;
+another is almost entirely internal movements naming nobody, and there a high
+unresolved count is the correct answer rather than a failure. Read the number,
+decide whether it is right *for this document*, and say why.
+
+**You are the one who reads. Where no exact check contradicts you, your reading
+stands.** A check works on shapes and strings; it cannot know what a name means
+or which party a sentence is about. If something is obvious to you and nothing
+exact says otherwise, go with it and record your reasoning.
+
+**Never contort an answer to satisfy a rule you can see is crude.** If a check
+would be quieter with a worse answer, give the better answer and explain the
+disagreement in plain words. A reviewer can weigh that. What they cannot do is
+recover the truth from an output bent to please a rule — and a wrong value that
+passes silently is far more expensive than an honest one that gets discussed.
+
+The point of all this is a result somebody can act on: correct where it can be
+proved, judged where it must be, and clearly flagged where it is neither.
 """
 
 
@@ -220,6 +253,38 @@ class Pass:
         """
         return {c.reported_as for c in self.checks if c.severity == "retry"}
 
+    def budget(self) -> str:
+        """How many tries there are, said up front rather than discovered.
+
+        The retry prompt has always counted attempts, so the model learned its
+        budget only once it was already spending it. Knowing at the start
+        changes what a sensible first attempt looks like — it is worth spending
+        the exploration rounds on the hard part, and worth submitting something
+        honest and partial rather than rewriting toward a perfection there is no
+        room left to reach.
+
+        And running out is no longer catastrophic, which the model should also
+        know: work that cannot satisfy every check still goes forward carrying
+        its own statuses and the failures beside it. That is a far better
+        outcome than a rewrite gamble on the last attempt, and saying so removes
+        the incentive to gamble.
+        """
+        rounds = (
+            f"{self.explore} round(s) to look at the data first, then " if self.explore else ""
+        )
+        return (
+            "## How many tries you have\n\n"
+            f"{rounds}up to {self.max_attempts} attempts at the real file. Aim to be right "
+            "in the first two or three: each attempt costs a full rewrite, and the later "
+            "ones exist for problems you could not have foreseen, not for a plan you have "
+            "not made yet.\n\n"
+            "If you reach the last attempt and something still will not come good, do not "
+            "gamble on a rewrite. Submit what you have with that part honestly marked — "
+            "unresolved, or proposed with your reasoning — because incomplete work that "
+            "says where it is incomplete goes forward and gets reviewed, while a run that "
+            "risks everything on one more try can end with nothing to show at all."
+        )
+
     def reference_brief(self) -> str:
         """Which mounted table is for what, taken from the checks themselves.
 
@@ -277,7 +342,7 @@ class Pass:
     def compose(self, *, document: str = "", failed: set[str] | None = None) -> str:
         """The full prompt: the engine's rules, the task, the data, the checks, the notes."""
         failed = failed or set()
-        parts = [CORE, self.prompt]
+        parts = [CORE, self.budget(), self.prompt]
 
         brief = self.reference_brief()
         if brief:

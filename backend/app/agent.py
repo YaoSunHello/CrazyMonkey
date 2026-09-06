@@ -53,6 +53,12 @@ from app.trace import Trace
 from app.verification.checks import run_parse_checks
 
 
+# How many extra attempts a pass gets once its improvement budget is spent, to
+# write an honest final answer rather than being cut off mid-redesign. Not a
+# tuned number and nothing about any dataset — it is the room to stop tidily.
+FINALISE_ATTEMPTS = 4
+
+
 def extract_code(text: str) -> str:
     """Pull the Python out of a model reply.
 
@@ -272,12 +278,29 @@ def _judge(spec, rows: list[dict], statement: Path, account: str, tables: dict) 
     ]
 
 
+FINALISE_ASK = """\
+**You are out of attempts to improve this. Finalise it now.**
+
+Do not redesign, and do not gamble on one more rewrite — there is no room left
+for it to come good, and a run that ends mid-redesign can end with nothing to
+show at all.
+
+Keep every part that works. For whatever still will not settle, say so plainly
+in the output itself: leave it unresolved and record what would settle it, or
+propose the answer you believe is right with your reasoning and a confidence
+below 1. Either of those is a result a person can act on. Neither is a failure.
+
+The one thing that would waste this is forcing a value you do not believe, to
+quiet a check. Say what you found, mark what you could not, and submit."""
+
+
 def retry_prompt(
     failures: list[dict],
     attempt: int,
     of: int,
     script: str = "parse.py",
     previous: str = "",
+    finalising: bool = False,
 ) -> str:
     """Fold the verifier's exact objections into the next attempt.
 
@@ -311,6 +334,8 @@ def retry_prompt(
         return out
 
     lines = [f"Your {script} was REJECTED by the verifier. Attempt {attempt} of {of}.", ""]
+    if finalising:
+        lines += [FINALISE_ASK, ""]
 
     if previous:
         lines += [
@@ -404,9 +429,27 @@ async def _run_pass(
     # What exploration found, held for the whole pass rather than one attempt.
     learned = ""
 
-    for attempt in range(1, spec.max_attempts + 1):
+    # Past the improvement budget the pass does not stop; it changes what it is
+    # asking for. Cutting off at the budget threw away real work — one account
+    # parsed every row correctly, could not satisfy resolution inside six tries,
+    # and produced nothing at all. But salvaging whatever the last failed
+    # attempt happened to leave is not much better, because that attempt was
+    # mid-redesign and its output is the least finished thing the run produced.
+    #
+    # So there is a grace phase. The agent is told plainly that improvement is
+    # over and it must finalise: keep what works, mark honestly what did not
+    # come good, submit. It gets a few tries to do that, because writing an
+    # honest partial answer is itself work that can fail. Then it is cut off.
+    last_call = spec.max_attempts + FINALISE_ATTEMPTS
+    for attempt in range(1, last_call + 1):
+        finalising = attempt > spec.max_attempts
         outcome["attempts"] = attempt
-        trace.state("attempt", stage=stage, n=attempt, of=spec.max_attempts)
+        trace.state(
+            "finalising" if finalising else "attempt",
+            stage=stage,
+            n=attempt,
+            of=last_call,
+        )
 
         base = build_prompt({f["name"] for f in failures})
 
@@ -439,7 +482,9 @@ async def _run_pass(
             base
             if attempt == 1
             else f"{base}\n\n"
-            + retry_prompt(failures, attempt, spec.max_attempts, script, previous)
+            + retry_prompt(
+                failures, attempt, last_call, script, previous, finalising=finalising
+            )
         )
 
         trace.tool("model", f"generating {script} · attempt {attempt}", status="running")
@@ -561,8 +606,8 @@ async def _run_pass(
             ]
         trace.state("rejected", stage=stage, attempt=attempt, failed=len(failed))
 
-    outcome["summary"] = f"still failing after {spec.max_attempts} attempts"
-    trace.state("exhausted", stage=stage, attempts=spec.max_attempts)
+    outcome["summary"] = f"still failing after {last_call} attempts"
+    trace.state("exhausted", stage=stage, attempts=last_call)
     return outcome
 
 
@@ -782,7 +827,26 @@ async def run_agent(
 
             outcome["passed"] = result["passed"]
             outcome["summary"] = f"{spec.name}: {result['summary']}"
-            if not result["passed"]:
+
+            # A pass that ran out of attempts but produced usable rows does not
+            # end the run. It used to, and the cost was absurd: one account
+            # parsed all nineteen of its rows correctly, could not satisfy the
+            # resolution checks within its budget, and was abandoned — no
+            # journal, no envelope, no output at all, for a document whose
+            # arithmetic was perfect and whose remaining question was which of
+            # two related parties a narrative meant.
+            #
+            # Withholding everything because part of it is uncertain is exactly
+            # the failure this pipeline exists to avoid. The rows carry their
+            # own statuses, the failing checks are recorded beside them, and the
+            # review queue says what needs a person. So carry on, flagged, and
+            # let somebody see the work.
+            #
+            # Nothing to carry is different: rows that were never parsed cannot
+            # be resolved or booked, and continuing would only produce confident
+            # nonsense downstream.
+            if not result["passed"] and not rows:
+                trace.state("abandoned", stage=spec.name, reason="no usable rows")
                 break
     finally:
         await executor.close()
